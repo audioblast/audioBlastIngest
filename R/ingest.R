@@ -7,7 +7,7 @@
 #' @importFrom utils read.csv
 ingestR <- function(db) {
   #Taxa ingest
-  #taxa <- taxonomiseR(read.csv("https://github.com/BioAcoustica/audioblast_ingest/raw/main/taxa.txt"))
+  taxa <- taxonomiseR(read.csv("https://github.com/BioAcoustica/audioblast_ingest/raw/main/taxa.txt"))
 
   #Traits ingest
   traits <- seperatoR(traitoR(read.csv("https://raw.githubusercontent.com/BioAcoustica/audioblast_ingest/main/traits.txt")))
@@ -19,7 +19,7 @@ ingestR <- function(db) {
   colnames(recordings) <- col_names
 
   #Upload
-  #uploadTaxa(db, taxa)
+  uploadTaxa(db, taxa)
   uploadTraits(db, traits)
   uploadRecordings(db, recordings)
 }
