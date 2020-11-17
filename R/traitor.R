@@ -1,4 +1,4 @@
-traitoR  <- function(input=NULL) {
+traitoR  <- function(input) {
   if (is.null(input)) {
     output <- read.csv("../test_data/traits.txt")
     #TODO: Provide notice data is out of date

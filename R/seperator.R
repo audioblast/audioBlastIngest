@@ -1,4 +1,4 @@
-sepaeratoR <- function(input=traitoR()) {
+seperatoR <- function(i) {
   #Split multiple values
   multi <- which(grepl(";", input$Value))
   for (i in length(multi):1) {
@@ -17,7 +17,7 @@ sepaeratoR <- function(input=traitoR()) {
   input <- cbind(input, min)
   input <- cbind(input, max)
 
-  #Turn ± into ranges
+  #Turn ± (\u00B1) into ranges
   multi <- which(grepl("\u00B1", input$Value))
   for (i in length(multi):1) {
     row_num <- multi[[i]]

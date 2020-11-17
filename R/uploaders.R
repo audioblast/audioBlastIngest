@@ -18,7 +18,7 @@ uploadTaxa <- function(db, i) {
 #' @param i dataframe of traits to upload.
 #' @export
 #' @importFrom DBI dbConnect dbWriteTable
-uploadTraits <- function(db, i=sepaeratoR()) {
+uploadTraits <- function(db, i) {
   dbWriteTable(db, "traits", i, overwrite=TRUE)
 }
 
@@ -31,8 +31,5 @@ uploadTraits <- function(db, i=sepaeratoR()) {
 #' @export
 #' @importFrom DBI dbConnect dbWriteTable
 uploadRecordings <- function(db, i) {
-  col_names <- c("source", colnames(i))
-  i <- cbind(rep_len("bio.acousti.ca", nrow(i)), i)
-  colnames(i) <- col_names
   dbWriteTable(db, "recordings", i, overwrite=TRUE)
 }
