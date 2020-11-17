@@ -1,3 +1,4 @@
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/2e19e5beab02477ea9a51f335e9b7b86)](https://app.codacy.com/gh/audioblast/audioBlastIngest?utm_source=github.com&utm_medium=referral&utm_content=audioblast/audioBlastIngest&utm_campaign=Badge_Grade)
 [![Coverage Status](https://coveralls.io/repos/github/audioblast/audioBlastIngest/badge.svg?branch=master)](https://coveralls.io/github/audioblast/audioBlastIngest?branch=master)
 # audioBlastIngest
 Ingest data for audioBLAST
