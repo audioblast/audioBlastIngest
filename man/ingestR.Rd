@@ -7,8 +7,8 @@
 ingestR(db)
 }
 \arguments{
-\item{db}{Databse connection}
+\item{db}{Database connection}
 }
 \description{
-Processes a taxonomy file in the format proived from BioAcoustica.
+Processes a taxonomy file in the format provided from BioAcoustica.
 }

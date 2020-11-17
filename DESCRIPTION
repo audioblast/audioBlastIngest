@@ -9,7 +9,11 @@ Authors@R:
 Description: This package provides the tools for automatically ingesting data into audioBLAST!.
 License: GPL-3
 Encoding: UTF-8
+Language: en-US
 Imports: DBI, RMariaDB
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
+Suggests:
+    spelling,
+    testthat
