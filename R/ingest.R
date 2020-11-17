@@ -1,9 +1,16 @@
-ingest <- function(db) {
+#' ingestR
+#'
+#' Processes a taxonomy file in the format proived from BioAcoustica.
+#'
+#' @param db Databse connection
+#' @export
+#' @importFrom utils read.csv
+ingestR <- function(db) {
   #Taxa ingest
   taxa <- taxonomiseR(read.csv("https://github.com/BioAcoustica/audioblast_ingest/raw/main/taxa.txt"))
 
   #Traits ingest
-  traits <- seperator(traitor(read.csv("https://raw.githubusercontent.com/BioAcoustica/audioblast_ingest/main/traits.txt")))
+  traits <- seperatoR(traitoR(read.csv("https://raw.githubusercontent.com/BioAcoustica/audioblast_ingest/main/traits.txt")))
 
   #Recordings ingest
   recordings <- read.csv("https://raw.githubusercontent.com/BioAcoustica/audioblast_ingest/main/recordings.csv")
@@ -14,5 +21,5 @@ ingest <- function(db) {
   #Upload
   uploadTaxa(db, taxa)
   uploadTraits(db, traits)
-  uploadRecordings(dv, recordings)
+  uploadRecordings(db, recordings)
 }

@@ -4,7 +4,7 @@
 \alias{uploadTraits}
 \title{uploadTraits}
 \usage{
-uploadTraits(db, i = sepaeratoR())
+uploadTraits(db, i)
 }
 \arguments{
 \item{db}{database connector}
