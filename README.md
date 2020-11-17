@@ -1,3 +1,4 @@
+[![Coverage Status](https://coveralls.io/repos/github/audioblast/audioBlastIngest/badge.svg?branch=master)](https://coveralls.io/github/audioblast/audioBlastIngest?branch=master)
 # audioBlastIngest
 Ingest data for audioBLAST
 
