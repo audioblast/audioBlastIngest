@@ -1,0 +1,15 @@
+Package: audioBlastIngest
+Title: Ingest data for audioBLAST!
+Version: 0.0.0.9000
+Authors@R: 
+    person(given = "Ed",
+           family = "Baker",
+           role = c("aut", "cre"),
+           email = "ed@ebaker.me.uk")
+Description: This package provides the tools for automatically ingesting data into audioBLAST!.
+License: GPL-3
+Encoding: UTF-8
+Imports: DBI, RMariaDB
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
