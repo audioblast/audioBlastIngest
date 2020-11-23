@@ -2,6 +2,7 @@
 
 export(getSources)
 export(ingestR)
+export(sourceR)
 export(taxonomiseR)
 export(uploadRecordings)
 export(uploadTaxa)

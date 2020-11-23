@@ -13,5 +13,5 @@ taxonomiseR(input)
 Data frame of processed data
 }
 \description{
-Processes a taxonomy file in the format proived from BioAcoustica.
+Processes a taxonomy file in the format provided from BioAcoustica.
 }

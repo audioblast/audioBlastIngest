@@ -1,6 +1,6 @@
 #' taxonomiseR
 #'
-#' Processes a taxonomy file in the format proived from BioAcoustica.
+#' Processes a taxonomy file in the format provided from BioAcoustica.
 #'
 #' @param input dataframe of taxa to process.
 #' @return Data frame of processed data

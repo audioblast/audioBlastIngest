@@ -4,11 +4,11 @@
 \alias{ingestR}
 \title{ingestR}
 \usage{
-ingestR(db)
+ingestR(db = NULL)
 }
 \arguments{
 \item{db}{Database connection}
 }
 \description{
-Processes a taxonomy file in the format provided from BioAcoustica.
+Ingest data sources for audioBLAST!
 }
