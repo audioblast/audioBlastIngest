@@ -13,10 +13,10 @@ ingestR <- function(db=NULL) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
 
-  for (i in 1:seq_along(sources)) {
+  for (i in 1:length(sources)) {
     source <- sources[[i]]
     data <- read.csv(source$url)
-    for (j in 1:seq_along(source$process)) {
+    for (j in 1:length(source$process)) {
       if (source$process[[j]] == "sourceR") {
         data <- sourceR(source$name, data)
       }
@@ -61,13 +61,13 @@ getSources <- function() {
 
 getHeaders <- function(type) {
   if (type == "taxa") {
-    heads <-   col_names <- c("id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon")
+    heads <-   col_names <- c("source", "id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
   }
   if (type == "recordings") {
-    heads <-   col_names <- c("id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration")
+    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
