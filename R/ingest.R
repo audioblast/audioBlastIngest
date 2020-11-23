@@ -15,7 +15,7 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    data <- read.csv(source$url)
+    data <- read.csv(source$url, colClasses = "character")
     if (length(source$process) > 0) {
       for (j in 1:seq_along(source$process)) {
         if (source$process[[j]] == "sourceR") {
