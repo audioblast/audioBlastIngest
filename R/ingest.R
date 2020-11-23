@@ -16,9 +16,11 @@ ingestR <- function(db=NULL) {
   for (i in 1:length(sources)) {
     source <- sources[[i]]
     data <- read.csv(source$url)
-    for (j in 1:length(source$process)) {
-      if (source$process[[j]] == "sourceR") {
-        data <- sourceR(source$name, data)
+    if (length(source$process) > 0) {
+      for (j in 1:seq_along(source$process)) {
+        if (source$process[[j]] == "sourceR") {
+          data <- sourceR(source$name, data)
+        }
       }
     }
     if (source$type == "taxa") {
@@ -50,7 +52,7 @@ getSources <- function() {
   sources <- list()
   for (i in 1:length(json_data$data)) {
     source <- names(json_data$data)[[i]]
-    for (j in 1: length(json_data$data[[1]])) {
+    for (j in 1: length(json_data$data[[i]])) {
       row <- list(c(name=source, json_data$data[[i]][[j]]))
       sources <- c(row, sources)
     }
