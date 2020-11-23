@@ -27,7 +27,9 @@ ingestR <- function(db=NULL) {
     if (source$type == "recordings") {
       recordings <- rbind(recordings, data)
     }
-  }
+    if (source$type == "traits") {
+      traits <- rbind(traits, data)
+    }}
 
   #Upload
   if (!is.null(db)) {
