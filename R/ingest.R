@@ -34,9 +34,9 @@ ingestR <- function(db=NULL) {
 
   #Upload
   if (!is.null(db)) {
-    uploadTaxa(db, taxonomiseR(taxa))
-    uploadTraits(db, traits)
     uploadRecordings(db, recordings)
+    uploadTaxa(db, taxonomiseR(taxa))
+    #uploadTraits(db, traits)
   }
 }
 
@@ -66,4 +66,9 @@ getHeaders <- function(type) {
     colnames(df) <- heads
     return(df)
   }
-}
+  if (type == "recordings") {
+    heads <-   col_names <- c("id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }}
