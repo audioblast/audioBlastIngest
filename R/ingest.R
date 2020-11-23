@@ -13,7 +13,7 @@ ingestR <- function(db=NULL) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
 
-  for (i in 1) {
+  for (i in 1:seq_along(sources)) {
     source <- sources[[i]]
     data <- read.csv(source$url)
     for (j in 1:seq_along(source$process)) {
