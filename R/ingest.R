@@ -29,14 +29,11 @@ ingestR <- function(db=NULL) {
     }
   }
 
-  #Traits ingest
-  #traits <- seperatoR(traitoR(read.csv("https://raw.githubusercontent.com/BioAcoustica/audioblast_ingest/main/traits.txt")))
-
   #Upload
   if (!is.null(db)) {
+    uploadTraits(db, seperatoR(traits))
     uploadRecordings(db, recordings)
     uploadTaxa(db, taxonomiseR(taxa))
-    #uploadTraits(db, traits)
   }
 }
 
@@ -71,4 +68,11 @@ getHeaders <- function(type) {
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
-  }}
+  }
+  if (type == "traits") {
+    heads <-   col_names <- c("traitID","taxonID","Taxonomic name","Trait","Ontology Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+}
