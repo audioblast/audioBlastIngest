@@ -13,6 +13,7 @@ ingestR <- function(db=NULL) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
   deployments <- getHeaders("deployments")
+  devices <- getHeaders("devices")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -36,6 +37,9 @@ ingestR <- function(db=NULL) {
     if (source$type == "deployments") {
       deployments <- rbind(deployments, data)
     }
+    if (source$type == "devices") {
+      devices <- rbind(devices, data)
+    }
   }
 
   #Upload
@@ -44,6 +48,7 @@ ingestR <- function(db=NULL) {
     uploadRecordings(db, recordings)
     uploadTaxa(db, taxonomiseR(taxa))
     uploadDeployments(db, deployments)
+    uploadDevices(db, devices)
   }
 }
 
@@ -86,7 +91,13 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "deployments") {
-    heads <-   col_names <- c("id","name","device","type","start","end","continues_from", "group")
+    heads <-   col_names <- c("source","id","name","device","type","start","end","continues_from", "group")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "devices") {
+    heads <-   col_names <- c("source","id","name","model","serial","hardware","hardware_version","os", "os version","software","software_version","firmware","firmware_version")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
