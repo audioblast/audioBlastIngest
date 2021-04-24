@@ -34,7 +34,7 @@ ingestR <- function(db=NULL) {
       traits <- rbind(traits, data)
     }
     if (source$type == "deployments") {
-      traits <- rbind(deployments, data)
+      deployments <- rbind(deployments, data)
     }
   }
 
