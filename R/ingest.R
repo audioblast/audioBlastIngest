@@ -43,6 +43,7 @@ ingestR <- function(db=NULL) {
     uploadTraits(db, seperatoR(traits))
     uploadRecordings(db, recordings)
     uploadTaxa(db, taxonomiseR(taxa))
+    uploadDeployments(db, deployments)
   }
 }
 
