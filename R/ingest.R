@@ -12,6 +12,7 @@ ingestR <- function(db=NULL) {
   taxa <- getHeaders("taxa")
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
+  deployments <- getHeaders("deployments")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -31,7 +32,11 @@ ingestR <- function(db=NULL) {
     }
     if (source$type == "traits") {
       traits <- rbind(traits, data)
-    }}
+    }
+    if (source$type == "deployments") {
+      traits <- rbind(deployments, data)
+    }
+  }
 
   #Upload
   if (!is.null(db)) {
@@ -75,6 +80,12 @@ getHeaders <- function(type) {
   }
   if (type == "traits") {
     heads <-   col_names <- c("traitID","taxonID","Taxonomic name","Trait","Ontology Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "deployments") {
+    heads <-   col_names <- c(""id","name","device","type","start","end","continues_from", "group")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
