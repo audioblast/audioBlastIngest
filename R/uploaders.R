@@ -45,3 +45,16 @@ uploadRecordings <- function(db, i) {
 uploadDeployments <- function(db, i) {
   dbWriteTable(db, "deployments", i, overwrite=TRUE)
 }
+
+
+#' uploadDevices
+#'
+#' Replaces the database devices table with contents of a data frame
+#'
+#' @param db database connector
+#' @param i dataframe of taxa to upload.
+#' @export
+#' @importFrom DBI dbConnect dbWriteTable
+uploadDevices <- function(db, i) {
+  dbWriteTable(db, "devices", i, overwrite=TRUE)
+}
