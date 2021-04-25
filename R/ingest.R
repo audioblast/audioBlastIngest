@@ -125,7 +125,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "sensors") {
-    heads <-   col_names <- c("source","id","device","name","model","serial")
+    heads <-   col_names <- c("source","id","device","name","model","serial","property")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
