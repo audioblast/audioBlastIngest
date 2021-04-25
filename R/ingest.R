@@ -13,7 +13,10 @@ ingestR <- function(db=NULL) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
   deployments <- getHeaders("deployments")
+  deployment_locations <- getHeaders("deployment_locations")
   devices <- getHeaders("devices")
+  sensors <- getHeaders("sensors")
+  abiotic <- getHeaders("abiotic")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -37,8 +40,17 @@ ingestR <- function(db=NULL) {
     if (source$type == "deployments") {
       deployments <- rbind(deployments, data)
     }
+    if (source$type == "deployment_locations") {
+      deployment_locations <- rbind(deployment_locations, data)
+    }
     if (source$type == "devices") {
       devices <- rbind(devices, data)
+    }
+    if (source$type == "sensors") {
+      sensors <- rbind(sensors, data)
+    }
+    if (source$type == "abiotic") {
+      abiotic <- rbind(abiotic, data)
     }
   }
 
@@ -48,7 +60,11 @@ ingestR <- function(db=NULL) {
     uploadRecordings(db, recordings)
     uploadTaxa(db, taxonomiseR(taxa))
     uploadDeployments(db, deployments)
+    uploadDeploymentLocations(db, deployment_locations)
     uploadDevices(db, devices)
+    uploadSensors(db, sensors)
+    uploadAbiotic(db, abiotic)
+    
   }
 }
 
@@ -98,6 +114,24 @@ getHeaders <- function(type) {
   }
   if (type == "devices") {
     heads <-   col_names <- c("source","id","name","model","serial","hardware","hardware_version","os", "os version","software","software_version","firmware","firmware_version")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "deployment_locations") {
+    heads <-   col_names <- c("source","id","deployment","timestamp","latitude","longitude")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "sensors") {
+    heads <-   col_names <- c("source","id","device","name","model","serial")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "abiotic") {
+    heads <-   col_names <- c("source","id","deployment","timestamp","file_source","file_id","file_relative_time","property","value")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
