@@ -10,7 +10,10 @@ Description: This package provides the tools for automatically ingesting data in
 License: GPL-3
 Encoding: UTF-8
 Language: en-US
-Imports: DBI, RMariaDB, rjson
+Imports: 
+    DBI, 
+    RMariaDB, 
+    rjson
 LazyData: true
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
