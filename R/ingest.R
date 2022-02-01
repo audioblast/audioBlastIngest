@@ -20,6 +20,7 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    print(source)
     data <- read.csv(source$url, colClasses = "character")
     if (length(source$process) > 0) {
       for (j in 1:seq_along(source$process)) {
@@ -64,7 +65,7 @@ ingestR <- function(db=NULL) {
     uploadDevices(db, devices)
     uploadSensors(db, sensors)
     uploadAbiotic(db, abiotic)
-    
+
   }
 }
 
