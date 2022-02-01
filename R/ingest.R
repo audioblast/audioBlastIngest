@@ -17,10 +17,10 @@ ingestR <- function(db=NULL) {
   devices <- getHeaders("devices")
   sensors <- getHeaders("sensors")
   abiotic <- getHeaders("abiotic")
+  annOmate <- getHeaders("ann-o-mate")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    print(source)
     data <- read.csv(source$url, colClasses = "character")
     if (length(source$process) > 0) {
       for (j in 1:seq_along(source$process)) {
@@ -29,7 +29,6 @@ ingestR <- function(db=NULL) {
         }
       }
     }
-    print(names(data))
     if (source$type == "taxa") {
       taxa <- rbind(taxa, data)
     }
@@ -54,6 +53,9 @@ ingestR <- function(db=NULL) {
     if (source$type == "abiotic") {
       abiotic <- rbind(abiotic, data)
     }
+    if (source$type == "ann-o-mate") {
+      annOmate <- rbind(annOmate, data)
+    }
   }
 
   #Upload
@@ -66,6 +68,7 @@ ingestR <- function(db=NULL) {
     uploadDevices(db, devices)
     uploadSensors(db, sensors)
     uploadAbiotic(db, abiotic)
+    uploadAnnOmate(db, annOmate)
 
   }
 }
@@ -134,6 +137,12 @@ getHeaders <- function(type) {
   }
   if (type == "abiotic") {
     heads <-   col_names <- c("source","id","deployment","timestamp","file_source","file_id","file_relative_time","property","value")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "ann-o-mate") {
+    heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

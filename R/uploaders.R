@@ -93,3 +93,7 @@ uploadSensors <- function(db, i) {
 uploadAbiotic <- function(db, i) {
   dbWriteTable(db, "abiotic", i, overwrite=TRUE)
 }
+
+uploadAnnOmate <- function(db, i) {
+  dbWriteTable(db, "annomate", i, overwrite=TRUE)
+}
