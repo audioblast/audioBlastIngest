@@ -28,7 +28,7 @@ ingestR <- function(db=NULL) {
         }
       }
     }
-    print(data)
+    print(names(data))
     if (source$type == "taxa") {
       taxa <- rbind(taxa, data)
     }
