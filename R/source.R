@@ -7,6 +7,9 @@
 #' @return Data frame of processed data
 #' @export
 sourceR  <- function(source, data) {
+  #If source column already exists then delete
+  data <- data[, -which(names(data) == "source")]
+
   col_names <- c("source", colnames(data))
   data <- cbind(rep_len(source, nrow(data)), data)
   colnames(data) <- col_names

@@ -21,14 +21,26 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+
+    if (source$name != "sounds_of_norway") {next;} #TODO: remove
+
     data <- read.csv(source$url, colClasses = "character")
+
+    #Map source columns to standard columns (defined in module.php)
+    if (is.element("mapping", names(source))) {
+      data <- colmap(source, data)
+    }
     if (length(source$process) > 0) {
-      for (j in 1:seq_along(source$process)) {
+      for (j in 1:length(source$process)) {
         if (source$process[[j]] == "sourceR") {
           data <- sourceR(source$name, data)
         }
+        if (source$process[[j]] == "date2dateAndTime") {
+          data <- date2dateAndTime(data)
+        }
       }
     }
+
     if (source$type == "taxa") {
       taxa <- rbind(taxa, data)
     }
@@ -80,7 +92,7 @@ ingestR <- function(db=NULL) {
 #' @export
 #' @importFrom rjson fromJSON
 getSources <- function() {
-  json_data <- fromJSON(file="https://api.audioblast.org/standalone/modules/list_sources/")
+  json_data <- fromJSON(file="http://api.audioblast.org/standalone/modules/list_sources/")
   sources <- list()
   for (i in 1:length(json_data$data)) {
     source <- names(json_data$data)[[i]]
