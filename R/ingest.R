@@ -70,7 +70,7 @@ ingestR <- function(db=NULL) {
 
   #Upload
   if (!is.null(db)) {
-    uploadTraits(db, seperatoR(traits))
+    #uploadTraits(db, seperatoR(traits))
     uploadRecordings(db, recordings)
     uploadTaxa(db, taxonomiseR(taxa))
     uploadDeployments(db, deployments)
