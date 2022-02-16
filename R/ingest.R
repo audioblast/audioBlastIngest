@@ -26,7 +26,7 @@ ingestR <- function(db=NULL) {
       command <- paste0(
         "git -C \"",
         source$git$repo,
-        "\" pull || git clone https://github.com/",
+        "\" lfs pull || git clone https://github.com/",
         source$git$owner,"/",source$git$repo,".git")
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
@@ -45,6 +45,9 @@ ingestR <- function(db=NULL) {
         }
         if (source$process[[j]] == "date2dateAndTime") {
           data <- date2dateAndTime(data)
+        }
+        if (source$process[[j]] == "birdnetVernacular") {
+          data <- birdnetVernacular(data)
         }
       }
     }
