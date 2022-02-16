@@ -21,7 +21,6 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    if (source$type != "ann-o-mate") {next;}
     if (is.element("git", names(source))) {
       command <- paste0(
         "git -C \"",
