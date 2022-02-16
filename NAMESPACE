@@ -3,9 +3,8 @@
 export(ingestR)
 export(sourceR)
 export(taxonomiseR)
+<<<<<<< HEAD
 export(upload)
 export(verifyRecordingData)
 export(verifyRecordingSource)
 importFrom(DBI,dbExecute)
-importFrom(rjson,fromJSON)
-importFrom(utils,read.csv)

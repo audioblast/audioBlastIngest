@@ -1,0 +1,12 @@
+citHeader("To cite audioBlastIngest in publications use:")
+
+citEntry(
+  entry    = "manual",
+  title    = "audioBlast Ingest System",
+  author   = "audioBLAST Team",
+  year     = 2021,
+  url      = "https://github.com/audioblast/audioBlastIngest",
+  textVersion = paste(
+
+  )
+)
