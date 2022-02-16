@@ -16,5 +16,14 @@ colmap <- function(source, data){
   }
   data2 <- data2[,2:ncol(data2)]
   names(data2) <- headers
+
+  #Apply default values
+  if (is.element("default", names(source))) {
+    for (i in 1:length(names(source$default))) {
+      colname <- names(source$default)[i]
+      colval <- source$default[[i]]
+      data2[,which(names(data2)==colname)]
+    }
+  }
   return(data2)
 }
