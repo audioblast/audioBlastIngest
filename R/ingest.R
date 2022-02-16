@@ -21,6 +21,15 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (is.element("git", names(source))) {
+      command <- paste0(
+        "git -C \"",
+        source$git$repo,
+        "\" pull || git clone https://github.com/",
+        source$git$owner,"/",source$git$repo,".git")
+      system(command)
+      source$url <- paste0(source$git$repo,"/",source$git$file)
+    }
     data <- read.csv(source$url, colClasses = "character")
 
     #Map source columns to standard columns (defined in module.php)
@@ -72,13 +81,13 @@ ingestR <- function(db=NULL) {
   if (!is.null(db)) {
     #uploadTraits(db, seperatoR(traits))
     uploadRecordings(db, recordings)
-    uploadTaxa(db, taxonomiseR(taxa))
-    uploadDeployments(db, deployments)
-    uploadDeploymentLocations(db, deployment_locations)
-    uploadDevices(db, devices)
-    uploadSensors(db, sensors)
-    uploadAbiotic(db, abiotic)
-    uploadAnnOmate(db, annOmate)
+    #uploadTaxa(db, taxonomiseR(taxa))
+    #uploadDeployments(db, deployments)
+    #uploadDeploymentLocations(db, deployment_locations)
+    #uploadDevices(db, devices)
+    #uploadSensors(db, sensors)
+    #uploadAbiotic(db, abiotic)
+    #uploadAnnOmate(db, annOmate)
 
   }
 }
