@@ -1,4 +1,12 @@
 colmap <- function(source, data){
+  #Ann-o-mate allows for minimum confidence
+  if (is.element("confidence", names(source))) {
+    col <- source$confidence$column
+    min <- source$confidence$minimum
+    data <- data[which(data[[col]]> min),]
+  }
+
+
   headers <- names(getHeaders(source$type))
 
   n <- nrow(data)
@@ -25,5 +33,7 @@ colmap <- function(source, data){
       data2[which(names(data2)==colname)] <- rep_len(colval, nrow(data2))
     }
   }
+
+
   return(data2)
 }

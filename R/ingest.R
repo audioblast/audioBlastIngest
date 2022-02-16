@@ -21,6 +21,7 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (source$type != "ann-o-mate") {next;}
     if (is.element("git", names(source))) {
       command <- paste0(
         "git -C \"",
@@ -87,7 +88,7 @@ ingestR <- function(db=NULL) {
     #uploadDevices(db, devices)
     #uploadSensors(db, sensors)
     #uploadAbiotic(db, abiotic)
-    #uploadAnnOmate(db, annOmate)
+    uploadAnnOmate(db, annOmate)
 
   }
 }
