@@ -31,6 +31,7 @@ uploadTraits <- function(db, i) {
 #' @export
 #' @importFrom DBI dbConnect dbWriteTable
 uploadRecordings <- function(db, i) {
+  write.csv(i, file="complete_recordings.csv")
   dbWriteTable(db, "recordings", i, overwrite=TRUE)
 }
 
@@ -95,5 +96,6 @@ uploadAbiotic <- function(db, i) {
 }
 
 uploadAnnOmate <- function(db, i) {
+  write.csv(i, file="complete_annomate.csv")
   dbWriteTable(db, "annomate", i, overwrite=TRUE)
 }
