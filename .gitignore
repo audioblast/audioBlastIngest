@@ -1,3 +1,6 @@
 .Rproj.user
 .Rhistory
 small_ingests
+.Rdata
+.httr-oauth
+.DS_Store
