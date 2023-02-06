@@ -30,7 +30,7 @@ uploadTraits <- function(db, i) {
 #' @param i dataframe of recordings to upload.
 #' @export
 #' @importFrom DBI dbConnect dbWriteTable
-uploadRecordings <- function(db, i) {
+uploadRecordings <- function(db, table) {
   #write.csv(i, file="complete_recordings.csv")
   #dbWriteTable(db, "recordings", i, overwrite=TRUE)
   fields <- head(table, 1)
