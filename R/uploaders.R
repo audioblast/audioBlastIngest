@@ -33,9 +33,7 @@ uploadTraits <- function(db, i) {
 uploadRecordings <- function(db, table) {
   #write.csv(i, file="complete_recordings.csv")
   #dbWriteTable(db, "recordings", i, overwrite=TRUE)
-  fields <- head(table, 1)
-  print(fields)
-  for (i in 1:nrow(table))
+  for (i in 2:nrow(table))
     sql <- paste0("INSERT INTO `recordings` ",
                   "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
                   "`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`, ",
