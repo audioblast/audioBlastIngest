@@ -33,42 +33,50 @@ uploadTraits <- function(db, i) {
 uploadRecordings <- function(db, table) {
   #write.csv(i, file="complete_recordings.csv")
   #dbWriteTable(db, "recordings", i, overwrite=TRUE)
+
+  table[is.na(table)] <- 0
+
+  #If duration is negative set to NULL
+  table[which(table[,14] < 0),14] <- "NULL"
+
+  #Set size_raw to NULL if empty
+  table[which(table[,9] == ''),9] <- "NULL"
   for (i in 2:nrow(table)) {
     sql <- paste0("INSERT INTO `recordings` ",
                   "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
                   "`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`, ",
                   "`Date`,`Time`,`Duration`) ",
                   "VALUES (",
-                  "'", table[i,1], "', ",
-                  "'", table[i,2], "', ",
-                  "'", table[i,3], "', ",
-                  "'", table[i,4], "', ",
-                  "'", table[i,5], "', ",
-                  "'", table[i,6], "', ",
-                  "'", table[i,7], "', ",
-                  "'", table[i,8], "', ",
+                  dbQuoteString(db, table[i,1]), ", ",
+                  dbQuoteString(db, table[i,2]), ", ",
+                  dbQuoteString(db ,table[i,3]), ", ",
+                  dbQuoteString(db, table[i,4]), ", ",
+                  dbQuoteString(db, table[i,5]), ", ",
+                  dbQuoteString(db, table[i,6]), ", ",
+                  dbQuoteString(db, table[i,7]), ", ",
+                  dbQuoteString(db, table[i,8]), ", ",
                   table[i,9], ", ",
-                  "'", table[i,10], "', ",
-                  "'", table[i,11], "', ",
-                  "'", table[i,12], "', ",
-                  "'", table[i,13], "', ",
+                  dbQuoteString(db, table[i,10]), ", ",
+                  dbQuoteString(db, table[i,11]), ", ",
+                  dbQuoteString(db, table[i,12]), ", ",
+                  dbQuoteString(db, table[i,13]), ", ",
                   table[i,14],
-                  ") ON DUPLICATE UPDATE ",
-                  "`Title` = '", table[i,3], "', ",
-                  "`taxon` = '", table[i,4], "', ",
-                  "`file` = '", table[i,5], "', ",
-                  "`author` = '", table[i,6], "', ",
-                  "`post_date`= '", table[i,7], "'",
-                  "`size` = '", table[i,8], "',",
+                  ") ON DUPLICATE KEY UPDATE ",
+                  "`Title` = ", dbQuoteString(db, table[i,3]), ", ",
+                  "`taxon` = ", dbQuoteString(db, table[i,4]), ", ",
+                  "`file` = ", dbQuoteString(db, table[i,5]), ", ",
+                  "`author` = ", dbQuoteString(db, table[i,6]), ", ",
+                  "`post_date`= ", dbQuoteString(db, table[i,7]), ", ",
+                  "`size` = ", dbQuoteString(db, table[i,8]), ", ",
                   "`size_raw` = ",table[i,9], ", ",
-                  "`type` = '", table[i,10], "', ",
-                  "`NonSpecimen` = '", table[i,11], "', ",
-                  "`Date` = '", table[i,12], "', ",
-                  "`Time` = '", table[i,13], "', ",
+                  "`type` = ", dbQuoteString(db, table[i,10]), ", ",
+                  "`NonSpecimen` = ", dbQuoteString(db, table[i,11]), ", ",
+                  "`Date` = ", dbQuoteString(db, table[i,12]), ", ",
+                  "`Time` = ", dbQuoteString(db, table[i,13]), ", ",
                   "`Duration` = ",table[i,14],
                   ";"
     )
-    print(sql)
+    #print(sql)
     dbExecute(db, sql)
   }
 }
