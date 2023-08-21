@@ -1,4 +1,4 @@
-#' sourceR
+#' Add source column
 #'
 #' Append a source column to the start of a data frame
 #'

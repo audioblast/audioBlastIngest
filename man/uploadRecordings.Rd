@@ -2,14 +2,14 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadRecordings}
 \alias{uploadRecordings}
-\title{uploadRecordings}
+\title{Upload Recordings}
 \usage{
-uploadRecordings(db, i)
+uploadRecordings(db, table)
 }
 \arguments{
 \item{db}{database connector}
 
-\item{i}{dataframe of recordings to upload.}
+\item{table}{dataframe of recordings to upload.}
 }
 \description{
 Replaces the database recordings table with contents of a data frame

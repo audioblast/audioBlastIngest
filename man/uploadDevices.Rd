@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadDevices}
 \alias{uploadDevices}
-\title{uploadDevices}
+\title{Upload Devices}
 \usage{
 uploadDevices(db, i)
 }

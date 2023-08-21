@@ -1,4 +1,4 @@
-#' date2dateAndTime
+#' Convert date to date and time
 #'
 #' Some sources provide datetime information in the date field, this function
 #' separates them.

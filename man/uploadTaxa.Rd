@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadTaxa}
 \alias{uploadTaxa}
-\title{uploadTaxa}
+\title{Upload Taxa}
 \usage{
 uploadTaxa(db, i)
 }

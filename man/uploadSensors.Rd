@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadSensors}
 \alias{uploadSensors}
-\title{uploadSensors}
+\title{Upload Sensors}
 \usage{
 uploadSensors(db, i)
 }

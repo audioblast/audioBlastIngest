@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadTraits}
 \alias{uploadTraits}
-\title{uploadTraits}
+\title{Upload Traits}
 \usage{
 uploadTraits(db, i)
 }

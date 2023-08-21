@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadAbiotic}
 \alias{uploadAbiotic}
-\title{uploadAbiotic}
+\title{Upload Abiotic}
 \usage{
 uploadAbiotic(db, i)
 }

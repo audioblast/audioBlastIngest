@@ -2,7 +2,7 @@
 % Please edit documentation in R/source.R
 \name{sourceR}
 \alias{sourceR}
-\title{sourceR}
+\title{Add source column}
 \usage{
 sourceR(source, data)
 }

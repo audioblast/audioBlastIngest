@@ -2,10 +2,10 @@
 % Please edit documentation in R/ingest.R
 \name{getSources}
 \alias{getSources}
-\title{Get sources from audioBLAST! API}
+\title{Get sources from audioBlast! API}
 \usage{
 getSources()
 }
 \description{
-Uses the audioBLAST! API to get a list of data sources
+Uses the audioBlast! API to get a list of data sources
 }

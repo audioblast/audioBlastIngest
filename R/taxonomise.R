@@ -1,4 +1,4 @@
-#' taxonomiseR
+#' Process a taxonomy file
 #'
 #' Processes a taxonomy file in the format provided from BioAcoustica.
 #'

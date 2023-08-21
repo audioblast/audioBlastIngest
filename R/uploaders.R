@@ -1,4 +1,4 @@
-#' uploadTaxa
+#' Upload Taxa
 #'
 #' Replaces the database taxa table with contents of a data frame
 #'
@@ -10,7 +10,7 @@ uploadTaxa <- function(db, i) {
   dbWriteTable(db, "taxa", i, overwrite=TRUE)
 }
 
-#' uploadTraits
+#' Upload Traits
 #'
 #' Replaces the database traits table with contents of a data frame
 #'
@@ -22,25 +22,21 @@ uploadTraits <- function(db, i) {
   dbWriteTable(db, "traits", i, overwrite=TRUE)
 }
 
-#' uploadRecordings
+#' Upload Recordings
 #'
 #' Replaces the database recordings table with contents of a data frame
 #'
 #' @param db database connector
-#' @param i dataframe of recordings to upload.
+#' @param table dataframe of recordings to upload.
 #' @export
-#' @importFrom DBI dbConnect dbWriteTable
+#' @importFrom DBI dbQuoteString dbExecute
 uploadRecordings <- function(db, table) {
-  #write.csv(i, file="complete_recordings.csv")
-  #dbWriteTable(db, "recordings", i, overwrite=TRUE)
-
   table[is.na(table)] <- 0
-
   #If duration is negative set to NULL
   table[which(table[,14] < 0),14] <- "NULL"
-
   #Set size_raw to NULL if empty
   table[which(table[,9] == ''),9] <- "NULL"
+
   for (i in 2:nrow(table)) {
     sql <- paste0("INSERT INTO `recordings` ",
                   "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
@@ -76,12 +72,11 @@ uploadRecordings <- function(db, table) {
                   "`Duration` = ",table[i,14],
                   ";"
     )
-    #print(sql)
     dbExecute(db, sql)
   }
 }
 
-#' uploadDeployments
+#' Upload Deployments
 #'
 #' Replaces the database taxa table with contents of a data frame
 #'
@@ -93,7 +88,7 @@ uploadDeployments <- function(db, i) {
   dbWriteTable(db, "deployments", i, overwrite=TRUE)
 }
 
-#' uploadDeploymentLocations
+#' Upload Deployment Locations
 #'
 #' Replaces the database deployment_locations table with contents of a data frame
 #'
@@ -105,7 +100,7 @@ uploadDeploymentLocations <- function(db, i) {
   dbWriteTable(db, "deployment_locations", i, overwrite=TRUE)
 }
 
-#' uploadDevices
+#' Upload Devices
 #'
 #' Replaces the database devices table with contents of a data frame
 #'
@@ -117,7 +112,7 @@ uploadDevices <- function(db, i) {
   dbWriteTable(db, "devices", i, overwrite=TRUE)
 }
 
-#' uploadSensors
+#' Upload Sensors
 #'
 #' Replaces the database sensors table with contents of a data frame
 #'
@@ -129,7 +124,7 @@ uploadSensors <- function(db, i) {
   dbWriteTable(db, "sensors", i, overwrite=TRUE)
 }
 
-#' uploadAbiotic
+#' Upload Abiotic
 #'
 #' Replaces the database abiotic table with contents of a data frame
 #'

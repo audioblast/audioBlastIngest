@@ -2,7 +2,7 @@
 % Please edit documentation in R/ingest.R
 \name{ingestR}
 \alias{ingestR}
-\title{ingestR}
+\title{Ingest sources}
 \usage{
 ingestR(db = NULL)
 }
@@ -10,5 +10,5 @@ ingestR(db = NULL)
 \item{db}{Database connection}
 }
 \description{
-Ingest data sources for audioBLAST!
+Ingest data sources for audioBlast!
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadDeployments}
 \alias{uploadDeployments}
-\title{uploadDeployments}
+\title{Upload Deployments}
 \usage{
 uploadDeployments(db, i)
 }

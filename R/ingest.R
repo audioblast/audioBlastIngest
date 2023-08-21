@@ -1,6 +1,6 @@
-#' ingestR
+#' Ingest sources
 #'
-#' Ingest data sources for audioBLAST!
+#' Ingest data sources for audioBlast!
 #'
 #' @param db Database connection
 #' @export
@@ -44,9 +44,6 @@ ingestR <- function(db=NULL) {
         }
         if (source$process[[j]] == "date2dateAndTime") {
           data <- date2dateAndTime(data)
-        }
-        if (source$process[[j]] == "birdnetVernacular") {
-          data <- birdnetVernacular(data)
         }
       }
     }
@@ -95,9 +92,9 @@ ingestR <- function(db=NULL) {
   }
 }
 
-#' Get sources from audioBLAST! API
+#' Get sources from audioBlast! API
 #'
-#' Uses the audioBLAST! API to get a list of data sources
+#' Uses the audioBlast! API to get a list of data sources
 #'
 #' @export
 #' @importFrom rjson fromJSON

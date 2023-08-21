@@ -2,7 +2,7 @@
 % Please edit documentation in R/taxonomise.R
 \name{taxonomiseR}
 \alias{taxonomiseR}
-\title{taxonomiseR}
+\title{Process a taxonomy file}
 \usage{
 taxonomiseR(input)
 }

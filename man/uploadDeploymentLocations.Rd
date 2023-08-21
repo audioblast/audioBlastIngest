@@ -2,7 +2,7 @@
 % Please edit documentation in R/uploaders.R
 \name{uploadDeploymentLocations}
 \alias{uploadDeploymentLocations}
-\title{uploadDeploymentLocations}
+\title{Upload Deployment Locations}
 \usage{
 uploadDeploymentLocations(db, i)
 }

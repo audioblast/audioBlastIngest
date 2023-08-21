@@ -2,7 +2,7 @@
 % Please edit documentation in R/datetime.R
 \name{date2dateAndTime}
 \alias{date2dateAndTime}
-\title{date2dateAndTime}
+\title{Convert date to date and time}
 \usage{
 date2dateAndTime(data, postdate = TRUE)
 }
