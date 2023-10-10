@@ -56,6 +56,8 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (source$type == "recordings") {
       if (verbose) print(paste("  type: recordings"))
+      print(colnames(recordings))
+      print(colnames(data))
       recordings <- rbind(recordings, data)
     }
     if (source$type == "traits") {
