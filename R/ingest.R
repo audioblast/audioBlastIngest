@@ -22,7 +22,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    if (verbose) print(paste("Source:", source))
+    if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
       command <- paste0(
         "git -C \"",
