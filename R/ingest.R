@@ -3,9 +3,10 @@
 #' Ingest data sources for audioBlast!
 #'
 #' @param db Database connection
+#' @param verbose If TRUE says more about what's going on.
 #' @export
 #' @importFrom utils read.csv
-ingestR <- function(db=NULL) {
+ingestR <- function(db=NULL, verbose=FALSE) {
   sources <- getSources()
 
   #Get header files
@@ -21,6 +22,7 @@ ingestR <- function(db=NULL) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (verbose) print(paste("Source:", source))
     if (is.element("git", names(source))) {
       command <- paste0(
         "git -C \"",
@@ -49,30 +51,39 @@ ingestR <- function(db=NULL) {
     }
 
     if (source$type == "taxa") {
+      if (verbose) print(paste("  type: taxa"))
       taxa <- rbind(taxa, data)
     }
     if (source$type == "recordings") {
+      if (verbose) print(paste("  type: recordings"))
       recordings <- rbind(recordings, data)
     }
     if (source$type == "traits") {
+      if (verbose) print(paste("  type: traits"))
       traits <- rbind(traits, data)
     }
     if (source$type == "deployments") {
+      if (verbose) print(paste("  type: deployments"))
       deployments <- rbind(deployments, data)
     }
     if (source$type == "deployment_locations") {
+      if (verbose) print(paste("  type: deployment_locations"))
       deployment_locations <- rbind(deployment_locations, data)
     }
     if (source$type == "devices") {
+      if (verbose) print(paste("  type: devices"))
       devices <- rbind(devices, data)
     }
     if (source$type == "sensors") {
+      if (verbose) print(paste("  type: sensors"))
       sensors <- rbind(sensors, data)
     }
     if (source$type == "abiotic") {
+      if (verbose) print(paste("  type: abiotic"))
       abiotic <- rbind(abiotic, data)
     }
     if (source$type == "ann-o-mate") {
+      if (verbose) print(paste("  type: annOmate"))
       annOmate <- rbind(annOmate, data)
     }
   }
