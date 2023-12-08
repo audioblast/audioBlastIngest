@@ -144,7 +144,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "deployments") {
-    heads <-   col_names <- c("source","id","name","device","type","start","end","continues_from", "group")
+    heads <-   col_names <- c("id","name")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
