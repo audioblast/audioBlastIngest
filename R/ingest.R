@@ -50,7 +50,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
     }
 
-    colnames(data) <- getHeaders(source$type)
+    colnames(data) <- names(getHeaders(source$type))
 
     if (source$type == "taxa") {
       if (verbose) print(paste("  type: taxa"))
