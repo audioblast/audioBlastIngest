@@ -22,6 +22,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
       command <- paste0(
@@ -58,8 +59,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (source$type == "recordings") {
       if (verbose) print(paste("  type: recordings"))
-      print(colnames(recordings))
-      print(colnames(data))
       recordings <- rbind(recordings, data)
     }
     if (source$type == "traits") {
@@ -92,8 +91,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
   }
 
-print(recordings)
-stop("ok")
   #Upload
   if (!is.null(db)) {
     #uploadTraits(db, seperatoR(traits))
@@ -142,7 +139,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "traits") {
-    heads <-   col_names <- c("traitID","taxonID","Taxonomic name","Trait","Ontology Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
+    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic name","Trait","Ontology Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
