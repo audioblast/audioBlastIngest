@@ -50,6 +50,8 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
     }
 
+    colnames(data) <- getHeaders(source$type)
+
     if (source$type == "taxa") {
       if (verbose) print(paste("  type: taxa"))
       taxa <- rbind(taxa, data)
@@ -90,6 +92,8 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
   }
 
+print(recordings)
+stop("ok")
   #Upload
   if (!is.null(db)) {
     #uploadTraits(db, seperatoR(traits))
