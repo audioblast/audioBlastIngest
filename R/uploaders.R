@@ -41,7 +41,7 @@ uploadRecordings <- function(db, table) {
     sql <- paste0("INSERT INTO `recordings` ",
                   "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
                   "`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`, ",
-                  "`Date`,`Time`,`Duration`) ",
+                  "`Date`,`Time`,`Duration`, `deployment`) ",
                   "VALUES (",
                   dbQuoteString(db, table[i,1]), ", ",
                   dbQuoteString(db, table[i,2]), ", ",
@@ -56,7 +56,8 @@ uploadRecordings <- function(db, table) {
                   dbQuoteString(db, table[i,11]), ", ",
                   dbQuoteString(db, table[i,12]), ", ",
                   dbQuoteString(db, table[i,13]), ", ",
-                  table[i,14],
+                  table[i,14],", ",
+                  dbQuoteString(db, table[i,15]),
                   ") ON DUPLICATE KEY UPDATE ",
                   "`Title` = ", dbQuoteString(db, table[i,3]), ", ",
                   "`taxon` = ", dbQuoteString(db, table[i,4]), ", ",
@@ -69,7 +70,8 @@ uploadRecordings <- function(db, table) {
                   "`NonSpecimen` = ", dbQuoteString(db, table[i,11]), ", ",
                   "`Date` = ", dbQuoteString(db, table[i,12]), ", ",
                   "`Time` = ", dbQuoteString(db, table[i,13]), ", ",
-                  "`Duration` = ",table[i,14],
+                  "`Duration` = ",table[i,14], ", ",
+                  "`deployment` = ", dbQuoteString(db, table[i,15]),
                   ";"
     )
     dbExecute(db, sql)
