@@ -24,13 +24,12 @@ uploadTraits <- function(db, i) {
 
 #' Upload Recordings
 #'
-#' Inserts or updates the database recordings table with contents of the
-#' recordings data frame.
+#' Replaces the database recordings table with contents of a data frame
 #'
 #' @param db database connector
 #' @param table dataframe of recordings to upload.
 #' @export
-#' @importFrom DBI dbQuoteString dbExecute
+#' @importFrom DBI dbQuoteString dbExecute dbBind dbClearResult dbSendQuery
 uploadRecordings <- function(db, table) {
   table[is.na(table)] <- 0
   #If duration is negative set to NULL
@@ -38,45 +37,33 @@ uploadRecordings <- function(db, table) {
   #Set size_raw to NULL if empty
   table[which(table[,9] == ''),9] <- "NULL"
 
+  # Prepare the SQL statement
+  sql <- "INSERT INTO `recordings`
+(`source`, `id`, `Title`, `taxon`, `file`, `author`,
+`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`,
+`Date`,`Time`,`Duration`, `deployment`)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON DUPLICATE KEY UPDATE
+`Title` = ?, `taxon` = ?, `file` = ?, `author` = ?,
+`post_date`= ?, `size` = ?, `size_raw` = ?, `type` = ?,
+`NonSpecimen` = ?, `Date` = ?, `Time` = ?, `Duration` = ?,
+`deployment` = ?"
+
+  # Prepare the query
+  query <- dbSendQuery(db, sql)
+
   for (i in 1:nrow(table)) {
-    sql <- paste0("INSERT INTO `recordings` ",
-                  "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
-                  "`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`, ",
-                  "`Date`,`Time`,`Duration`, `deployment`) ",
-                  "VALUES (",
-                  dbQuoteString(db, table[i,1]), ", ",
-                  dbQuoteString(db, table[i,2]), ", ",
-                  dbQuoteString(db ,table[i,3]), ", ",
-                  dbQuoteString(db, table[i,4]), ", ",
-                  dbQuoteString(db, table[i,5]), ", ",
-                  dbQuoteString(db, table[i,6]), ", ",
-                  dbQuoteString(db, table[i,7]), ", ",
-                  dbQuoteString(db, table[i,8]), ", ",
-                  table[i,9], ", ",
-                  dbQuoteString(db, table[i,10]), ", ",
-                  dbQuoteString(db, table[i,11]), ", ",
-                  dbQuoteString(db, table[i,12]), ", ",
-                  dbQuoteString(db, table[i,13]), ", ",
-                  table[i,14],", ",
-                  dbQuoteString(db, table[i,15]),
-                  ") ON DUPLICATE KEY UPDATE ",
-                  "`Title` = ", dbQuoteString(db, table[i,3]), ", ",
-                  "`taxon` = ", dbQuoteString(db, table[i,4]), ", ",
-                  "`file` = ", dbQuoteString(db, table[i,5]), ", ",
-                  "`author` = ", dbQuoteString(db, table[i,6]), ", ",
-                  "`post_date`= ", dbQuoteString(db, table[i,7]), ", ",
-                  "`size` = ", dbQuoteString(db, table[i,8]), ", ",
-                  "`size_raw` = ",table[i,9], ", ",
-                  "`type` = ", dbQuoteString(db, table[i,10]), ", ",
-                  "`NonSpecimen` = ", dbQuoteString(db, table[i,11]), ", ",
-                  "`Date` = ", dbQuoteString(db, table[i,12]), ", ",
-                  "`Time` = ", dbQuoteString(db, table[i,13]), ", ",
-                  "`Duration` = ",table[i,14], ", ",
-                  "`deployment` = ", dbQuoteString(db, table[i,15]),
-                  ";"
-    )
-    dbExecute(db, sql)
+    # Bind the parameters
+    DBI::dbBind(query, list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+                            table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
+                            table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
+                            table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
+                            table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
+                            table[i,13], table[i,14], table[i,15]))
   }
+
+  # Clear the result
+  dbClearResult(query)
 }
 
 #' Upload Deployments
@@ -122,7 +109,7 @@ uploadDevices <- function(db, i) {
 #' @param db database connector
 #' @param i dataframe of taxa to upload.
 #' @export
-#' @importFrom DBI dbConnect dbWriteTable
+#' @importFrom DBI dbConnect dbWriteTable dbSendQuery dbFetch dbClearResult
 uploadSensors <- function(db, i) {
   dbWriteTable(db, "sensors", i, overwrite=TRUE)
 }

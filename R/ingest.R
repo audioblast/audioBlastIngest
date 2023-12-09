@@ -6,6 +6,7 @@
 #' @param verbose If TRUE says more about what's going on.
 #' @export
 #' @importFrom utils read.csv
+#' @importFrom DBI dbDisconnect
 ingestR <- function(db=NULL, verbose=FALSE) {
   sources <- getSources()
 
@@ -22,6 +23,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (source$name!="bio.acousti.ca") next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
