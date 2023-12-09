@@ -35,7 +35,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     data <- read.csv(source$url, colClasses = "character")
 
     #Map source columns to standard columns (defined in module.php)
-    if (is.element("mapping", names(source))) {
+    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
       data <- colmap(source, data)
     }
 
