@@ -37,7 +37,7 @@ uploadRecordings <- function(db, table) {
   #Set size_raw to NULL if empty
   table[which(table[,9] == ''),9] <- "NULL"
 
-  for (i in 2:nrow(table)) {
+  for (i in 1:nrow(table)) {
     sql <- paste0("INSERT INTO `recordings` ",
                   "(`source`, `id`, `Title`, `taxon`, `file`, `author`, ",
                   "`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`, ",
