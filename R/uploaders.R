@@ -24,7 +24,8 @@ uploadTraits <- function(db, i) {
 
 #' Upload Recordings
 #'
-#' Replaces the database recordings table with contents of a data frame
+#' Inserts or updates the database recordings table with contents of the
+#' recordings data frame.
 #'
 #' @param db database connector
 #' @param table dataframe of recordings to upload.
