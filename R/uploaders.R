@@ -39,15 +39,15 @@ uploadRecordings <- function(db, table) {
 
   # Prepare the SQL statement
   sql <- "INSERT INTO `recordings`
-(`source`, `id`, `Title`, `taxon`, `file`, `author`,
-`post_date`, `size`, `size_raw`, `type`, `NonSpecimen`,
-`Date`,`Time`,`Duration`, `deployment`)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-ON DUPLICATE KEY UPDATE
-`Title` = ?, `taxon` = ?, `file` = ?, `author` = ?,
-`post_date`= ?, `size` = ?, `size_raw` = ?, `type` = ?,
-`NonSpecimen` = ?, `Date` = ?, `Time` = ?, `Duration` = ?,
-`deployment` = ?"
+    (`source`, `id`, `Title`, `taxon`, `file`, `author`,
+    `post_date`, `size`, `size_raw`, `type`, `NonSpecimen`,
+    `Date`,`Time`,`Duration`, `deployment`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    `Title` = ?, `taxon` = ?, `file` = ?, `author` = ?,
+    `post_date`= ?, `size` = ?, `size_raw` = ?, `type` = ?,
+    `NonSpecimen` = ?, `Date` = ?, `Time` = ?, `Duration` = ?,
+    `deployment` = ?"
 
   # Prepare the query
   query <- dbSendQuery(db, sql)
