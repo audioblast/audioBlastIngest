@@ -15,7 +15,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
   deployments <- getHeaders("deployments")
-  deployment_locations <- getHeaders("deployment_locations")
   devices <- getHeaders("devices")
   sensors <- getHeaders("sensors")
   abiotic <- getHeaders("abiotic")
@@ -23,7 +22,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    if (source$name!="bio.acousti.ca") next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -71,10 +69,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: deployments"))
       deployments <- rbind(deployments, data)
     }
-    if (source$type == "deployment_locations") {
-      if (verbose) print(paste("  type: deployment_locations"))
-      deployment_locations <- rbind(deployment_locations, data)
-    }
     if (source$type == "devices") {
       if (verbose) print(paste("  type: devices"))
       devices <- rbind(devices, data)
@@ -96,10 +90,13 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   #Upload
   if (!is.null(db)) {
     #uploadTraits(db, seperatoR(traits))
-    uploadRecordings(db, recordings)
+    if (nrow(recordings) > 0) {
+      uploadRecordings(db, recordings)
+    }
     #uploadTaxa(db, taxonomiseR(taxa))
-    #uploadDeployments(db, deployments)
-    #uploadDeploymentLocations(db, deployment_locations)
+    if (nrow(deployments) > 0) {
+      uploadDeployments(db, deployments)
+    }
     #uploadDevices(db, devices)
     #uploadSensors(db, sensors)
     #uploadAbiotic(db, abiotic)
@@ -147,19 +144,13 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "deployments") {
-    heads <-   col_names <- c("id","name")
+    heads <-   col_names <- c("source","id","name","lat", "lon")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
   }
   if (type == "devices") {
     heads <-   col_names <- c("source","id","name","model","serial","hardware","hardware_version","os", "os version","software","software_version","firmware","firmware_version")
-    df <- data.frame(matrix(ncol=length(heads), nrow=0))
-    colnames(df) <- heads
-    return(df)
-  }
-  if (type == "deployment_locations") {
-    heads <-   col_names <- c("source","id","deployment","timestamp","latitude","longitude")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

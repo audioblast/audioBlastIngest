@@ -71,11 +71,23 @@ uploadRecordings <- function(db, table) {
 #' Replaces the database taxa table with contents of a data frame
 #'
 #' @param db database connector
-#' @param i dataframe of taxa to upload.
+#' @param table dataframe of taxa to upload.
 #' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadDeployments <- function(db, i) {
-  dbWriteTable(db, "deployments", i, overwrite=TRUE)
+#' @importFrom DBI dbSendQuery dbBind
+uploadDeployments <- function(db, table) {
+  sql <- "INSERT INTO `deployments`
+    (`source`, `id`, `name`, `lat`, `lon`)
+    VALUES (?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    `name` = ?, `lat` = ?, `lon` = ?;"
+  query <- dbSendQuery(db, sql)
+  for (i in 1:nrow(table)) {
+    # Bind the parameters
+    DBI::dbBind(query, list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+                            table[i,3], table[i,4], table[i,5]))
+  }
+  # Clear the result
+  dbClearResult(query)
 }
 
 #' Upload Devices
