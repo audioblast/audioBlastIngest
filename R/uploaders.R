@@ -78,18 +78,6 @@ uploadDeployments <- function(db, i) {
   dbWriteTable(db, "deployments", i, overwrite=TRUE)
 }
 
-#' Upload Deployment Locations
-#'
-#' Replaces the database deployment_locations table with contents of a data frame
-#'
-#' @param db database connector
-#' @param i dataframe of taxa to upload.
-#' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadDeploymentLocations <- function(db, i) {
-  dbWriteTable(db, "deployment_locations", i, overwrite=TRUE)
-}
-
 #' Upload Devices
 #'
 #' Replaces the database devices table with contents of a data frame
