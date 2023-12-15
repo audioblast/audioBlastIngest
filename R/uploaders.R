@@ -54,12 +54,14 @@ uploadRecordings <- function(db, table) {
 
   for (i in 1:nrow(table)) {
     # Bind the parameters
-    DBI::dbBind(query, list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-                            table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
-                            table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
-                            table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
-                            table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
-                            table[i,13], table[i,14], table[i,15]))
+    DBI::dbBind(
+      query,
+      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
+           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
+           table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
+           table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
+           table[i,13], table[i,14], table[i,15]))
   }
 
   # Clear the result
@@ -83,8 +85,10 @@ uploadDeployments <- function(db, table) {
   query <- dbSendQuery(db, sql)
   for (i in 1:nrow(table)) {
     # Bind the parameters
-    DBI::dbBind(query, list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-                            table[i,3], table[i,4], table[i,5]))
+    DBI::dbBind(
+      query,
+      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+           table[i,3], table[i,4], table[i,5]))
   }
   # Clear the result
   dbClearResult(query)
@@ -126,6 +130,30 @@ uploadAbiotic <- function(db, i) {
   dbWriteTable(db, "abiotic", i, overwrite=TRUE)
 }
 
-uploadAnnOmate <- function(db, i) {
-  dbWriteTable(db, "annomate", i, overwrite=TRUE)
+uploadAnnOmate <- function(db, table) {
+  sql <- paste("INSERT INTO annomate (`source`, `source_id`, `annotator`,",
+               "`annotation_id`, `annotation_date`, `annotation_info_url`,",
+               "`recording_url`, `recording_info_url`, `time_start`,",
+               "`time_end`, `taxon`, `type`, `lat`, `lon`, `contact`)",
+               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+               "ON DUPLICATE KEY UPDATE",
+               "`source` = ?, `source_id` = ?, `annotator` = ? ,",
+               "`annotation_id` = ?, `annotation_date` = ?,",
+               "`annotation_info_url` = ?, `recording_url` = ? ,",
+               "`recording_info_url` = ?, `time_start` = ?, `time_end` = ? ,",
+               "`taxon` = ?, `type` = ?, `lat` = ?, `lon` = ?, `contact` = ?")
+  query <- dbSendQuery(db, sql)
+  for (i in 1:nrow(table)) {
+    # Bind the parameters
+    DBI::dbBind(
+      query,
+      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
+           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
+           table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
+           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15]))
+  }
+  # Clear the result
+  dbClearResult(query)
 }
