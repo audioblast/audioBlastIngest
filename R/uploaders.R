@@ -33,9 +33,9 @@ uploadTraits <- function(db, i) {
 uploadRecordings <- function(db, table) {
   table[is.na(table)] <- 0
   #If duration is negative set to NULL
-  table[which(table[,14] < 0),14] <- "NULL"
+  table[which(table[,14] < 0),14] <- NA
   #Set size_raw to NULL if empty
-  table[which(table[,9] == ''),9] <- "NULL"
+  table[which(table[,9] == ''),9] <- NA
 
   # Prepare the SQL statement
   sql <- "INSERT INTO `recordings`
