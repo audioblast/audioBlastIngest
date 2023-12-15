@@ -15,13 +15,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   traits <- getHeaders("traits")
   recordings <- getHeaders("recordings")
   deployments <- getHeaders("deployments")
-  devices <- getHeaders("devices")
-  sensors <- getHeaders("sensors")
-  abiotic <- getHeaders("abiotic")
   annOmate <- getHeaders("ann-o-mate")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (source$type != 'ann-o-mate') next()
+    if (source$name != 'bio.acousti.ca') next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -69,18 +68,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: deployments"))
       deployments <- rbind(deployments, data)
     }
-    if (source$type == "devices") {
-      if (verbose) print(paste("  type: devices"))
-      devices <- rbind(devices, data)
-    }
-    if (source$type == "sensors") {
-      if (verbose) print(paste("  type: sensors"))
-      sensors <- rbind(sensors, data)
-    }
-    if (source$type == "abiotic") {
-      if (verbose) print(paste("  type: abiotic"))
-      abiotic <- rbind(abiotic, data)
-    }
     if (source$type == "ann-o-mate") {
       if (verbose) print(paste("  type: annOmate"))
       annOmate <- rbind(annOmate, data)
@@ -97,10 +84,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     if (nrow(deployments) > 0) {
       uploadDeployments(db, deployments)
     }
-    #uploadDevices(db, devices)
-    #uploadSensors(db, sensors)
-    #uploadAbiotic(db, abiotic)
-    uploadAnnOmate(db, annOmate)
+    if (nrow(annOmate) > 0) {
+      uploadAnnOmate(db, annOmate)
+    }
 
   }
 }
@@ -145,24 +131,6 @@ getHeaders <- function(type) {
   }
   if (type == "deployments") {
     heads <-   col_names <- c("source","id","name","lat", "lon")
-    df <- data.frame(matrix(ncol=length(heads), nrow=0))
-    colnames(df) <- heads
-    return(df)
-  }
-  if (type == "devices") {
-    heads <-   col_names <- c("source","id","name","model","serial","hardware","hardware_version","os", "os version","software","software_version","firmware","firmware_version")
-    df <- data.frame(matrix(ncol=length(heads), nrow=0))
-    colnames(df) <- heads
-    return(df)
-  }
-  if (type == "sensors") {
-    heads <-   col_names <- c("source","id","device","name","model","serial","property")
-    df <- data.frame(matrix(ncol=length(heads), nrow=0))
-    colnames(df) <- heads
-    return(df)
-  }
-  if (type == "abiotic") {
-    heads <-   col_names <- c("source","id","deployment","timestamp","file_source","file_id","file_relative_time","property","value")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

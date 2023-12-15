@@ -94,42 +94,6 @@ uploadDeployments <- function(db, table) {
   dbClearResult(query)
 }
 
-#' Upload Devices
-#'
-#' Replaces the database devices table with contents of a data frame
-#'
-#' @param db database connector
-#' @param i dataframe of taxa to upload.
-#' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadDevices <- function(db, i) {
-  dbWriteTable(db, "devices", i, overwrite=TRUE)
-}
-
-#' Upload Sensors
-#'
-#' Replaces the database sensors table with contents of a data frame
-#'
-#' @param db database connector
-#' @param i dataframe of taxa to upload.
-#' @export
-#' @importFrom DBI dbConnect dbWriteTable dbSendQuery dbFetch dbClearResult
-uploadSensors <- function(db, i) {
-  dbWriteTable(db, "sensors", i, overwrite=TRUE)
-}
-
-#' Upload Abiotic
-#'
-#' Replaces the database abiotic table with contents of a data frame
-#'
-#' @param db database connector
-#' @param i dataframe of taxa to upload.
-#' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadAbiotic <- function(db, i) {
-  dbWriteTable(db, "abiotic", i, overwrite=TRUE)
-}
-
 uploadAnnOmate <- function(db, table) {
   sql <- paste("INSERT INTO annomate (`source`, `source_id`, `annotator`,",
                "`annotation_id`, `annotation_date`, `annotation_info_url`,",
