@@ -76,6 +76,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   if (!is.null(db)) {
     #uploadTraits(db, seperatoR(traits))
     if (nrow(recordings) > 0) {
+      recordings <- recordings[recordings$id != "",]
       uploadRecordings(db, recordings)
     }
     #uploadTaxa(db, taxonomiseR(taxa))
@@ -115,6 +116,12 @@ getHeaders <- function(type) {
     colnames(df) <- heads
     return(df)
   }
+  if (type == "deployments") {
+    heads <-   col_names <- c("source","id","name","lat", "lon")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
   if (type == "recordings") {
     heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
@@ -123,12 +130,6 @@ getHeaders <- function(type) {
   }
   if (type == "traits") {
     heads <-   col_names <- c("source","traitID","taxonID","Taxonomic name","Trait","Ontology Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
-    df <- data.frame(matrix(ncol=length(heads), nrow=0))
-    colnames(df) <- heads
-    return(df)
-  }
-  if (type == "deployments") {
-    heads <-   col_names <- c("source","id","name","lat", "lon")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
