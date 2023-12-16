@@ -6,7 +6,6 @@
 #' @param verbose If TRUE says more about what's going on.
 #' @export
 #' @importFrom utils read.csv
-#' @importFrom DBI dbDisconnect
 ingestR <- function(db=NULL, verbose=FALSE) {
   sources <- getSources()
 
