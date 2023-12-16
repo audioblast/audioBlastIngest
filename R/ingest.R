@@ -19,7 +19,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    if (source$name != "sounds_of_norway") next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -28,7 +27,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
         source$git$repo,
         "\" lfs pull || git clone https://github.com/",
         source$git$owner,"/",source$git$repo,".git")
-      system2(command)
+      system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
     data <- read.csv(source$url, colClasses = "character")
