@@ -6,7 +6,6 @@ colmap <- function(source, data){
     data <- data[which(data[[col]]> min),]
   }
 
-
   headers <- names(getHeaders(source$type))
 
   n <- nrow(data)
@@ -14,7 +13,7 @@ colmap <- function(source, data){
   for (i in seq_along(headers)) {
     col <- headers[i]
     if (is.element(col, names(data))) {
-      data2 <- cbind(data2, data[, i])
+      data2 <- cbind(data2, data[, col])
     } else if (is.element(col, names(source$mapping))) {
       sourcecol <- source$mapping[which(names(source$mapping)==col)][[1]]
       coldata <- data[,which(names(data)==sourcecol)]

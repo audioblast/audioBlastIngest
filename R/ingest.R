@@ -32,11 +32,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     data <- read.csv(source$url, colClasses = "character")
 
-    #Map source columns to standard columns (defined in module.php)
-    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
-      data <- colmap(source, data)
-    }
-
     if (length(source$process) > 0) {
       for (j in 1:length(source$process)) {
         if (source$process[[j]] == "sourceR") {
@@ -46,6 +41,11 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           data <- date2dateAndTime(data)
         }
       }
+    }
+
+    #Map source columns to standard columns (defined in module.php)
+    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
+      data <- colmap(source, data)
     }
 
     colnames(data) <- names(getHeaders(source$type))
