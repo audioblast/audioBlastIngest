@@ -13,7 +13,9 @@ colmap <- function(source, data){
   data2 <- as.data.frame(1:n)
   for (i in seq_along(headers)) {
     col <- headers[i]
-    if (is.element(col, names(source$mapping))) {
+    if (is.element(col, names(data))) {
+      data2 <- cbind(data2, data[, i])
+    } else if (is.element(col, names(source$mapping))) {
       sourcecol <- source$mapping[which(names(source$mapping)==col)][[1]]
       coldata <- data[,which(names(data)==sourcecol)]
       data2 <- cbind(data2, coldata)
@@ -30,7 +32,7 @@ colmap <- function(source, data){
     for (i in 1:length(names(source$override))) {
       colname <- names(source$override)[[i]]
       colval <- source$override[[i]]
-      data2[which(names(data2)==colname)] <- rep_len(colval, nrow(data2))
+      data2[,which(names(data2)==colname)] <- rep_len(colval, nrow(data2))
     }
   }
 
