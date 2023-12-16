@@ -19,6 +19,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    if (source$name != "sounds_of_norway") next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -27,10 +28,15 @@ ingestR <- function(db=NULL, verbose=FALSE) {
         source$git$repo,
         "\" lfs pull || git clone https://github.com/",
         source$git$owner,"/",source$git$repo,".git")
-      system(command)
+      system2(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
     data <- read.csv(source$url, colClasses = "character")
+
+    #Map source columns to standard columns (defined in module.php)
+    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
+      data <- colmap(source, data)
+    }
 
     if (length(source$process) > 0) {
       for (j in 1:length(source$process)) {
@@ -41,11 +47,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           data <- date2dateAndTime(data)
         }
       }
-    }
-
-    #Map source columns to standard columns (defined in module.php)
-    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
-      data <- colmap(source, data)
     }
 
     colnames(data) <- names(getHeaders(source$type))
