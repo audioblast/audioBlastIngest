@@ -17,9 +17,22 @@ uploadTaxa <- function(db, i) {
 #' @param db database connector
 #' @param i dataframe of traits to upload.
 #' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadTraits <- function(db, i) {
-  dbWriteTable(db, "traits", i, overwrite=TRUE)
+uploadTraits <- function(db, table) {
+  sql <- "INSERT INTO `traits`
+    (`source`,`traitID`,`taxonID`,`Taxonomic.name`,`Trait`,`Ontology.Link`,
+     `Value`,`Call Type`,`Sex`,`Temperature`,`Reference`,`Cascade`,
+     `Annotation ID`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    `Taxonomic.name` = ?, `Trait` = ?, `Ontology.Link` = ?, `Value` = ?,
+    `Call Type` = ?, `Sex` = ?, `Temperature` = ?, `Reference` = ?,
+    `Cascade` = ?, `Annotation ID` = ?"
+  dbSendQuery(db, sql)
+
+  for (i in 1:nrow(table)) {
+    dbBind(db, sql, table[i,])
+  }
+
 }
 
 #' Upload Recordings
