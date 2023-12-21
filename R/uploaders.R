@@ -15,23 +15,33 @@ uploadTaxa <- function(db, i) {
 #' Replaces the database traits table with contents of a data frame
 #'
 #' @param db database connector
-#' @param i dataframe of traits to upload.
+#' @param table dataframe of traits to upload.
 #' @export
 uploadTraits <- function(db, table) {
   sql <- "INSERT INTO `traits`
     (`source`,`traitID`,`taxonID`,`Taxonomic.name`,`Trait`,`Ontology.Link`,
-     `Value`,`Call Type`,`Sex`,`Temperature`,`Reference`,`Cascade`,
-     `Annotation ID`)
+     `Value`,`Call.Type`,`Sex`,`Temperature`,`Reference`,`Cascade`,
+     `Annotation.ID`)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-    `Taxonomic.name` = ?, `Trait` = ?, `Ontology.Link` = ?, `Value` = ?,
-    `Call Type` = ?, `Sex` = ?, `Temperature` = ?, `Reference` = ?,
-    `Cascade` = ?, `Annotation ID` = ?"
-  dbSendQuery(db, sql)
+    `taxonID` = ?, `Taxonomic.name` = ?, `Trait` = ?, `Ontology.Link` = ?, `Value` = ?,
+    `Call.Type` = ?, `Sex` = ?, `Temperature` = ?, `Reference` = ?,
+    `Cascade` = ?, `Annotation.ID` = ?"
+  query <- dbSendQuery(db, sql)
 
   for (i in 1:nrow(table)) {
-    dbBind(db, sql, table[i,])
+    # Bind the parameters
+    DBI::dbBind(
+      query,
+      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
+           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
+           table[i,11], table[i,12], table[i,13],
+           table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
+           table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
+           table[i,13]))
   }
+
+  dbClearResult(query)
 
 }
 

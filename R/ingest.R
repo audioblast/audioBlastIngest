@@ -18,7 +18,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    if (source$type != "traits") next()
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -44,6 +43,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
         }
         if (source$process[[j]] == "date2dateAndTime") {
           data <- date2dateAndTime(data)
+        }
+        if (source$process[[j]] == "hz2khz") {
+          data <- hz2khz(data)
         }
       }
     }
@@ -74,7 +76,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   #Upload
   if (!is.null(db)) {
-    #uploadTraits(db, seperatoR(traits))
+    uploadTraits(db, seperatoR(traits))
     if (nrow(recordings) > 0) {
       recordings <- recordings[recordings$id != "",]
       uploadRecordings(db, recordings)
@@ -129,7 +131,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "traits") {
-    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call Type","Sex","Temperature","Reference","Cascade","Annotation ID")
+    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call.Type","Sex","Temperature","Reference","Cascade","Annotation.ID")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

@@ -4,12 +4,12 @@
 \alias{uploadTraits}
 \title{Upload Traits}
 \usage{
-uploadTraits(db, i)
+uploadTraits(db, table)
 }
 \arguments{
 \item{db}{database connector}
 
-\item{i}{dataframe of traits to upload.}
+\item{table}{dataframe of traits to upload.}
 }
 \description{
 Replaces the database traits table with contents of a data frame
