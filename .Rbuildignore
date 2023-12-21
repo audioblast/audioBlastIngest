@@ -3,4 +3,5 @@
 ^LICENSE\.md$
 ^\.travis\.yml
 ^codecov\.yml$
+^audioblast_ingest
 ^small_ingests

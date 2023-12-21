@@ -10,11 +10,14 @@ Description: This package provides the tools for automatically ingesting data in
 License: GPL-3
 Encoding: UTF-8
 Language: en-US
-Imports: DBI, rjson, parsedate
+Imports: 
+    DBI,
+    rjson,parsedate, 
+    stringr
 LazyData: true
 Roxygen: list(markdown = TRUE)
 Suggests:
+    covr,
     spelling,
-    testthat,
-    covr
+    testthat
 RoxygenNote: 7.2.3
