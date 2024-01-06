@@ -4,10 +4,12 @@
 \alias{col2flat}
 \title{Flatten the Catalogue of Life taxonomy}
 \usage{
-col2flat(input)
+col2flat(data, matches)
 }
 \arguments{
-\item{input}{dataframe of the CoL taxonomy}
+\item{data}{dataframe of the CoL taxonomy}
+
+\item{matches}{vector of taxa to match}
 }
 \description{
 Flatten the parent-child relationships in the Catalogue of Life taxonomy
