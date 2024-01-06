@@ -33,7 +33,6 @@ col2flat  <- function(data, matches) {
       if (!identical(parent_rank, character(0))){
         parent_name <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.scientificName"])
         output[output$taxon==name,parent_rank] <- parent_name
-        print(paste(output[output$id==parent_id, "Rank"],":", parent_name))
       }
       parent_id <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.parentNameUsageID"])
     }
