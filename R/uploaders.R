@@ -3,11 +3,58 @@
 #' Replaces the database taxa table with contents of a data frame
 #'
 #' @param db database connector
-#' @param i dataframe of taxa to upload.
+#' @param table dataframe of taxa to upload.
 #' @export
-#' @importFrom DBI dbConnect dbWriteTable
-uploadTaxa <- function(db, i) {
-  dbWriteTable(db, "taxa", i, overwrite=TRUE)
+#' @importFrom DBI dbBind dbSendQuery
+uploadTaxa <- function(db, table) {
+  sql <- "INSERT INTO `taxa`
+    (`source`, `id`, `taxon`, `parent_id`, `Rank`, `Kingdom`, `Subkingdom`,
+     `Phylum`, `Subphylum`, `Class`, `Order`, `Suborder`, `Infraorder`,
+     `Superfamily`,`Family`, `Subfamily`, `Tribe`, `Subtribe`, `Genus`,
+     `Subgenus`, `Species`, `Subspecies`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+    `source` = ?, `id` = ?, `taxon` = ?, `parent_id` = ?, `Rank` = ?, `Kingdom` = ?,
+    `Subkingdom` = ?, `Phylum` = ?, `Subphylum` = ?, `Class` = ?, `Order` = ?, `Suborder` = ?,
+    `Infraorder` = ?, `Superfamily` = ?, `Family` = ?, `Subfamily` = ?, `Tribe` = ?,
+    `Subtribe` = ?, `Genus` = ?, `Subgenus` = ?, `Species` = ?, `Subspecies` = ?"
+  query <- dbSendQuery(db, sql)
+
+  for (i in 1:nrow(table)) {
+    dbBind(query, list(table[i,"source"], table[i,"id"], table[i,"taxon"],
+                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
+                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
+                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
+                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
+                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
+                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
+                       table[i,"Subspecies"],
+                       table[i,"source"], table[i,"id"], table[i,"taxon"],
+                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
+                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
+                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
+                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
+                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
+                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
+                       table[i,"Subspecies"],
+                       table[i,"taxon"],
+                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
+                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
+                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
+                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
+                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
+                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
+                       table[i,"Subspecies"],
+                       table[i,"source"], table[i,"id"], table[i,"taxon"],
+                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
+                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
+                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
+                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
+                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
+                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
+                       table[i,"Subspecies"]))
+  }
+  dbClearResult(query)
 }
 
 #' Upload Traits

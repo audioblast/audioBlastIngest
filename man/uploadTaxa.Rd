@@ -4,12 +4,12 @@
 \alias{uploadTaxa}
 \title{Upload Taxa}
 \usage{
-uploadTaxa(db, i)
+uploadTaxa(db, table)
 }
 \arguments{
 \item{db}{database connector}
 
-\item{i}{dataframe of taxa to upload.}
+\item{table}{dataframe of taxa to upload.}
 }
 \description{
 Replaces the database taxa table with contents of a data frame
