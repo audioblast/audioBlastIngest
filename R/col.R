@@ -16,16 +16,18 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
   ranks_used <- unique(as.character(data$`dwc.taxonRank`))
   ranks_used <- ranks_used[ranks_used != ""]
   col_names <- c("id","taxon","valid", "parent_id", "Rank", ranks_used)
+
+  #Only work with maatched names
+  matches <- matches[tolower(matches) %in% data$lowerName]
   num_taxa <- length(matches)
+
   output <- data.frame(matrix(NA, nrow=length(matches), ncol=length(col_names)))
   colnames(output) <- col_names
   output$taxon <- matches
 
   for (i in 1:num_taxa) {
+    #ToDo: Only insert ranks used by audioblast
     print(paste(i, ":", num_taxa))
-    if (!tolower(matches[i]) %in% data[, "lowerName"]) {
-      next
-    }
     matched_name <- tolower(as.character(output[i, "taxon"]))
     use_id <- as.character(data[data$lowerName==matched_name, "dwc.taxonID"])[1]
     name <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.scientificName"])
