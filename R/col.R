@@ -17,7 +17,7 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
   ranks_used <- ranks_used[ranks_used != ""]
   col_names <- c("id","taxon","valid", "parent_id", "Rank", ranks_used)
 
-  #Only work with maatched names
+  #Only work with matched names
   matches <- matches[tolower(matches) %in% data$lowerName]
   num_taxa <- length(matches)
 
@@ -49,6 +49,7 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
 }
 
 preprocessCoL <- function(data) {
+  data <- data[data$`dwc.nomenclaturalCode` %in% c("ICZN", "ICNP",""),c("dwc.taxonID","dwc.parentNameUsageID","dwc.scientificName","dwc.scientificNameAuthorship","dwc.taxonRank","dwc.taxonomicStatus","dwc.acceptedNameUsageID")]
   data$`dwc.scientificName` <- str_trim(str_replace(data$`dwc.scientificName`,paste0("\\Q",data$`dwc.scientificNameAuthorship`,"\\E"), ""))
   lower <- tolower(data$`dwc.scientificName`)
   names <- c(colnames(data),"lowerName")
