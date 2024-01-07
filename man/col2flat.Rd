@@ -4,12 +4,15 @@
 \alias{col2flat}
 \title{Flatten the Catalogue of Life taxonomy}
 \usage{
-col2flat(data, matches)
+col2flat(data, matches, dataPreprocessed = F)
 }
 \arguments{
-\item{data}{dataframe of the CoL taxonomy}
+\item{data}{dataframe of the CoL taxonomy.}
 
-\item{matches}{vector of taxa to match}
+\item{matches}{vector of taxa to match.}
+
+\item{dataPreprocessed}{Boolean representing whether the data frame has been
+preprocessed by preprocessCoL().}
 }
 \description{
 Flatten the parent-child relationships in the Catalogue of Life taxonomy
