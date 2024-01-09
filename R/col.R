@@ -34,16 +34,18 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
     rank <- as.character(data[data$`dwc.taxonID`==use_id,"dwc.taxonRank"])
     output[i, "id"] <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.taxonID"])
     if (rank != "") {
-      output[i,rank] <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.scientificName"])
+      output[i,str_to_title(rank)] <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.scientificName"])
     }
     parent_id <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.parentNameUsageID"])
+    output[i, "parent_id"] <- parent_id
+    output[i, "Rank"] <- rank
+    output[i, "valid"] <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.taxonomicStatus"])
     while (length(parent_id) > 0) {
-      output[i, "parent_id"] <- parent_id
       parent_rank <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.taxonRank"])
       #ToDo: Add parent taxa as new rows
       if (!identical(parent_rank, character(0))){
         parent_name <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.scientificName"])
-        output[i,parent_rank] <- parent_name
+        output[i,str_to_title(parent_rank)] <- parent_name
       }
       parent_id <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.parentNameUsageID"])
     }
