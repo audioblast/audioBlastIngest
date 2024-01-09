@@ -14,7 +14,7 @@ uploadTaxa <- function(db, table) {
      `Subgenus`, `Species`, `Subspecies`)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-    `source` = ?, `id` = ?, `taxon` = ?, `parent_id` = ?, `Rank` = ?, `Kingdom` = ?,
+    `taxon` = ?, `parent_id` = ?, `Rank` = ?, `Kingdom` = ?,
     `Subkingdom` = ?, `Phylum` = ?, `Subphylum` = ?, `Class` = ?, `Order` = ?, `Suborder` = ?,
     `Infraorder` = ?, `Superfamily` = ?, `Family` = ?, `Subfamily` = ?, `Tribe` = ?,
     `Subtribe` = ?, `Genus` = ?, `Subgenus` = ?, `Species` = ?, `Subspecies` = ?"
