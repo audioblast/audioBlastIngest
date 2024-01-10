@@ -3,7 +3,7 @@
 #' Replaces the database taxa table with contents of a data frame
 #'
 #' @param db database connector
-#' @param table dataframe of taxa to upload.
+#' @param table data.frame of taxa to upload.
 #' @export
 #' @importFrom DBI dbBind dbSendQuery
 uploadTaxa <- function(db, table) {

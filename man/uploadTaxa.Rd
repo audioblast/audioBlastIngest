@@ -9,7 +9,7 @@ uploadTaxa(db, table)
 \arguments{
 \item{db}{database connector}
 
-\item{table}{dataframe of taxa to upload.}
+\item{table}{data.frame of taxa to upload.}
 }
 \description{
 Replaces the database taxa table with contents of a data frame
