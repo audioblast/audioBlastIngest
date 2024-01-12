@@ -7,7 +7,7 @@
 #' @param dataPreprocessed Boolean representing whether the data frame has been
 #'   preprocessed by preprocessCoL().
 #' @importFrom stringr str_replace str_trim str_to_title
-#'
+#' @return A data.frame for uploadTaxa
 #' @export
 col2flat  <- function(data, matches, dataPreprocessed=F) {
   if (!dataPreprocessed) {
@@ -53,6 +53,14 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
   return(as.data.frame(output))
 }
 
+#' Preprocess COL data
+#'
+#' Preprocess the Catalogue of Life data to remove unwanted columns and
+#' simplify.
+#' @param data dataframe of the CoL taxonomy.
+#' @importFrom stringr str_replace str_trim
+#' @return A reduced data.frame
+#' @export
 preprocessCoL <- function(data) {
   data <- data[data$`dwc.nomenclaturalCode` %in% c("ICZN", "ICNP",""),c("dwc.taxonID","dwc.parentNameUsageID","dwc.scientificName","dwc.scientificNameAuthorship","dwc.taxonRank","dwc.taxonomicStatus","dwc.acceptedNameUsageID")]
   data$`dwc.scientificName` <- str_trim(str_replace(data$`dwc.scientificName`,paste0("\\Q",data$`dwc.scientificNameAuthorship`,"\\E"), ""))

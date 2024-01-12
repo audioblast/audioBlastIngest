@@ -14,6 +14,9 @@ col2flat(data, matches, dataPreprocessed = F)
 \item{dataPreprocessed}{Boolean representing whether the data frame has been
 preprocessed by preprocessCoL().}
 }
+\value{
+A data.frame for uploadTaxa
+}
 \description{
 Flatten the parent-child relationships in the Catalogue of Life taxonomy
 }
