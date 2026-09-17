@@ -178,3 +178,37 @@ uploadAnnOmate <- function(db, table) {
   # Clear the result
   dbClearResult(query)
 }
+
+#' Upload References
+#'
+#' Adds references from a data frame to the database references table, updating
+#' references already in it. Empty values are uploaded as NULL.
+#'
+#' @param db database connector
+#' @param table dataframe of references to upload, e.g. from bibtexR().
+#' @export
+#' @importFrom DBI dbSendQuery dbBind dbClearResult
+uploadReferences <- function(db, table) {
+  columns <- names(getHeaders("references"))
+  update <- columns[!columns %in% c("source", "id")]
+  table <- table[, columns]
+  for (column in update) {
+    table[which(table[, column] == ""), column] <- NA
+  }
+
+  sql <- paste(
+    "INSERT INTO `references`",
+    paste0("(", paste0("`", columns, "`", collapse=", "), ")"),
+    paste0("VALUES (", paste(rep("?", length(columns)), collapse=", "), ")"),
+    "ON DUPLICATE KEY UPDATE",
+    paste0("`", update, "` = ?", collapse=", "))
+  query <- dbSendQuery(db, sql)
+
+  for (i in seq_len(nrow(table))) {
+    #Values are bound for the insert, and again for the update
+    row <- as.list(table[i, ])
+    dbBind(query, unname(c(row, row[update])))
+  }
+
+  dbClearResult(query)
+}

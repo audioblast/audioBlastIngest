@@ -15,6 +15,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   recordings <- getHeaders("recordings")
   deployments <- getHeaders("deployments")
   annOmate <- getHeaders("ann-o-mate")
+  references <- getHeaders("references")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -33,6 +34,16 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #A failed harvest skips this source rather than every source
       data <- tryCatch(
         xenocantoR(source$xenocanto$query, verbose=verbose),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
+    } else if (source$type == "references") {
+      #References are BibTeX. One that cannot be read skips this source rather
+      #than every source.
+      data <- tryCatch(
+        bibtexR(source$url),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
@@ -91,6 +102,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: annOmate"))
       annOmate <- rbind(annOmate, data)
     }
+    if (source$type == "references") {
+      if (verbose) print(paste("  type: references"))
+      references <- rbind(references, data)
+    }
   }
 
   #Upload
@@ -106,6 +121,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(annOmate) > 0) {
       uploadAnnOmate(db, annOmate)
+    }
+    if (nrow(references) > 0) {
+      uploadReferences(db, references)
     }
 
   }
@@ -157,6 +175,13 @@ getHeaders <- function(type) {
   }
   if (type == "ann-o-mate") {
     heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "references") {
+    #type is the BibTeX entry type (e.g. article), type_of_work its type field
+    heads <- c("source","id","type","title","author","editor","year","month","journal","booktitle","series","howpublished","volume","number","pages","chapter","edition","publisher","organization","institution","school","address","type_of_work","note","isbn","issn","doi","url","attachments","keywords","abstract")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
