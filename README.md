@@ -25,3 +25,5 @@ db <- dbConnect(RMariaDB::MariaDB(),
 
 ingestR(db)
 ````
+
+Harvesting from xeno-canto requires a [xeno-canto API key](https://xeno-canto.org/account) in the `XC_API_KEY` environment variable, e.g. set in `.Renviron`. Without it the xeno-canto source is skipped.

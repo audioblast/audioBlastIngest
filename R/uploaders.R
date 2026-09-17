@@ -89,18 +89,21 @@ uploadRecordings <- function(db, table) {
   table[which(table[, 14] < 0), 14] <- NA
   #Set size_raw to NULL if empty
   table[which(table[, 9] == ""), 9] <- NA
+  #Set lat and lon to NULL if empty (recordings in a deployment have none)
+  table[which(table[, 16] == ""), 16] <- NA
+  table[which(table[, 17] == ""), 17] <- NA
 
   # Prepare the SQL statement
   sql <- "INSERT INTO `recordings`
     (`source`, `id`, `Title`, `taxon`, `file`, `author`,
     `post_date`, `size`, `size_raw`, `type`, `NonSpecimen`,
-    `Date`,`Time`,`Duration`, `deployment`)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `Date`,`Time`,`Duration`, `deployment`, `lat`, `lon`)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
     `Title` = ?, `taxon` = ?, `file` = ?, `author` = ?,
     `post_date`= ?, `size` = ?, `size_raw` = ?, `type` = ?,
     `NonSpecimen` = ?, `Date` = ?, `Time` = ?, `Duration` = ?,
-    `deployment` = ?"
+    `deployment` = ?, `lat` = ?, `lon` = ?"
 
   # Prepare the query
   query <- dbSendQuery(db, sql)
@@ -112,9 +115,10 @@ uploadRecordings <- function(db, table) {
       list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
            table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
            table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
+           table[i,16], table[i,17],
            table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
            table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
-           table[i,13], table[i,14], table[i,15]))
+           table[i,13], table[i,14], table[i,15], table[i,16], table[i,17]))
   }
 
   # Clear the result
