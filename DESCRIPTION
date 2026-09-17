@@ -11,6 +11,7 @@ License: GPL-3
 Encoding: UTF-8
 Language: en-US
 Imports: 
+    curl,
     DBI,
     rjson,parsedate, 
     stringr

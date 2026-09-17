@@ -29,9 +29,20 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
-    #Sources are UTF-8. Without declaring it, R sessions that are not UTF-8
-    #(e.g. Windows R < 4.2) double-encode non-ASCII text on upload.
-    data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
+    if (is.element("xenocanto", names(source))) {
+      #A failed harvest skips this source rather than every source
+      data <- tryCatch(
+        xenocantoR(source$xenocanto$query, verbose=verbose),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
+    } else {
+      #Sources are UTF-8. Without declaring it, R sessions that are not UTF-8
+      #(e.g. Windows R < 4.2) double-encode non-ASCII text on upload.
+      data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
+    }
 
     #Map source columns to standard columns (defined in module.php)
     if (is.element("mapping", names(source)) || is.element("override", names(source))) {
@@ -50,6 +61,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           data <- hz2khz(data)
         }
       }
+    }
+
+    #Recordings sources set up before lat and lon were added have 15 columns
+    if (source$type == "recordings" && ncol(data) == 15) {
+      data$lat <- rep_len("", nrow(data))
+      data$lon <- rep_len("", nrow(data))
     }
 
     colnames(data) <- names(getHeaders(source$type))
@@ -127,7 +144,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "recordings") {
-    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment")
+    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment", "lat", "lon")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
