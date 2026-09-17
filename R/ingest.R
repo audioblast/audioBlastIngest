@@ -29,7 +29,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
-    data <- read.csv(source$url, colClasses = "character")
+    #Sources are UTF-8. Without declaring it, R sessions that are not UTF-8
+    #(e.g. Windows R < 4.2) double-encode non-ASCII text on upload.
+    data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
 
     #Map source columns to standard columns (defined in module.php)
     if (is.element("mapping", names(source)) || is.element("override", names(source))) {
