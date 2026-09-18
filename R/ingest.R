@@ -74,11 +74,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
     }
 
-    #Recordings sources set up before columns were added to the end of the
-    #recordings table (lat and lon, then time_of_day, license, info_url and
-    #device) don't have them, so they are added empty
+    #Recordings and traits sources set up before columns were added to the end
+    #of their tables (for recordings lat and lon, then time_of_day, license,
+    #info_url and device; for traits Call.Part, Call.Type.Link and
+    #Call.Qualifier) don't have them, so they are added empty
     headers <- names(getHeaders(source$type))
-    if (source$type == "recordings" && ncol(data) < length(headers)) {
+    if (source$type %in% c("recordings", "traits") && ncol(data) < length(headers)) {
       for (column in headers[-seq_len(ncol(data))]) {
         data[[column]] <- rep_len("", nrow(data))
       }
@@ -114,6 +115,14 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   #Upload
   if (!is.null(db)) {
+    #Traits are linked to the terms of the vocabulary at vocab.audioblast.org,
+    #and uploaded unlinked if it can't be read
+    if (nrow(traits) > 0) {
+      traits <- tryCatch(linkTraits(traits), error=function(e) {
+        warning(paste("Traits not linked to vocab.audioblast.org -", conditionMessage(e)))
+        traits
+      })
+    }
     uploadTraits(db, seperatoR(traits))
     if (nrow(recordings) > 0) {
       recordings <- recordings[recordings$id != "",]
@@ -172,7 +181,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "traits") {
-    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call.Type","Sex","Temperature","Reference","Cascade","Annotation.ID")
+    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call.Type","Sex","Temperature","Reference","Cascade","Annotation.ID","Call.Part","Call.Type.Link","Call.Qualifier")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
