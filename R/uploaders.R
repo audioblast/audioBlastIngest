@@ -7,38 +7,11 @@
 #' @export
 #' @importFrom DBI dbBind dbSendQuery
 uploadTaxa <- function(db, table) {
-  sql <- "INSERT INTO `taxa`
-    (`source`, `id`, `taxon`, `parent_id`, `Rank`, `Kingdom`, `Subkingdom`,
-     `Phylum`, `Subphylum`, `Class`, `Order`, `Suborder`, `Infraorder`,
-     `Superfamily`,`Family`, `Subfamily`, `Tribe`, `Subtribe`, `Genus`,
-     `Subgenus`, `Species`, `Subspecies`)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    `taxon` = ?, `parent_id` = ?, `Rank` = ?, `Kingdom` = ?,
-    `Subkingdom` = ?, `Phylum` = ?, `Subphylum` = ?, `Class` = ?, `Order` = ?, `Suborder` = ?,
-    `Infraorder` = ?, `Superfamily` = ?, `Family` = ?, `Subfamily` = ?, `Tribe` = ?,
-    `Subtribe` = ?, `Genus` = ?, `Subgenus` = ?, `Species` = ?, `Subspecies` = ?"
-  query <- dbSendQuery(db, sql)
-
-  for (i in 1:nrow(table)) {
-    dbBind(query, list(table[i,"source"], table[i,"id"], table[i,"taxon"],
-                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
-                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
-                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
-                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
-                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
-                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
-                       table[i,"Subspecies"],
-                       table[i,"taxon"],
-                       table[i,"parent_id"], table[i,"Rank"], table[i,"Kingdom"],
-                       table[i,"Subkingdom"], table[i,"Phylum"], table[i,"Subphylum"],
-                       table[i,"Class"], table[i,"Order"], table[i,"Suborder"],
-                       table[i,"Infraorder"], table[i,"Superfamily"], table[i,"Family"],
-                       table[i,"Subfamily"], table[i,"Tribe"], table[i,"Subtribe"],
-                       table[i,"Genus"], table[i,"Subgenus"], table[i,"Species"],
-                       table[i,"Subspecies"]))
-  }
-  dbClearResult(query)
+  columns <- c("source", "id", "taxon", "parent_id", "Rank", "Kingdom",
+               "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
+               "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
+               "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies")
+  uploadRows(db, "taxa", columns, table[columns], update=columns[-(1:2)])
 }
 
 #' Upload Traits
@@ -49,31 +22,8 @@ uploadTaxa <- function(db, table) {
 #' @param table dataframe of traits to upload.
 #' @export
 uploadTraits <- function(db, table) {
-  sql <- "INSERT INTO `traits`
-    (`source`,`traitID`,`taxonID`,`Taxonomic.name`,`Trait`,`Ontology.Link`,
-     `Value`,`Call.Type`,`Sex`,`Temperature`,`Reference`,`Cascade`,
-     `Annotation.ID`)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    `taxonID` = ?, `Taxonomic.name` = ?, `Trait` = ?, `Ontology.Link` = ?, `Value` = ?,
-    `Call.Type` = ?, `Sex` = ?, `Temperature` = ?, `Reference` = ?,
-    `Cascade` = ?, `Annotation.ID` = ?"
-  query <- dbSendQuery(db, sql)
-
-  for (i in 1:nrow(table)) {
-    # Bind the parameters
-    DBI::dbBind(
-      query,
-      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
-           table[i,11], table[i,12], table[i,13],
-           table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
-           table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
-           table[i,13]))
-  }
-
-  dbClearResult(query)
-
+  columns <- names(getHeaders("traits"))
+  uploadRows(db, "traits", columns, table[1:13], update=columns[-(1:2)])
 }
 
 #' Upload Recordings
@@ -93,36 +43,8 @@ uploadRecordings <- function(db, table) {
   table[which(table[, 16] == ""), 16] <- NA
   table[which(table[, 17] == ""), 17] <- NA
 
-  # Prepare the SQL statement
-  sql <- "INSERT INTO `recordings`
-    (`source`, `id`, `Title`, `taxon`, `file`, `author`,
-    `post_date`, `size`, `size_raw`, `type`, `NonSpecimen`,
-    `Date`,`Time`,`Duration`, `deployment`, `lat`, `lon`)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    `Title` = ?, `taxon` = ?, `file` = ?, `author` = ?,
-    `post_date`= ?, `size` = ?, `size_raw` = ?, `type` = ?,
-    `NonSpecimen` = ?, `Date` = ?, `Time` = ?, `Duration` = ?,
-    `deployment` = ?, `lat` = ?, `lon` = ?"
-
-  # Prepare the query
-  query <- dbSendQuery(db, sql)
-
-  for (i in 1:nrow(table)) {
-    # Bind the parameters
-    DBI::dbBind(
-      query,
-      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
-           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
-           table[i,16], table[i,17],
-           table[i,3], table[i,4], table[i,5], table[i,6], table[i,7],
-           table[i,8], table[i,9], table[i,10], table[i,11], table[i,12],
-           table[i,13], table[i,14], table[i,15], table[i,16], table[i,17]))
-  }
-
-  # Clear the result
-  dbClearResult(query)
+  columns <- names(getHeaders("recordings"))
+  uploadRows(db, "recordings", columns, table[1:17], update=columns[-(1:2)])
 }
 
 #' Upload Deployments
@@ -134,49 +56,13 @@ uploadRecordings <- function(db, table) {
 #' @export
 #' @importFrom DBI dbSendQuery dbBind
 uploadDeployments <- function(db, table) {
-  sql <- "INSERT INTO `deployments`
-    (`source`, `id`, `name`, `lat`, `lon`)
-    VALUES (?, ?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE
-    `name` = ?, `lat` = ?, `lon` = ?;"
-  query <- dbSendQuery(db, sql)
-  for (i in 1:nrow(table)) {
-    # Bind the parameters
-    DBI::dbBind(
-      query,
-      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-           table[i,3], table[i,4], table[i,5]))
-  }
-  # Clear the result
-  dbClearResult(query)
+  columns <- names(getHeaders("deployments"))
+  uploadRows(db, "deployments", columns, table[1:5], update=columns[-(1:2)])
 }
 
 uploadAnnOmate <- function(db, table) {
-  sql <- paste("INSERT INTO annomate (`source`, `source_id`, `annotator`,",
-               "`annotation_id`, `annotation_date`, `annotation_info_url`,",
-               "`recording_url`, `recording_info_url`, `time_start`,",
-               "`time_end`, `taxon`, `type`, `lat`, `lon`, `contact`)",
-               "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-               "ON DUPLICATE KEY UPDATE",
-               "`source` = ?, `source_id` = ?, `annotator` = ? ,",
-               "`annotation_id` = ?, `annotation_date` = ?,",
-               "`annotation_info_url` = ?, `recording_url` = ? ,",
-               "`recording_info_url` = ?, `time_start` = ?, `time_end` = ? ,",
-               "`taxon` = ?, `type` = ?, `lat` = ?, `lon` = ?, `contact` = ?")
-  query <- dbSendQuery(db, sql)
-  for (i in 1:nrow(table)) {
-    # Bind the parameters
-    DBI::dbBind(
-      query,
-      list(table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
-           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15],
-           table[i,1], table[i,2], table[i,3], table[i,4], table[i,5],
-           table[i,6], table[i,7], table[i,8], table[i,9], table[i,10],
-           table[i,11], table[i,12], table[i,13], table[i,14], table[i,15]))
-  }
-  # Clear the result
-  dbClearResult(query)
+  columns <- names(getHeaders("ann-o-mate"))
+  uploadRows(db, "annomate", columns, table[1:15], update=columns)
 }
 
 #' Upload References
@@ -196,19 +82,34 @@ uploadReferences <- function(db, table) {
     table[which(table[, column] == ""), column] <- NA
   }
 
-  sql <- paste(
-    "INSERT INTO `references`",
-    paste0("(", paste0("`", columns, "`", collapse=", "), ")"),
-    paste0("VALUES (", paste(rep("?", length(columns)), collapse=", "), ")"),
-    "ON DUPLICATE KEY UPDATE",
-    paste0("`", update, "` = ?", collapse=", "))
-  query <- dbSendQuery(db, sql)
+  uploadRows(db, "references", columns, table, update)
+}
 
-  for (i in seq_len(nrow(table))) {
-    #Values are bound for the insert, and again for the update
-    row <- as.list(table[i, ])
-    dbBind(query, unname(c(row, row[update])))
+#Inserts values (a data frame with a column for each of columns) into a table,
+#updating the update columns of rows already there. Rows are inserted in
+#batches, each by one statement in its own transaction, so a batch that fails
+#is rolled back and the batches before it stay uploaded.
+uploadRows <- function(db, name, columns, values, update, batch=1000) {
+  rows <- seq_len(nrow(values))
+  for (i in split(rows, ceiling(rows / batch))) {
+    #Values are bound row by row, to match the placeholders
+    params <- vector("list", length(i) * length(columns))
+    for (j in seq_along(columns)) {
+      params[seq(j, by=length(columns), length.out=length(i))] <- as.list(values[[j]][i])
+    }
+    sql <- insertSQL(name, columns, update, length(i))
+    DBI::dbWithTransaction(db, dbExecute(db, sql, params=params))
   }
+}
 
-  dbClearResult(query)
+#An insert of rows into a table, updating the update columns of rows that are
+#already there
+insertSQL <- function(name, columns, update, rows) {
+  row <- paste0("(", paste(rep("?", length(columns)), collapse=", "), ")")
+  paste(
+    paste0("INSERT INTO `", name, "`"),
+    paste0("(", paste0("`", columns, "`", collapse=", "), ")"),
+    "VALUES", paste(rep(row, rows), collapse=", "),
+    "ON DUPLICATE KEY UPDATE",
+    paste0("`", update, "` = VALUES(`", update, "`)", collapse=", "))
 }

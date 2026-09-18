@@ -244,28 +244,18 @@ test_that("ingestR carries on when the xeno-canto harvest fails", {
 })
 
 test_that("uploadRecordings uploads lat and lon", {
-  sql <- NULL
-  bound <- list()
-  local_mocked_bindings(
-    dbSendQuery=function(conn, statement, ...) {
-      sql <<- statement
-      "result"
-    },
-    dbClearResult=function(res, ...) TRUE)
-  local_mocked_bindings(
-    dbBind=function(res, params, ...) {
-      bound[[length(bound) + 1]] <<- params
-      invisible(res)
-    },
-    .package="DBI")
   table <- sourceR("xeno-canto", xenocantoRecordings(xcFixture()$recordings))
 
-  uploadRecordings("db", table)
+  upload <- mockUpload(uploadRecordings, table)
 
-  expect_length(bound, 4)
+  #All four recordings are inserted by one statement
+  expect_length(upload$executed, 1)
+  sql <- upload$executed[[1]]$sql
   placeholders <- lengths(regmatches(sql, gregexpr("?", sql, fixed=TRUE)))
-  expect_true(all(lengths(bound) == placeholders))
-  expect_identical(bound[[1]][c(2, 16, 17, 31, 32)], list("694038", "42.8373", "-8.652", "42.8373", "-8.652"))
+  expect_length(upload$executed[[1]]$params, placeholders)
+  rows <- boundRows(upload$executed[[1]])
+  expect_length(rows, 4)
+  expect_identical(rows[[1]][c(2, 16, 17)], list("694038", "42.8373", "-8.652"))
   #Missing coordinates are uploaded as NULL
-  expect_identical(bound[[2]][c(16, 17)], list(NA_character_, NA_character_))
+  expect_identical(rows[[2]][c(16, 17)], list(NA_character_, NA_character_))
 })

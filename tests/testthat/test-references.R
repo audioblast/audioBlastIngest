@@ -152,37 +152,25 @@ test_that("LaTeX and HTML are converted to text", {
 })
 
 test_that("uploadReferences uploads every column, with NULL for empty values", {
-  sql <- NULL
-  bound <- list()
-  local_mocked_bindings(
-    dbSendQuery=function(conn, statement, ...) {
-      sql <<- statement
-      "result"
-    },
-    dbBind=function(res, params, ...) {
-      bound[[length(bound) + 1]] <<- params
-      invisible(res)
-    },
-    dbClearResult=function(res, ...) TRUE)
   table <- sourceR("bio.acousti.ca", bibtexR(referencesFixture()))
 
-  uploadReferences("db", table)
+  upload <- mockUpload(uploadReferences, table)
 
+  #All four references are inserted by one statement
+  expect_length(upload$executed, 1)
   columns <- names(getHeaders("references"))
+  sql <- upload$executed[[1]]$sql
   expect_match(sql, "^INSERT INTO `references` \\(`source`, `id`, `type`, `title`, ")
-  expect_match(sql, "ON DUPLICATE KEY UPDATE `type` = ?, `title` = ?, ", fixed=TRUE)
-  expect_length(bound, 4)
+  #Every column but the key is updated for references already there
+  expect_match(sql, "ON DUPLICATE KEY UPDATE `type` = VALUES(`type`), `title` = VALUES(`title`), ", fixed=TRUE)
   placeholders <- lengths(regmatches(sql, gregexpr("?", sql, fixed=TRUE)))
-  expect_true(all(lengths(bound) == placeholders))
-  #Values are bound for the insert, and again (except the key) for the update
-  expect_identical(bound[[1]][1:3], list("bio.acousti.ca", "101", "article"))
-  doi <- which(columns == "doi")
-  expect_identical(bound[[1]][[doi]], "10.1234/ABC.101")
-  expect_identical(bound[[1]][[length(columns) + doi - 2]], "10.1234/ABC.101")
+  expect_length(upload$executed[[1]]$params, placeholders)
+  rows <- boundRows(upload$executed[[1]])
+  expect_length(rows, 4)
+  expect_identical(rows[[1]][1:3], list("bio.acousti.ca", "101", "article"))
+  expect_identical(rows[[1]][[which(columns == "doi")]], "10.1234/ABC.101")
   #Missing fields are uploaded as NULL
-  editor <- which(columns == "editor")
-  expect_identical(bound[[1]][[editor]], NA_character_)
-  expect_identical(bound[[1]][[length(columns) + editor - 2]], NA_character_)
+  expect_identical(rows[[1]][[which(columns == "editor")]], NA_character_)
 })
 
 test_that("ingestR uploads references from BibTeX sources", {
