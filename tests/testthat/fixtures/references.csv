@@ -1,0 +1,4 @@
+"id","type","title","author","editor","year","journal","volume","number","pages","school","type_of_work","note","doi","url","attachments","keywords","abstract","type_name","journal_abbreviation","pmid","info_url"
+"201","article","Calls of <i>Engystomops pustulosus</i> in &lsquo;urban&rsquo; ponds","Núñez, José; Karl von Frisch; {World Wildlife Fund}","","2021","Bioacoustics &amp; Ecology","12","3","1-10","","","","https://doi.org/10.1234/ABC.201","http://example.org/view?id=201&lang=en","https://example.org/files/a%20b.pdf; https://example.org/files/c.pdf","frogs; urban noise","<p>Calls peak at 5 kHz.</p>
+<p>They are    longer in town.</p>","Journal Article","Bioacoust Ecol","12345678","https://example.org/node/201"
+"202","phdthesis","Song of the  cricket","Frederick, Katherine H","","2004","","","","","Division of Biological Sciences, University of Missouri–Columbia","phd","<p>Digitised in 2019</p>","","","","","","Thesis","","","https://example.org/node/202"

@@ -1,10 +1,12 @@
 #' Read references from BibTeX
 #'
-#' Reads a BibTeX file, such as the bibliography exported from BioAcoustica,
-#' into the audioBlast! references format. The key of each entry is its id.
+#' Reads a BibTeX file into the audioBlast! references format. The key of each
+#' entry is its id.
 #'
 #' Field values are converted to plain text from LaTeX, and from the HTML that
-#' some exports (e.g. the Drupal Biblio module) use in titles and abstracts.
+#' some exports (e.g. the Drupal Biblio module) use in titles and abstracts,
+#' and the soft hyphens, hyphens and ligatures (e.g. U+FB02 for fl) that text
+#' copied from PDFs often has are replaced with plain letters and hyphens.
 #' Authors and editors are listed surname first and separated by semicolons,
 #' e.g. `Darwin, Charles; von Frisch, Karl`. DOIs are given without a resolver,
 #' e.g. `10.1093/database/bav054`. The type column is the type of entry, e.g.
@@ -59,7 +61,7 @@ bibtexR <- function(file) {
   for (column in columns[-(1:3)]) {
     if (column %in% c("author", "editor")) {
       data[[column]] <- bibtexNames(data[[column]])
-    } else if (column %in% c("doi", "url", "attachments")) {
+    } else if (column %in% c("doi", "url", "attachments", "info_url")) {
       data[[column]] <- bibtexLink(data[[column]])
     } else {
       data[[column]] <- bibtexText(data[[column]])
@@ -173,7 +175,7 @@ bibtexEntries <- function(text) {
 
 #Converts LaTeX, and HTML, to plain text with composed accented letters
 bibtexText <- function(x) {
-  return(stri_trans_nfc(html2text(latex2text(x))))
+  return(tidyText(stri_trans_nfc(html2text(latex2text(x)))))
 }
 
 #Unescapes DOIs and URLs, which are otherwise left as they are
@@ -184,10 +186,11 @@ bibtexLink <- function(x) {
   return(trimws(x))
 }
 
-#Lists names surname first, separated by semicolons
-bibtexNames <- function(x) {
+#Lists names surname first, separated by semicolons. In x, names are separated
+#where the regular expression split matches outside of braces.
+bibtexNames <- function(x, split="(?i)\\s+and\\s+") {
   names <- lapply(x, function(value) {
-    names <- trimws(splitOutsideBraces(value, "(?i)\\s+and\\s+"))
+    names <- trimws(splitOutsideBraces(value, split))
     return(names[names != ""])
   })
   name <- unlist(names, use.names=FALSE)
@@ -351,6 +354,25 @@ html2text <- function(x) {
   x <- gsub("\n{3,}", "\n\n", x, perl=TRUE)
   return(trimws(x))
 }
+
+#Removes soft hyphens and zero-width spaces, and replaces hyphens and
+#ligatures (e.g. U+FB02 for fl) with plain letters, as text copied from PDFs
+#often has them, so that words can be found as they are usually typed. Dashes
+#and minus signs are kept.
+tidyText <- function(x) {
+  x <- gsub("[\u00ad\u200b]", "", x, perl=TRUE)
+  x <- gsub("[\u2010\u2011]", "-", x, perl=TRUE)
+  for (ligature in names(textLigatures)) {
+    x <- gsub(ligature, textLigatures[[ligature]], x, fixed=TRUE)
+  }
+  return(x)
+}
+
+#Ligatures, and the letters for them
+textLigatures <- c(
+  "\ufb00"="ff", "\ufb01"="fi", "\ufb02"="fl", "\ufb03"="ffi", "\ufb04"="ffl",
+  "\ufb05"="st", "\ufb06"="st"
+)
 
 #LaTeX accent commands, and the combining marks for them
 latexAccents <- c(

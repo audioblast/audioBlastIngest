@@ -9,7 +9,8 @@ uploadReferences(db, table)
 \arguments{
 \item{db}{database connector}
 
-\item{table}{dataframe of references to upload, e.g. from bibtexR().}
+\item{table}{dataframe of references to upload, e.g. from bibtexR() or
+referencesR().}
 }
 \description{
 Adds references from a data frame to the database references table, updating

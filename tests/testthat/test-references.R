@@ -2,6 +2,10 @@ referencesFixture <- function() {
   return(test_path("fixtures", "references.bib"))
 }
 
+csvReferencesFixture <- function() {
+  return(test_path("fixtures", "references.csv"))
+}
+
 test_that("BibTeX is read into the references format", {
   data <- bibtexR(referencesFixture())
 
@@ -200,4 +204,108 @@ test_that("ingestR carries on when a references source cannot be read", {
   expect_warning(ingestR(db="db"), "Skipping source missing")
 
   expect_identical(unique(uploaded$source), "bio.acousti.ca")
+})
+
+test_that("CSV is read into the references format", {
+  data <- referencesR(csvReferencesFixture())
+
+  expect_identical(names(data), names(getHeaders("references")))
+  expect_true(all(vapply(data, is.character, logical(1))))
+  expect_identical(data$id, c("201", "202"))
+  expect_identical(data$source, rep("", 2))
+  expect_identical(data$type, c("article", "phdthesis"))
+
+  frog <- data[1, ]
+  expect_identical(frog$title, "Calls of Engystomops pustulosus in \u2018urban\u2019 ponds")
+  expect_identical(frog$author, "N\u00fa\u00f1ez, Jos\u00e9; von Frisch, Karl; World Wildlife Fund")
+  expect_identical(frog$editor, "")
+  expect_identical(frog$journal, "Bioacoustics & Ecology")
+  expect_identical(frog$number, "3")
+  expect_identical(frog$doi, "10.1234/ABC.201")
+  expect_identical(frog$url, "http://example.org/view?id=201&lang=en")
+  expect_identical(frog$attachments, "https://example.org/files/a%20b.pdf; https://example.org/files/c.pdf")
+  expect_identical(frog$keywords, "frogs; urban noise")
+  expect_identical(frog$abstract, "Calls peak at 5 kHz.\n\nThey are longer in town.")
+  expect_identical(frog$type_name, "Journal Article")
+  expect_identical(frog$journal_abbreviation, "Bioacoust Ecol")
+  expect_identical(frog$pmid, "12345678")
+  expect_identical(frog$info_url, "https://example.org/node/201")
+  #Columns that the file does not have are empty
+  expect_identical(frog$month, "")
+
+  thesis <- data[2, ]
+  expect_identical(thesis$title, "Song of the cricket")
+  expect_identical(thesis$author, "Frederick, Katherine H")
+  expect_identical(thesis$school, "Division of Biological Sciences, University of Missouri\u2013Columbia")
+  expect_identical(thesis$type_of_work, "phd")
+  expect_identical(thesis$note, "Digitised in 2019")
+})
+
+test_that("CSV is read with Windows line endings between and within values", {
+  path <- tempfile(fileext=".csv")
+  csv <- "\"id\",\"title\",\"abstract\"\r\n\"1\",\"Line\r\nbreaks\",\"<p>One</p>\r\n<p>Two</p>\"\r\n"
+  writeBin(charToRaw(csv), path)
+
+  data <- referencesR(path)
+  unlink(path)
+
+  expect_identical(data$id, "1")
+  expect_identical(data$title, "Line breaks")
+  expect_identical(data$abstract, "One\n\nTwo")
+})
+
+test_that("CSV columns that references do not have are ignored, and an id is needed", {
+  path <- tempfile(fileext=".csv")
+  writeLines(c("\"title\",\"id\",\"colour\"", "\"A title\",\"1\",\"red\""), path)
+
+  expect_warning(data <- referencesR(path), "Ignoring columns that references do not have: colour")
+  expect_identical(data$id, "1")
+  expect_identical(data$title, "A title")
+
+  writeLines(c("\"title\"", "\"No id\""), path)
+  expect_error(referencesR(path), "no id column")
+  unlink(path)
+})
+
+test_that("soft hyphens, hyphens and ligatures from PDFs become plain text", {
+  expect_identical(
+    tidyText(c(
+      "semi\u2010arid non\u2011breaking",
+      "bio\u00adacoustics zero\u200bwidth",
+      "\ufb02ies \ufb01sh o\ufb00 \ufb03x \ufb04 \ufb05 \ufb06",
+      "5\u201310 \u2014 \u22122 dB")),
+    c(
+      "semi-arid non-breaking",
+      "bioacoustics zerowidth",
+      "flies fish off ffix ffl st st",
+      "5\u201310 \u2014 \u22122 dB"))
+  expect_identical(bibtexText("bio&shy;acoustics of semi\u2010arid \ufb02ies"), "bioacoustics of semi-arid flies")
+
+  path <- tempfile(fileext=".csv")
+  writeBin(charToRaw("\"id\",\"title\"\n\"1\",\"Semi\u2010arid \ufb02ies and bio&shy;acoustics\"\n"), path)
+  data <- referencesR(path)
+  unlink(path)
+  expect_identical(data$title, "Semi-arid flies and bioacoustics")
+})
+
+test_that("names separated by semicolons are listed surname first", {
+  expect_identical(
+    bibtexNames(c("Charles Darwin; von Frisch, Karl; {Colorado State University}", "Anon", ""), split=";"),
+    c("Darwin, Charles; von Frisch, Karl; Colorado State University", "Anon", ""))
+})
+
+test_that("ingestR uploads references from CSV sources", {
+  uploaded <- NULL
+  local_mocked_bindings(
+    getSources=function() list(
+      list(name="bio.acousti.ca", type="references", url=csvReferencesFixture(), process="sourceR")),
+    uploadTraits=function(db, table) NULL,
+    uploadReferences=function(db, table) uploaded <<- table)
+
+  ingestR(db="db")
+
+  expect_identical(names(uploaded), names(getHeaders("references")))
+  expect_identical(uploaded$source, rep("bio.acousti.ca", 2))
+  expect_identical(uploaded$id, c("201", "202"))
+  expect_identical(uploaded$author[2], "Frederick, Katherine H")
 })
