@@ -14,12 +14,14 @@ Data frame of references, with an empty source column (see
 sourceR()).
 }
 \description{
-Reads a BibTeX file, such as the bibliography exported from BioAcoustica,
-into the audioBlast! references format. The key of each entry is its id.
+Reads a BibTeX file into the audioBlast! references format. The key of each
+entry is its id.
 }
 \details{
 Field values are converted to plain text from LaTeX, and from the HTML that
-some exports (e.g. the Drupal Biblio module) use in titles and abstracts.
+some exports (e.g. the Drupal Biblio module) use in titles and abstracts,
+and the soft hyphens, hyphens and ligatures (e.g. U+FB02 for fl) that text
+copied from PDFs often has are replaced with plain letters and hyphens.
 Authors and editors are listed surname first and separated by semicolons,
 e.g. \verb{Darwin, Charles; von Frisch, Karl}. DOIs are given without a resolver,
 e.g. \code{10.1093/database/bav054}. The type column is the type of entry, e.g.

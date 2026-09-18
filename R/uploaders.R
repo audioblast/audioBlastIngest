@@ -68,7 +68,8 @@ uploadAnnOmate <- function(db, table) {
 #' references already in it. Empty values are uploaded as NULL.
 #'
 #' @param db database connector
-#' @param table dataframe of references to upload, e.g. from bibtexR().
+#' @param table dataframe of references to upload, e.g. from bibtexR() or
+#'   referencesR().
 #' @export
 #' @importFrom DBI dbSendQuery dbBind dbClearResult
 uploadReferences <- function(db, table) {

@@ -40,10 +40,11 @@ ingestR <- function(db=NULL, verbose=FALSE) {
         })
       if (is.null(data)) next
     } else if (source$type == "references") {
-      #References are BibTeX. One that cannot be read skips this source rather
-      #than every source.
+      #References are BibTeX (.bib) or else CSV. One that cannot be read skips
+      #this source rather than every source.
+      read <- if (grepl("\\.bib$", source$url, ignore.case=TRUE)) bibtexR else referencesR
       data <- tryCatch(
-        bibtexR(source$url),
+        read(source$url),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
@@ -185,7 +186,8 @@ getHeaders <- function(type) {
   }
   if (type == "references") {
     #type is the BibTeX entry type (e.g. article), type_of_work its type field
-    heads <- c("source","id","type","title","author","editor","year","month","journal","booktitle","series","howpublished","volume","number","pages","chapter","edition","publisher","organization","institution","school","address","type_of_work","note","isbn","issn","doi","url","attachments","keywords","abstract")
+    #and type_name the source's own name for the type (e.g. Journal Article)
+    heads <- c("source","id","type","title","author","editor","year","month","journal","booktitle","series","howpublished","volume","number","pages","chapter","edition","publisher","organization","institution","school","address","type_of_work","note","isbn","issn","doi","url","attachments","keywords","abstract","type_name","journal_abbreviation","pmid","info_url")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
