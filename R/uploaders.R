@@ -28,23 +28,20 @@ uploadTraits <- function(db, table) {
 
 #' Upload Recordings
 #'
-#' Replaces the database recordings table with contents of a data frame
+#' Adds recordings from a data frame to the database recordings table, updating
+#' recordings already in it. Values are normalised first, so that each column
+#' holds one form of value whichever source a recording came from: dates are
+#' ISO 8601 dates, times are 24-hour clock times, and a time that isn't a clock
+#' time, such as "morning", is kept as the time of day. Values that can't be read
+#' are uploaded as NULL.
 #'
 #' @param db database connector
 #' @param table dataframe of recordings to upload.
 #' @export
 #' @importFrom DBI dbQuoteString dbExecute dbBind dbClearResult dbSendQuery
 uploadRecordings <- function(db, table) {
-  #If duration is negative set to NULL
-  table[which(table[, 14] < 0), 14] <- NA
-  #Set size_raw to NULL if empty
-  table[which(table[, 9] == ""), 9] <- NA
-  #Set lat and lon to NULL if empty (recordings in a deployment have none)
-  table[which(table[, 16] == ""), 16] <- NA
-  table[which(table[, 17] == ""), 17] <- NA
-
   columns <- names(getHeaders("recordings"))
-  uploadRows(db, "recordings", columns, table[1:17], update=columns[-(1:2)])
+  uploadRows(db, "recordings", columns, normaliseRecordings(table), update=columns[-(1:2)])
 }
 
 #' Upload Deployments

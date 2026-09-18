@@ -48,6 +48,10 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(wren$deployment, "")
   expect_identical(wren$lat, "42.8373")
   expect_identical(wren$lon, "-8.652")
+  expect_identical(wren$time_of_day, "")
+  expect_identical(wren$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+  expect_identical(wren$info_url, "https://xeno-canto.org/694038")
+  expect_identical(wren$device, "")
 
   soundscape <- data[2, ]
   expect_identical(soundscape$Title, "XC700002 Soundscape")
@@ -57,8 +61,12 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(soundscape$Duration, "3723")
   expect_identical(soundscape$Date, "1998-06")
   expect_identical(soundscape$Time, "")
+  #A time of "?" says nothing about the time of day
+  expect_identical(soundscape$time_of_day, "")
   expect_identical(soundscape$lat, NA_character_)
   expect_identical(soundscape$lon, NA_character_)
+  expect_identical(soundscape$license, "")
+  expect_identical(soundscape$info_url, "https://xeno-canto.org/700002")
 
   mystery <- data[3, ]
   expect_identical(mystery$Title, "XC1179094 Identity unknown - call, flight call")
@@ -67,6 +75,8 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(mystery$type, "audio/flac")
   expect_identical(mystery$Date, "")
   expect_identical(mystery$Time, "07:05")
+  expect_identical(mystery$time_of_day, "")
+  expect_identical(mystery$info_url, "https://xeno-canto.org/1179094")
 
   gull <- data[4, ]
   expect_identical(gull$Title, "XC100000 Lesser Black-backed Gull (Larus fuscus fuscus)")
@@ -74,6 +84,7 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(gull$type, "")
   expect_identical(gull$Duration, NA_character_)
   expect_identical(gull$Time, "")
+  expect_identical(gull$time_of_day, "morning")
   expect_identical(gull$Date, "2004")
   expect_identical(gull$lat, NA_character_)
   expect_identical(gull$lon, "24.9")
@@ -102,7 +113,18 @@ test_that("xeno-canto values are normalised", {
                    c("identified", "questioned", "", "unidentified")),
     c("Larus fuscus fuscus", "Larus fuscus", "Larus fuscus", ""))
   expect_identical(
-    xenocantoCoordinate(c("51.5", "-180", "180.5", "", "north"), 180),
+    xenocantoTimeOfDay(c("09:30", "morning", "dawn chorus", "?", "")),
+    c("", "morning", "dawn chorus", "", ""))
+  expect_identical(
+    xenocantoURL(c("https://xeno-canto.org/1", "//xeno-canto.org/2",
+                   "//creativecommons.org/licenses/by-nc-sa/4.0/", "", "not a URL")),
+    c("https://xeno-canto.org/1", "https://xeno-canto.org/2",
+      "https://creativecommons.org/licenses/by-nc-sa/4.0/", "", ""))
+  expect_identical(
+    xenocantoDevice(c("Zoom H5", "Zoom H5", "", ""), c("Telinga", "", "Telinga", "")),
+    c("Zoom H5, Telinga", "Zoom H5", "Telinga", ""))
+  expect_identical(
+    coordinate(c("51.5", "-180", "180.5", "", "north"), 180),
     c("51.5", "-180", NA, NA, NA))
 })
 
@@ -234,6 +256,11 @@ test_that("ingestR uploads xeno-canto recordings with other recordings sources",
   #Sources without lat and lon still line up with the standard columns
   expect_identical(unlist(uploaded[1, c("deployment", "lat", "lon")], use.names=FALSE), c("pond", "", ""))
   expect_identical(unlist(uploaded[2, c("deployment", "lat", "lon")], use.names=FALSE), c("", "42.8373", "-8.652"))
+  #as do sources without the columns added after them
+  added <- c("time_of_day", "license", "info_url", "device")
+  expect_identical(unlist(uploaded[1, added], use.names=FALSE), c("", "", "", ""))
+  expect_identical(unlist(uploaded[2, added], use.names=FALSE),
+                   c("", "https://creativecommons.org/licenses/by-nc-sa/4.0/", "https://xeno-canto.org/694038", ""))
 })
 
 test_that("ingestR carries on when the xeno-canto harvest fails", {
@@ -258,4 +285,8 @@ test_that("uploadRecordings uploads lat and lon", {
   expect_identical(rows[[1]][c(2, 16, 17)], list("694038", "42.8373", "-8.652"))
   #Missing coordinates are uploaded as NULL
   expect_identical(rows[[2]][c(16, 17)], list(NA_character_, NA_character_))
+  #as are the time of day and device when they aren't known
+  expect_identical(rows[[1]][18:21], list(NA_character_, "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                                          "https://xeno-canto.org/694038", NA_character_))
+  expect_identical(rows[[4]][c(13, 18)], list(NA_character_, "morning"))
 })

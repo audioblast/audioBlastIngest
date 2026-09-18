@@ -15,11 +15,11 @@ test_that("insertSQL inserts rows, updating rows already there", {
           "ON DUPLICATE KEY UPDATE `b` = VALUES(`b`), `c` = VALUES(`c`)"))
 })
 
-#Each uploader, its database table, and the columns it updates on rows already
-#there
+#Each uploader, its database table, the columns it updates on rows already
+#there, and what it does to values before uploading them
 uploads <- list(
   traits=list(upload=uploadTraits, table="traits", update=-(1:2)),
-  recordings=list(upload=uploadRecordings, table="recordings", update=-(1:2)),
+  recordings=list(upload=uploadRecordings, table="recordings", update=-(1:2), normalise=normaliseRecordings),
   deployments=list(upload=uploadDeployments, table="deployments", update=-(1:2)),
   "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:15),
   references=list(upload=uploadReferences, table="references", update=-(1:2)))
@@ -28,14 +28,16 @@ for (type in names(uploads)) {
   test_that(paste("Uploading", type, "inserts every row, updating rows already there"), {
     columns <- names(getHeaders(type))
     table <- columnTable(columns)
+    normalise <- if (is.null(uploads[[type]]$normalise)) identity else uploads[[type]]$normalise
 
-    upload <- mockUpload(uploads[[type]]$upload, table)
+    #Values such as "Date-1" can't be read as recordings' dates, so are warned of
+    upload <- suppressWarnings(mockUpload(uploads[[type]]$upload, table))
 
     expect_identical(upload$calls, c("begin", "execute", "commit"))
     expect_identical(
       upload$executed[[1]]$sql,
       insertSQL(uploads[[type]]$table, columns, columns[uploads[[type]]$update], 3))
-    expect_identical(upload$executed[[1]]$params, byRow(table))
+    expect_identical(upload$executed[[1]]$params, byRow(suppressWarnings(normalise(table))))
   })
 
   test_that(paste("Uploading", type, "executes nothing for an empty table"), {
