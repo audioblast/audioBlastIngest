@@ -12,5 +12,10 @@ uploadRecordings(db, table)
 \item{table}{dataframe of recordings to upload.}
 }
 \description{
-Replaces the database recordings table with contents of a data frame
+Adds recordings from a data frame to the database recordings table, updating
+recordings already in it. Values are normalised first, so that each column
+holds one form of value whichever source a recording came from: dates are
+ISO 8601 dates, times are 24-hour clock times, and a time that isn't a clock
+time, such as "morning", is kept as the time of day. Values that can't be read
+are uploaded as NULL.
 }

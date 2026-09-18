@@ -152,8 +152,12 @@ xenocantoRecordings <- function(recordings) {
     Time=xenocantoTime(field("time")),
     Duration=xenocantoDuration(field("length")),
     deployment=empty,
-    lat=xenocantoCoordinate(field("lat"), 90),
-    lon=xenocantoCoordinate(field("lon"), 180),
+    lat=coordinate(field("lat"), 90),
+    lon=coordinate(field("lon"), 180),
+    time_of_day=xenocantoTimeOfDay(field("time")),
+    license=xenocantoURL(field("lic")),
+    info_url=xenocantoURL(field("url")),
+    device=xenocantoDevice(field("dvc"), field("mic")),
     stringsAsFactors=FALSE)
 
   #Without audio (e.g. restricted species) there is nothing to listen to or analyse
@@ -185,10 +189,26 @@ xenocantoDate <- function(x) {
   }, character(1), USE.NAMES=FALSE)
 }
 
+#Times are given as clock times, but some are words such as "morning" (see
+#xenocantoTimeOfDay())
 xenocantoTime <- function(x) {
-  x <- sub("^([0-9])[:.]", "0\\1:", x)
-  x <- sub("^([0-9]{2})\\.", "\\1:", x)
-  return(ifelse(grepl("^([01][0-9]|2[0-3]):[0-5][0-9]$", x), x, ""))
+  time <- clockTime(x)
+  return(ifelse(is.na(time), "", time))
+}
+
+xenocantoTimeOfDay <- function(x) {
+  return(ifelse(is.na(clockTime(x)) & !unknownTime(x), x, ""))
+}
+
+#The licence and the recording's page are URLs, some of which start //
+xenocantoURL <- function(x) {
+  url <- httpURL(x)
+  return(ifelse(is.na(url), "", url))
+}
+
+#The recording device and the microphone, as far as they are known
+xenocantoDevice <- function(dvc, mic) {
+  return(ifelse(dvc != "" & mic != "", paste(dvc, mic, sep=", "), paste0(dvc, mic)))
 }
 
 #Lengths are m:ss or h:mm:ss, converted to seconds
@@ -205,9 +225,4 @@ xenocantoMime <- function(filename) {
   mime <- unname(types[extension])
   mime[is.na(mime)] <- ""
   return(mime)
-}
-
-xenocantoCoordinate <- function(x, limit) {
-  value <- suppressWarnings(as.numeric(x))
-  return(ifelse(!is.na(value) & abs(value) <= limit, x, NA_character_))
 }

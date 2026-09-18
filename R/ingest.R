@@ -74,13 +74,17 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
     }
 
-    #Recordings sources set up before lat and lon were added have 15 columns
-    if (source$type == "recordings" && ncol(data) == 15) {
-      data$lat <- rep_len("", nrow(data))
-      data$lon <- rep_len("", nrow(data))
+    #Recordings sources set up before columns were added to the end of the
+    #recordings table (lat and lon, then time_of_day, license, info_url and
+    #device) don't have them, so they are added empty
+    headers <- names(getHeaders(source$type))
+    if (source$type == "recordings" && ncol(data) < length(headers)) {
+      for (column in headers[-seq_len(ncol(data))]) {
+        data[[column]] <- rep_len("", nrow(data))
+      }
     }
 
-    colnames(data) <- names(getHeaders(source$type))
+    colnames(data) <- headers
 
     if (source$type == "taxa") {
       if (verbose) print(paste("  type: taxa"))
@@ -162,7 +166,7 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "recordings") {
-    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment", "lat", "lon")
+    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment", "lat", "lon", "time_of_day", "license", "info_url", "device")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
