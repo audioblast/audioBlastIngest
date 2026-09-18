@@ -86,8 +86,9 @@ uploadReferences <- function(db, table) {
 #Inserts values (a data frame with a column for each of columns) into a table,
 #updating the update columns of rows already there. Rows are inserted in
 #batches, each by one statement in its own transaction, so a batch that fails
-#is rolled back and the batches before it stay uploaded.
-uploadRows <- function(db, name, columns, values, update, batch=1000) {
+#is rolled back and the batches before it stay uploaded. With transaction
+#FALSE the batches are left to a transaction the caller has begun.
+uploadRows <- function(db, name, columns, values, update, batch=1000, transaction=TRUE) {
   rows <- seq_len(nrow(values))
   for (i in split(rows, ceiling(rows / batch))) {
     #Values are bound row by row, to match the placeholders
@@ -96,7 +97,11 @@ uploadRows <- function(db, name, columns, values, update, batch=1000) {
       params[seq(j, by=length(columns), length.out=length(i))] <- as.list(values[[j]][i])
     }
     sql <- insertSQL(name, columns, update, length(i))
-    DBI::dbWithTransaction(db, dbExecute(db, sql, params=params))
+    if (transaction) {
+      DBI::dbWithTransaction(db, dbExecute(db, sql, params=params))
+    } else {
+      dbExecute(db, sql, params=params)
+    }
   }
 }
 

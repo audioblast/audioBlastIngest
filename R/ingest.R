@@ -16,6 +16,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   deployments <- getHeaders("deployments")
   annOmate <- getHeaders("ann-o-mate")
   references <- getHeaders("references")
+  links <- getHeaders("links")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -111,6 +112,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: references"))
       references <- rbind(references, data)
     }
+    if (source$type == "links") {
+      if (verbose) print(paste("  type: links"))
+      links <- rbind(links, data)
+    }
   }
 
   #Upload
@@ -129,6 +134,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(references) > 0) {
       uploadReferences(db, references)
+    }
+    if (nrow(links) > 0) {
+      uploadLinks(db, links)
     }
 
   }
@@ -188,6 +196,13 @@ getHeaders <- function(type) {
     #type is the BibTeX entry type (e.g. article), type_of_work its type field
     #and type_name the source's own name for the type (e.g. Journal Article)
     heads <- c("source","id","type","title","author","editor","year","month","journal","booktitle","series","howpublished","volume","number","pages","chapter","edition","publisher","organization","institution","school","address","type_of_work","note","isbn","issn","doi","url","attachments","keywords","abstract","type_name","journal_abbreviation","pmid","info_url")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "links") {
+    #source is the source giving the link; a link's id is made by uploadLinks()
+    heads <- c("source","subject_type","subject_source","subject_id","predicate","object_type","object_source","object_id","qualifier","remarks")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
