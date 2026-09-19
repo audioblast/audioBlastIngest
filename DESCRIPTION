@@ -13,7 +13,8 @@ Language: en-US
 Imports: 
     curl,
     DBI,
-    rjson,parsedate, 
+    digest,
+    rjson,parsedate,
     stringi,
     stringr
 LazyData: true
