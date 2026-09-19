@@ -23,7 +23,13 @@ uploadTaxa <- function(db, table) {
 #' @export
 uploadTraits <- function(db, table) {
   columns <- names(getHeaders("traits"))
-  uploadRows(db, "traits", columns, table[1:13], update=columns[-(1:2)])
+  #Traits from before the call's part, link and qualifier were added (see
+  #linkTraits()) don't have them; where they are missing or empty, they are NULL
+  for (column in c("Call.Part", "Call.Type.Link", "Call.Qualifier")) {
+    if (!is.element(column, names(table))) table[[column]] <- rep_len(NA_character_, nrow(table))
+    table[which(table[[column]] == ""), column] <- NA
+  }
+  uploadRows(db, "traits", columns, table[columns], update=columns[-(1:2)])
 }
 
 #' Upload Recordings

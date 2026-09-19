@@ -1,0 +1,60 @@
+{
+    "@context": {
+        "dcterms": "http://purl.org/dc/terms/",
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
+        "vann": "http://purl.org/vocab/vann/",
+        "xsd": "http://www.w3.org/2001/XMLSchema#"
+    },
+    "@graph": [
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType",
+            "@type": "skos:ConceptScheme",
+            "skos:prefLabel": {"@value": "Type of Call", "@language": "en"}
+        },
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType#CallingSong",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Calling Song", "@language": "en"},
+            "rdf:value": "CallingSong",
+            "skos:inScheme": {"@id": "https://vocab.audioblast.org/cv/callType"},
+            "skos:altLabel": [
+                {"@value": "Advertisment Song", "@language": "en"},
+                {"@value": "Proclamation Song", "@language": "en"}
+            ]
+        },
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType#CourtshipSong",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Courtship Song", "@language": "en"},
+            "rdf:value": "CourtshipSong",
+            "skos:broader": {"@id": "https://vocab.audioblast.org/cv/callType#PrematingSong"},
+            "skos:altLabel": [
+                {"@value": "Serenade Song", "@language": "en"}
+            ]
+        },
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType#PrematingSong",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Premating Song", "@language": "en"},
+            "rdf:value": "PrematingSong"
+        },
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType#RivalryCall",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Rivalry Call", "@language": "en"},
+            "rdf:value": "RivalryCall",
+            "skos:altLabel": {"@value": "Aggressive Song", "@language": "en"}
+        },
+        {
+            "@id": "https://vocab.audioblast.org/cv/callType#ProclamationSong",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Proclamation Song", "@language": "en"},
+            "rdf:value": "ProclamationSong",
+            "dcterms:isReplacedBy": {"@id": "https://vocab.audioblast.org/cv/callType#CallingSong"},
+            "owl:deprecated": true
+        }
+    ]
+}
