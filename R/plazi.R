@@ -295,17 +295,52 @@ plaziReference <- function(document, treatment) {
   heading <- xml_find_first(document, "//document")
   at <- function(name) plaziValue(xml_attr(heading, name))
   uri <- paste0("https://treatment.plazi.org/id/", treatment$uuid)
+  #A treatment's title is the name it treats, which is what it is a treatment of
+  named <- plaziName(document, at("docTitle"))
   reference <- data.frame(
     source="", id=treatment$uuid, type="incollection",
-    #A treatment's title is the name it treats, which is what it is a
-    #treatment of
-    title=at("docTitle"), author=at("docAuthor"), year=at("docDate"),
+    title=named$title, author=at("docAuthor"), year=at("docDate"),
     journal=at("docOrigin"), booktitle=at("masterDocTitle"),
     doi=sub("^https?://(dx\\.)?doi\\.org/", "", treatment$doi),
-    url=uri, info_url=uri, stringsAsFactors=FALSE)
+    note=named$note, url=uri, info_url=uri, stringsAsFactors=FALSE)
   columns <- names(getHeaders("references"))
   for (column in setdiff(columns, names(reference))) reference[[column]] <- ""
   return(reference[columns])
+}
+
+#The name a treatment treats, which is its title, and what Plazi called it
+#where that had to be corrected.
+#
+#Plazi's parser cannot read open nomenclature: a treatment of Gryllus sp.4 is
+#marked up as species="undefined-4" and titled "Gryllus undefined-4". The
+#mistake is systematic rather than occasional, it follows the printed
+#designator (sp. B becomes undefined-B), and it has travelled: Zenodo titles
+#the treatment the same way, and GBIF's backbone holds the mangled name as an
+#accepted species. Only the printed text of the name is still right, so a
+#mangled title is taken from there. The name is corrected rather than kept
+#because a reference's title is read by people, and nothing is lost by it:
+#what Plazi gave stays in note, and doi, url and info_url resolve whatever the
+#title says.
+#
+#A title that is not mangled is left alone: the printed name carries its
+#authority and Plazi's spacing, which a title should not gain.
+#' @importFrom xml2 xml_attr xml_find_all xml_text
+plaziName <- function(document, title) {
+  if (!grepl("undefined", title, fixed=TRUE)) return(list(title=title, note=""))
+  printed <- ""
+  for (name in xml_find_all(document, "//subSubSection[@type='nomenclature']//taxonomicName")) {
+    if (grepl("undefined", plaziValue(xml_attr(name, "species")), fixed=TRUE)) {
+      printed <- plaziText(paste(xml_text(xml_find_all(name, ".//text()")), collapse=" "))
+      break
+    }
+  }
+  #A mangled title with no printed name to put in its place is left as it is,
+  #rather than guessed at
+  if (printed == "") return(list(title=title, note=""))
+  return(list(title=printed,
+              note=paste0("Plazi titles this treatment \"", title,
+                          "\"; its parser reads open nomenclature as undefined. ",
+                          "The name here is the treatment's own printed text.")))
 }
 
 #The descriptions a treatment's XML gives, one for each section that holds

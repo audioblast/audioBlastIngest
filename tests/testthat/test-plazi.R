@@ -88,6 +88,39 @@ test_that("a treatment is harvested as the reference its descriptions cite", {
   expect_identical(reference$info_url, paste0("https://treatment.plazi.org/id/", treated))
 })
 
+test_that("a name Plazi could not parse is taken from the printed text", {
+  document <- plaziRead(plaziFixture("plazi-undefined.xml"), "undefined")
+
+  #Plazi reads open nomenclature as undefined: a treatment of Gryllus sp.4 is
+  #marked up species="undefined-4" and titled "Gryllus undefined-4". Zenodo
+  #and GBIF's backbone carry the mangled name too, so the printed text is the
+  #only place it survives.
+  named <- plaziName(document, "Gryllus undefined-4")
+  expect_identical(named$title, "Gryllus sp.4")
+  #What Plazi gave is kept, so the correction stays auditable
+  expect_true(grepl("Gryllus undefined-4", named$note, fixed=TRUE))
+
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  reference <- plaziReference(document, treatment)
+  expect_identical(reference$title, "Gryllus sp.4")
+  expect_true(grepl("open nomenclature", reference$note, fixed=TRUE))
+})
+
+test_that("a name Plazi parsed is left as it gives it", {
+  document <- plaziRead(plaziTreatmentXML(), treated)
+
+  #The printed name carries its authority and Plazi's spacing, which a title
+  #should not gain, so only a mangled title is replaced
+  named <- plaziName(document, "Macroxiphus sumatranus")
+  expect_identical(named$title, "Macroxiphus sumatranus")
+  expect_identical(named$note, "")
+
+  #And a mangled title with no printed name to put in its place is kept rather
+  #than guessed at
+  expect_identical(plaziName(document, "Gryllus undefined-4"),
+                   list(title="Gryllus undefined-4", note=""))
+})
+
 test_that("a description is about a taxon and rests on the treatment that says it", {
   treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
   links <- plaziLinks(c("a", "b"), treatment)
