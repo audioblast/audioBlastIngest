@@ -47,6 +47,17 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           NULL
         })
       if (is.null(data)) next
+    } else if (is.element("inaturalist", names(source))) {
+      #A failed harvest skips this source rather than every source. Each taxon
+      #group is a source of its own, so one that fails doesn't take the others
+      #with it.
+      data <- tryCatch(
+        inaturalistR(source$inaturalist$taxon_id, verbose=verbose),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
     } else if (source$type == "references") {
       #References are BibTeX (.bib) or else CSV. One that cannot be read skips
       #this source rather than every source.
