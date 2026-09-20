@@ -52,6 +52,12 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(wren$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
   expect_identical(wren$info_url, "https://xeno-canto.org/694038")
   expect_identical(wren$device, "")
+  expect_identical(wren$rights_holder, "Jos\u00e9 N\u00fa\u00f1ez")
+  #xeno-canto names a country rather than coding it, so it is left out
+  expect_identical(wren$country, "")
+  expect_identical(wren$locality, "A Coru\u00f1a, Galicia")
+  expect_identical(wren$sample_rate, "44100")
+  expect_identical(wren$channels, "")
 
   soundscape <- data[2, ]
   expect_identical(soundscape$Title, "XC700002 Soundscape")

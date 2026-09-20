@@ -158,6 +158,14 @@ xenocantoRecordings <- function(recordings) {
     license=xenocantoURL(field("lic")),
     info_url=xenocantoURL(field("url")),
     device=xenocantoDevice(field("dvc"), field("mic")),
+    #The recordist holds the rights in a xeno-canto recording. Its country is
+    #named rather than coded (e.g. Spain), so it is left out, and its channels
+    #are not given.
+    rights_holder=field("rec"),
+    country=empty,
+    locality=field("loc"),
+    sample_rate=field("smp"),
+    channels=empty,
     stringsAsFactors=FALSE)
 
   #Without audio (e.g. restricted species) there is nothing to listen to or analyse

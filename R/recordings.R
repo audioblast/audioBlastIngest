@@ -14,6 +14,9 @@
 #  and lat and lon are decimal degrees in range.
 #* type is a lower case MIME type, with the other names of the WAV and MP3
 #  types replaced by audio/x-wav and audio/mpeg, as most sources give them.
+#* sample_rate is a number of samples a second and channels a number of
+#  channels, so that a recording given as stereo has 2 of them.
+#* country is an ISO 3166-1 alpha-2 code.
 #* license and info_url are http(s) URLs.
 #
 #Normalising recordings that are already normalised leaves them unchanged.
@@ -27,7 +30,7 @@ normaliseRecordings <- function(table) {
 
   for (column in c("Date", "post_date")) {
     dates <- isoDate(table[[column]])
-    warnUnread(column, table[[column]], dates)
+    warnUnread("recordings", column, table[[column]], dates)
     table[[column]] <- dates
   }
 
@@ -41,9 +44,14 @@ normaliseRecordings <- function(table) {
   table$lat <- coordinate(table$lat, 90)
   table$lon <- coordinate(table$lon, 180)
   table$type <- mimeType(table$type)
+  table$sample_rate <- wholeNumber(table$sample_rate)
+  table$channels <- channelCount(table$channels)
+  country <- countryCode(table$country)
+  warnUnread("recordings", "country", table$country, country)
+  table$country <- country
   table$license <- httpURL(table$license)
   table$info_url <- httpURL(table$info_url)
-  for (column in c("time_of_day", "device")) {
+  for (column in c("time_of_day", "device", "rights_holder", "locality")) {
     table[[column]][!is.na(table[[column]]) & table[[column]] == ""] <- NA
   }
   return(table)
@@ -151,6 +159,33 @@ positiveNumber <- function(x) {
   return(out)
 }
 
+#Whole numbers greater than 0, written without a decimal point or an exponent,
+#or NA
+wholeNumber <- function(x) {
+  value <- suppressWarnings(as.numeric(x))
+  whole <- !is.na(value) & is.finite(value) & value > 0 & value == round(value)
+  out <- rep(NA_character_, length(x))
+  out[whole] <- format(value[whole], scientific=FALSE, trim=TRUE)
+  return(out)
+}
+
+#Numbers of channels, reading the names that sources give their channel modes
+#(mono, stereo, and the joint and dual stereo of MP3s) as the channels they
+#have; NA for anything else
+channelCount <- function(x) {
+  modes <- c("mono"=1, "single channel"=1, "stereo"=2, "joint stereo"=2, "dual channel"=2)
+  out <- wholeNumber(x)
+  mode <- match(tolower(trimws(as.character(x))), names(modes))
+  out[is.na(out) & !is.na(mode)] <- as.character(modes[mode[is.na(out) & !is.na(mode)]])
+  return(out)
+}
+
+#ISO 3166-1 alpha-2 country codes, in upper case; NA for anything else
+countryCode <- function(x) {
+  x <- toupper(trimws(as.character(x)))
+  return(ifelse(!is.na(x) & grepl("^[A-Z]{2}$", x), x, NA_character_))
+}
+
 #Decimal degrees no further than limit from 0 (90 for latitudes, 180 for
 #longitudes), or NA
 coordinate <- function(x, limit) {
@@ -179,13 +214,14 @@ httpURL <- function(x) {
   return(ifelse(grepl("^https?://[^[:space:]/?#]+[^[:space:]]*$", x), x, NA_character_))
 }
 
-#Warns of values of a column that couldn't be read, so are left out
+#Warns of values of a column of records (recordings, specimens...) that
+#couldn't be read, so are left out
 #' @importFrom utils head
-warnUnread <- function(column, values, read) {
+warnUnread <- function(records, column, values, read) {
   unread <- !is.na(values) & values != "" & is.na(read)
   if (any(unread)) {
     examples <- paste0("\"", head(unique(values[unread]), 3), "\"", collapse=", ")
-    warning(sum(unread), " recordings have a ", column, " that could not be read, so it is left out, e.g. ",
+    warning(sum(unread), " ", records, " have a ", column, " that could not be read, so it is left out, e.g. ",
             examples, call.=FALSE)
   }
 }

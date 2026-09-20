@@ -17,6 +17,8 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   annOmate <- getHeaders("ann-o-mate")
   references <- getHeaders("references")
   links <- getHeaders("links")
+  specimens <- getHeaders("specimens")
+  details <- getHeaders("details")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -116,6 +118,14 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: links"))
       links <- rbind(links, data)
     }
+    if (source$type == "specimens") {
+      if (verbose) print(paste("  type: specimens"))
+      specimens <- rbind(specimens, data)
+    }
+    if (source$type == "details") {
+      if (verbose) print(paste("  type: details"))
+      details <- rbind(details, data)
+    }
   }
 
   #Upload
@@ -135,8 +145,14 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     if (nrow(references) > 0) {
       uploadReferences(db, references)
     }
+    if (nrow(specimens) > 0) {
+      uploadSpecimens(db, specimens)
+    }
     if (nrow(links) > 0) {
       uploadLinks(db, links)
+    }
+    if (nrow(details) > 0) {
+      uploadDetails(db, details)
     }
 
   }
@@ -175,7 +191,26 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "recordings") {
-    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment", "lat", "lon", "time_of_day", "license", "info_url", "device")
+    #author is who made the recording, and lat, lon, country and locality are
+    #where it was made, which is not always where a specimen was collected
+    heads <-   col_names <- c("source", "id","Title","taxon","file","author","post_date","size","size_raw","type","NonSpecimen","Date","Time","Duration", "deployment", "lat", "lon", "time_of_day", "license", "info_url", "device", "rights_holder", "country", "locality", "sample_rate", "channels")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "specimens") {
+    #The specimens and observations that recordings are of, in columns named
+    #after the Darwin Core terms they hold
+    heads <- c("source","id","scientificName","basisOfRecord","institutionCode","collectionCode","catalogNumber","otherCatalogNumbers","typeStatus","sex","lifeStage","individualCount","recordedBy","eventDate","identifiedBy","dateIdentified","identificationQualifier","associatedSequences","locality","countryCode","decimalLatitude","decimalLongitude","occurrenceRemarks","info_url")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "details") {
+    #What a record holds that has no column of its own: a name and a value,
+    #with a unit where it is measured. type and id are the record's, and a
+    #record's values of one name are numbered by delta.
+    heads <- c("source","type","id","name","delta","value","unit")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

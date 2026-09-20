@@ -83,6 +83,60 @@ uploadReferences <- function(db, table) {
   uploadRows(db, "references", columns, table, update)
 }
 
+#' Upload Specimens
+#'
+#' Adds specimens from a data frame to the database specimens table, updating
+#' specimens already in it. A specimen is the specimen or the individual that
+#' a recording is of, held in columns named after the Darwin Core terms for
+#' them. Values are normalised first, so that each column holds one form of
+#' value whichever source a specimen came from: dates are ISO 8601 dates,
+#' coordinates are decimal degrees, and remarks are plain text. Values that
+#' can't be read are uploaded as NULL.
+#'
+#' @param db database connector
+#' @param table dataframe of specimens to upload, with the columns of
+#'   getHeaders("specimens").
+#' @export
+uploadSpecimens <- function(db, table) {
+  columns <- names(getHeaders("specimens"))
+  uploadRows(db, "specimens", columns, normaliseSpecimens(table), update=columns[-(1:2)])
+}
+
+#' Upload Details
+#'
+#' Replaces the details that each source gives in the database details table
+#' with those in a data frame. A detail is one of the things a record holds
+#' that has no column of its own, such as the tape a recording was made on or
+#' the temperature it was made at: a value, named, with a unit where it is
+#' measured, belonging to the record of a data module (its type) with an id.
+#' The details a record has of one name are numbered from 0 by delta.
+#'
+#' Details that belong to no record, or that have no name or no value, are
+#' skipped with a warning. Values are made plain text, as sources often hold
+#' them as HTML. The details of each source in the data frame are deleted and
+#' the new ones inserted in one transaction, so details that a source no
+#' longer gives are removed. Empty units are uploaded as NULL.
+#'
+#' @param db database connector
+#' @param table dataframe of details to upload, with the columns of
+#'   getHeaders("details").
+#' @export
+#' @importFrom DBI dbExecute
+uploadDetails <- function(db, table) {
+  details <- normaliseDetails(table)
+  if (nrow(details) == 0) return(invisible(NULL))
+  details[which(details$unit == ""), "unit"] <- NA
+
+  columns <- names(getHeaders("details"))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(details$source)) {
+      dbExecute(db, "DELETE FROM `details` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "details", columns, details[columns], update=c("value", "unit"),
+               transaction=FALSE)
+  })
+}
+
 #Inserts values (a data frame with a column for each of columns) into a table,
 #updating the update columns of rows already there. Rows are inserted in
 #batches, each by one statement in its own transaction, so a batch that fails

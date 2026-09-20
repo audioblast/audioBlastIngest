@@ -1,0 +1,5 @@
+"id","scientificName","basisOfRecord","institutionCode","collectionCode","catalogNumber","otherCatalogNumbers","typeStatus","sex","lifeStage","individualCount","recordedBy","eventDate","identifiedBy","dateIdentified","identificationQualifier","associatedSequences","locality","countryCode","decimalLatitude","decimalLongitude","occurrenceRemarks","info_url"
+"11158","Conocephalus discolor","LivingSpecimen","NHMUK","BMNH(E)","15?","","","Male","Adult","1","David R. Ragge; J. F. Burton","1962-08-18T00:00:00","David R. Ragge","","","","","GB","50.6016535929146","-1.95290565490723","<p>On reeds.</p>
+","https://bio.acousti.ca/node/11158"
+"58493","Platycleis affinis","HumanObservation","","","","","","Female","Adult","2","K.-G. Heller","August 3, 1958","","1958","cf.","","Coto Donana","es","","","Caught at light &amp; released",""
+"6873","Gryllus campestris","PreservedSpecimen","NHMUK","","","BMNH(E) 1234","Paratype","","","0","","","","","","","","Spain","91","","",""
