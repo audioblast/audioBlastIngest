@@ -53,7 +53,7 @@ uploadLinks <- function(db, table) {
 #own, so what established one can be said of it.
 recordTypes <- c("recordings", "specimens", "traits", "taxa", "references",
                  "locations", "descriptions", "deployments", "annomate",
-                 "vernacularnames", "onomatopoeia", "links")
+                 "vernacularnames", "onomatopoeia", "images", "links")
 
 #Types of record that links can join: data modules, vocabulary terms (with
 #their IRI as id) and anything else with an IRI

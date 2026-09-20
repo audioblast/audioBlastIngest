@@ -306,6 +306,46 @@ uploadOnomatopoeia <- function(db, table) {
                transaction=FALSE)
   })
 }
+
+#' Upload images
+#'
+#' Uploads images to the audioBLAST! database: the pictures a source holds,
+#' each identified by its id within its source. What an image shows - the
+#' recordings it documents, the taxon or specimen it is of, the place it was
+#' taken, the paper it came from - are links (see uploadLinks()).
+#'
+#' An image is a record rather than a value on the records that show it, so
+#' that one photograph shared by four recordings is described once, with its
+#' licence, and linked four times. An image whose source gives no licence is
+#' uploaded without one, which says nothing about what may be done with it.
+#'
+#' Images that have no id, or no file to show, are skipped with a warning.
+#' Values are normalised first, so that each column holds one form of value
+#' whichever source an image came from: file and license are http(s) URLs,
+#' type is a MIME type, size_raw, width and height are numbers, post_date is an
+#' ISO 8601 date and caption is plain text. Values that can't be read are
+#' uploaded as NULL. The images of each source in the data frame are deleted
+#' and the new ones inserted in one transaction, so one a source no longer
+#' gives is removed rather than left pointing at a file that has gone.
+#'
+#' @param db database connector
+#' @param table dataframe of images to upload, with the columns of
+#'   getHeaders("images").
+#' @export
+#' @importFrom DBI dbExecute
+uploadImages <- function(db, table) {
+  images <- normaliseImages(table)
+  if (nrow(images) == 0) return(invisible(NULL))
+
+  columns <- names(getHeaders("images"))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(images$source)) {
+      dbExecute(db, "DELETE FROM `images` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "images", columns, images[columns], update=columns[-(1:2)],
+               transaction=FALSE)
+  })
+}
 #Inserts values (a data frame with a column for each of columns) into a table,
 #updating the update columns of rows already there. Rows are inserted in
 #batches, each by one statement in its own transaction, so a batch that fails

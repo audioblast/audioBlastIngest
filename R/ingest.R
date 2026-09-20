@@ -23,6 +23,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   descriptions <- getHeaders("descriptions")
   vernacular <- getHeaders("vernacularnames")
   onomatopoeia <- getHeaders("onomatopoeia")
+  images <- getHeaders("images")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -148,6 +149,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: onomatopoeia"))
       onomatopoeia <- rbind(onomatopoeia, data)
     }
+    if (source$type == "images") {
+      if (verbose) print(paste("  type: images"))
+      images <- rbind(images, data)
+    }
   }
 
   #Upload
@@ -197,6 +202,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(onomatopoeia) > 0) {
       uploadOnomatopoeia(db, onomatopoeia)
+    }
+    if (nrow(images) > 0) {
+      uploadImages(db, images)
     }
 
   }
@@ -304,6 +312,17 @@ getHeaders <- function(type) {
     #terms they hold. The taxon a name is for, and the reference it was taken
     #from, are links.
     heads <- c("source","id","vernacularName","language","locality","remarks")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "images") {
+    #The images a source holds, each with the licence it is under, so that an
+    #image is published with the terms it may be used on rather than as a bare
+    #URL. subtype is what kind of image it is in the source's own words, such as
+    #a photograph or a scanning electron micrograph. An image that several
+    #records share is one image here, and what an image shows is links.
+    heads <- c("source","id","title","file","subtype","creator","license","post_date","type","size_raw","width","height","caption")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
