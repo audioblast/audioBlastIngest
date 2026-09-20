@@ -1,9 +1,13 @@
 #' Upload Taxa
 #'
-#' Replaces the database taxa table with contents of a data frame
+#' Adds taxa from a data frame to the database taxa table, updating taxa
+#' already in it. Each taxon has a column for its own rank and for the rank of
+#' every taxon above it (see taxonomiseR()). A source whose taxa don't reach
+#' every rank is given the ranks it doesn't use empty, and a rank the table has
+#' no column for is left out with a warning.
 #'
 #' @param db database connector
-#' @param table data.frame of taxa to upload.
+#' @param table data.frame of taxa to upload, as taxonomiseR() gives them.
 #' @export
 #' @importFrom DBI dbBind dbSendQuery
 uploadTaxa <- function(db, table) {
@@ -11,6 +15,14 @@ uploadTaxa <- function(db, table) {
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
                "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies")
+  unknown <- setdiff(names(table), columns)
+  if (length(unknown) > 0) {
+    warning("The taxa table has no column for the rank ",
+            paste(unknown, collapse=", "), ", so it is left out", call.=FALSE)
+  }
+  for (column in setdiff(columns, names(table))) {
+    table[[column]] <- rep_len(NA_character_, nrow(table))
+  }
   uploadRows(db, "taxa", columns, table[columns], update=columns[-(1:2)])
 }
 

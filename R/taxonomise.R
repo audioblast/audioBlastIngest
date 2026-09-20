@@ -1,38 +1,45 @@
 #' Process a taxonomy file
 #'
-#' Processes a taxonomy file in the format provided from BioAcoustica.
+#' Gives each taxon of a taxonomy a column for its own rank and for the rank of
+#' every taxon above it, so that a taxon can be found by its family or its
+#' order. A taxon's classification is read by following its parent, then its
+#' parent's parent, and so on; a parent that isn't in the taxonomy, or a taxon
+#' that is its own ancestor, ends the walk rather than looping. Where a rank is
+#' reached twice, because a source puts a taxon inside another of its rank, the
+#' nearest one keeps it, so that a taxon always names itself at its own rank.
 #'
-#' @param input dataframe of taxa to process.
+#' @param input dataframe of taxa to process, with the columns of
+#'   getHeaders("taxa").
 #' @return Data frame of processed data
 #' @export
+#' @importFrom stats setNames
 #' @importFrom utils read.csv
 taxonomiseR  <- function(input) {
-  ranks_used <- unique(as.character(input$Rank))
-  ranks_used <- ranks_used[ranks_used != ""]
-  col_names <- c("source", "id","taxon","parent_id", "Rank", ranks_used)
-  num_taxa <- nrow(input)
-  output <- data.frame(matrix(NA, nrow=num_taxa, ncol=length(col_names)))
-  colnames(output) <- col_names
-  output$taxon <- input$taxon
-  output$id <- input$id
-  output$parent_id <- input$parent_id
-  output$Rank <- input$Rank
-  output$source <- rep_len("bio.acousti.ca", num_taxa)
-  for (i in 1:num_taxa) {
-    rank <- as.character(input[i,"Rank"])
-    if (rank != "") {
-      output[i,rank] <- as.character(input[i, "taxon"])
-    }
-    parent_id <- as.character(input[i, "parent_id"])
-    while (parent_id != 0) {
-      parent_rank <- as.character(output[output$id==parent_id, "Rank"])
-      if (parent_rank != ""){
-       parent_name <- as.character(output[output$id==parent_id, "taxon"])
-       output[i,parent_rank] <- parent_name
+  input <- as.data.frame(lapply(input, function(x) ifelse(is.na(x), "", as.character(x))),
+                         stringsAsFactors=FALSE, check.names=FALSE)
+  ranks <- unique(input$Rank[input$Rank != ""])
+  output <- data.frame(matrix(NA_character_, nrow=nrow(input), ncol=5 + length(ranks)),
+                       stringsAsFactors=FALSE)
+  colnames(output) <- c("source", "id", "taxon", "parent_id", "Rank", ranks)
+  for (column in c("source", "id", "taxon", "parent_id", "Rank")) {
+    output[[column]] <- input[[column]]
+  }
+
+  #Taxa are looked up by id rather than searched for, as the taxonomy is walked
+  #once for each of its taxa
+  parent <- setNames(input$parent_id, input$id)
+  rank <- setNames(input$Rank, input$id)
+  taxon <- setNames(input$taxon, input$id)
+  for (i in seq_len(nrow(input))) {
+    id <- input$id[i]
+    seen <- character()
+    while (is.element(id, names(rank)) && !is.element(id, seen)) {
+      if (rank[[id]] != "" && is.na(output[i, rank[[id]]])) {
+        output[i, rank[[id]]] <- taxon[[id]]
       }
-      parent_id <- as.character(output[output$id==parent_id, "parent_id"])
+      seen <- c(seen, id)
+      id <- parent[[id]]
     }
   }
   return(output)
 }
-

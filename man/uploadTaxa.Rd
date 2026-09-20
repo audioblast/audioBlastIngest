@@ -9,8 +9,12 @@ uploadTaxa(db, table)
 \arguments{
 \item{db}{database connector}
 
-\item{table}{data.frame of taxa to upload.}
+\item{table}{data.frame of taxa to upload, as taxonomiseR() gives them.}
 }
 \description{
-Replaces the database taxa table with contents of a data frame
+Adds taxa from a data frame to the database taxa table, updating taxa
+already in it. Each taxon has a column for its own rank and for the rank of
+every taxon above it (see taxonomiseR()). A source whose taxa don't reach
+every rank is given the ranks it doesn't use empty, and a rank the table has
+no column for is left out with a warning.
 }

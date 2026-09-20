@@ -144,7 +144,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       recordings <- recordings[recordings$id != "",]
       uploadRecordings(db, recordings)
     }
-    #uploadTaxa(db, taxonomiseR(taxa))
+    if (nrow(taxa) > 0) {
+      uploadTaxa(db, taxonomiseR(taxa))
+    }
     if (nrow(deployments) > 0) {
       uploadDeployments(db, deployments)
     }

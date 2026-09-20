@@ -1,0 +1,4 @@
+"id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon"
+"1","Animalia","Animalia","","","","Kingdom","0",""
+"2","Insecta","Insecta","","","","Class","1","Animalia"
+"3","Gryllidae","Gryllidae","","","","Family","2","Insecta"

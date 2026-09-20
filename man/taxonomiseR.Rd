@@ -7,11 +7,18 @@
 taxonomiseR(input)
 }
 \arguments{
-\item{input}{dataframe of taxa to process.}
+\item{input}{dataframe of taxa to process, with the columns of
+getHeaders("taxa").}
 }
 \value{
 Data frame of processed data
 }
 \description{
-Processes a taxonomy file in the format provided from BioAcoustica.
+Gives each taxon of a taxonomy a column for its own rank and for the rank of
+every taxon above it, so that a taxon can be found by its family or its
+order. A taxon's classification is read by following its parent, then its
+parent's parent, and so on; a parent that isn't in the taxonomy, or a taxon
+that is its own ancestor, ends the walk rather than looping. Where a rank is
+reached twice, because a source puts a taxon inside another of its rank, the
+nearest one keeps it, so that a taxon always names itself at its own rank.
 }
