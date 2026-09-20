@@ -27,10 +27,13 @@
 #' @param db database connector
 #' @param table dataframe of links to upload, with the columns of
 #'   getHeaders("links").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
 #' @importFrom digest digest
-uploadLinks <- function(db, table) {
+uploadLinks <- function(db, table, replace=TRUE) {
   links <- normaliseLinks(table)
   if (nrow(links) == 0) return(invisible(NULL))
   links <- rbind(links, citedBy(links))
@@ -41,7 +44,8 @@ uploadLinks <- function(db, table) {
 
   columns <- c("source", "id", setdiff(names(getHeaders("links"))[-1], "reference"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(links$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(links$source) else character(0)) {
       dbExecute(db, "DELETE FROM `links` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "links", columns, links[columns], update=columns[-(1:2)], transaction=FALSE)

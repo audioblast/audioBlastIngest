@@ -9,7 +9,8 @@ xenocantoR(
   key = Sys.getenv("XC_API_KEY"),
   per_page = 500,
   pause = 1,
-  verbose = FALSE
+  verbose = FALSE,
+  dir = NULL
 )
 }
 \arguments{
@@ -23,12 +24,18 @@ environment variable. Keep keys out of code and version control.}
 \item{pause}{Seconds to wait between API requests.}
 
 \item{verbose}{If TRUE says more about what's going on.}
+
+\item{dir}{Directory to stream the harvest to, a CSV of each type of table,
+rather than holding it in memory. A harvest of every group is over a
+million recordings and will not fit in memory as tables; streamed, it
+holds a page, and uploadStreamed() uploads it a chunk at a time.}
 }
 \value{
 Named list of the data frames a harvest gives: the recordings, the
 details of them and of their annotations, the taxa they name, the
 sonograms of them, the annotations of them (as ann-o-mate) and the links.
-Each has an empty source column (see sourceR()).
+Each has an empty source column (see sourceR()). With dir, the paths they
+were streamed to instead.
 }
 \description{
 Harvests recording metadata from the xeno-canto API (version 3) and converts

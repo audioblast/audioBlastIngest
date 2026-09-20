@@ -211,16 +211,20 @@ uploadSpecimens <- function(db, table) {
 #' @param db database connector
 #' @param table dataframe of details to upload, with the columns of
 #'   getHeaders("details").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadDetails <- function(db, table) {
+uploadDetails <- function(db, table, replace=TRUE) {
   details <- normaliseDetails(table)
   if (nrow(details) == 0) return(invisible(NULL))
   details[which(details$unit == ""), "unit"] <- NA
 
   columns <- names(getHeaders("details"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(details$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(details$source) else character(0)) {
       dbExecute(db, "DELETE FROM `details` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "details", columns, details[columns], update=c("value", "unit"),
@@ -378,4 +382,57 @@ insertSQL <- function(name, columns, update, rows) {
     "VALUES", paste(rep(row, rows), collapse=", "),
     "ON DUPLICATE KEY UPDATE",
     paste0("`", update, "` = VALUES(`", update, "`)", collapse=", "))
+}
+
+#The upload of each type of table a harvest can stream, in the order they are
+#uploaded in. A type that replaces what its source gave before names the table
+#to empty once, before the first chunk, rather than before each of them. A
+#taxonomy is read whole: a taxon reaches its parent by walking the table it is
+#in, so a chunk holding a species without its genus would lose the walk.
+streamUploads <- list(
+  recordings=list(upload=function(db, table) uploadRecordings(db, table)),
+  taxa=list(upload=function(db, table) uploadTaxa(db, taxonomiseR(table)), whole=TRUE),
+  images=list(upload=function(db, table) uploadImages(db, table)),
+  `ann-o-mate`=list(upload=function(db, table) uploadAnnOmate(db, table)),
+  details=list(upload=function(db, table) uploadDetails(db, table, replace=FALSE),
+               replaces="details"),
+  links=list(upload=function(db, table) uploadLinks(db, table, replace=FALSE),
+             replaces="links")
+)
+
+#' Upload a streamed harvest
+#'
+#' Uploads the tables a harvest streamed to a directory (see xenocantoR()), a
+#' chunk of rows at a time, so that a source of a million recordings costs one
+#' chunk of memory rather than all of its rows at once. Each table is read from
+#' its file, given the name of the source that harvested it, and uploaded as
+#' though it had been read from a source of that type.
+#'
+#' Details and links replace what a source gave before rather than adding to
+#' it, so what it gave is removed once, before the first chunk of them, and the
+#' chunks are uploaded without removing anything themselves. A failed upload
+#' therefore leaves a source part way through being replaced, as an
+#' interrupted upload of a whole table would.
+#'
+#' @param db database connector
+#' @param source Name of the source that was harvested.
+#' @param dir Directory the harvest was streamed to.
+#' @param each Rows to upload at a time.
+#' @param verbose If TRUE says more about what's going on.
+#' @export
+#' @importFrom DBI dbExecute
+uploadStreamed <- function(db, source, dir, each=50000, verbose=FALSE) {
+  for (type in names(streamUploads)) {
+    path <- streamPath(dir, type)
+    if (!file.exists(path)) next
+    spec <- streamUploads[[type]]
+    if (!is.null(spec$replaces)) {
+      dbExecute(db, paste0("DELETE FROM `", spec$replaces, "` WHERE `source` = ?"),
+                params=list(source))
+    }
+    rows <- readStream(path, if (isTRUE(spec$whole)) -1L else each, function(chunk) {
+      spec$upload(db, sourceR(source, chunk))
+    })
+    if (verbose) print(paste0("  uploaded ", rows, " ", type))
+  }
 }

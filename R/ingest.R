@@ -43,14 +43,35 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     #and each is ingested as though it had been a source of its own.
     tables <- NULL
     if (is.element("xenocanto", names(source))) {
+      #xeno-canto's groups are over a million recordings, which will not fit in
+      #memory as tables, so the harvest is written to files as it arrives and
+      #uploaded from them a chunk at a time. A source uploaded on its own is
+      #uploaded as it would have been among the others: recordings and taxa are
+      #updated by their id, and details and links replace what this source gave
+      #before, which is its own to replace.
+      dir <- file.path(tempdir(), paste0("harvest-", gsub("[^A-Za-z0-9]+", "-", source$name)))
+      unlink(dir, recursive=TRUE)
       #A failed harvest skips this source rather than every source
-      tables <- tryCatch(
-        xenocantoR(source$xenocanto$query, verbose=verbose),
-        error=function(e) {
-          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
-          NULL
-        })
-      if (is.null(tables)) next
+      harvested <- tryCatch({
+        xenocantoR(source$xenocanto$query, verbose=verbose, dir=dir)
+        TRUE
+      }, error=function(e) {
+        warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+        FALSE
+      })
+      if (!harvested) {
+        unlink(dir, recursive=TRUE)
+        next
+      }
+      #Files are kept if the upload fails, so that a harvest of some hours is
+      #not thrown away with it
+      if (!is.null(db)) {
+        uploadStreamed(db, source$name, dir, verbose=verbose)
+        unlink(dir, recursive=TRUE)
+      } else if (verbose) {
+        print(paste("  harvested to", dir))
+      }
+      next
     } else if (is.element("inaturalist", names(source))) {
       #A failed harvest skips this source rather than every source. Each taxon
       #group is a source of its own, so one that fails doesn't take the others

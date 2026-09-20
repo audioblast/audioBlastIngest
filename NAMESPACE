@@ -21,6 +21,7 @@ export(uploadOnomatopoeia)
 export(uploadRecordings)
 export(uploadReferences)
 export(uploadSpecimens)
+export(uploadStreamed)
 export(uploadTaxa)
 export(uploadTraits)
 export(uploadVernacularNames)
@@ -57,5 +58,6 @@ importFrom(stringr,
 importFrom(utils,
   head,
   read.csv,
-  tail
+  tail,
+  write.table
 )

@@ -4,13 +4,17 @@
 \alias{uploadDetails}
 \title{Upload Details}
 \usage{
-uploadDetails(db, table)
+uploadDetails(db, table, replace = TRUE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of details to upload, with the columns of
 getHeaders("details").}
+
+\item{replace}{Whether to remove what each source gave before first. FALSE
+for a chunk of a streamed harvest, whose source has been emptied once
+already (see uploadStreamed()).}
 }
 \description{
 Replaces the details that each source gives in the database details table

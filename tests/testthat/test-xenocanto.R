@@ -503,44 +503,75 @@ ingestWithSources <- function(harvest) {
   write.csv(as.data.frame(t(legacy)), csv, row.names=FALSE)
 
   uploaded <- list()
+  #A streamed source is uploaded as it is harvested and the others at the end,
+  #so what was uploaded is every call rather than the last of them
+  collect <- function(type) {
+    force(type)
+    return(function(db, table, ...) uploaded[[type]] <<- rbind(uploaded[[type]], table))
+  }
   local_mocked_bindings(
     getSources=function() list(
       list(name="legacy", type="recordings", url=csv, process=list()),
       list(name="xeno-canto", type="recordings", xenocanto=list(query="grp:birds"), process="sourceR")),
     xenocantoR=harvest,
+    #Emptying what a source gave before is the database's, not an uploader's
+    dbExecute=function(conn, statement, params=NULL, ...) {
+      uploaded$deleted <<- c(uploaded$deleted, statement)
+      0L
+    },
     uploadTraits=function(db, table) NULL,
-    uploadDetails=function(db, table) uploaded$details <<- table,
-    uploadLinks=function(db, table) uploaded$links <<- table,
-    uploadTaxa=function(db, table) uploaded$taxa <<- table,
-    uploadImages=function(db, table) uploaded$images <<- table,
-    uploadAnnOmate=function(db, table) uploaded$annomate <<- table,
-    uploadRecordings=function(db, table) uploaded$recordings <<- table)
+    uploadDetails=collect("details"),
+    uploadLinks=collect("links"),
+    uploadTaxa=collect("taxa"),
+    uploadImages=collect("images"),
+    uploadAnnOmate=collect("annomate"),
+    uploadRecordings=collect("recordings"))
   ingestR(db="db")
   unlink(csv)
   return(uploaded)
 }
 
-xcHarvest <- function(query, ...) {
+xcHarvest <- function(query, ..., dir=NULL) {
   recordings <- xcFixture()$recordings
-  list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings),
-       taxa=xenocantoTaxa(recordings), images=xenocantoImages(recordings),
-       `ann-o-mate`=xenocantoAnnotations(recordings), links=xenocantoLinks(recordings))
+  tables <- list(recordings=xenocantoRecordings(recordings),
+                 details=xenocantoDetails(recordings),
+                 taxa=xenocantoTaxa(recordings), images=xenocantoImages(recordings),
+                 `ann-o-mate`=xenocantoAnnotations(recordings),
+                 links=xenocantoLinks(recordings))
+  if (is.null(dir)) return(tables)
+  paths <- lapply(names(tables), function(type) streamTable(dir, type, tables[[type]]))
+  names(paths) <- names(tables)
+  return(paths)
 }
 
 test_that("ingestR uploads xeno-canto recordings with other recordings sources", {
   uploaded <- ingestWithSources(xcHarvest)$recordings
 
   expect_identical(names(uploaded), names(getHeaders("recordings")))
-  expect_identical(uploaded$source, c("legacy", rep("xeno-canto", 4)))
-  expect_identical(uploaded$id, c("7", "694038", "700002", "1179094", "100000"))
+  #The streamed source is uploaded as it is harvested, the file source after
+  expect_identical(uploaded$source, c(rep("xeno-canto", 4), "legacy"))
+  expect_identical(uploaded$id, c("694038", "700002", "1179094", "100000", "7"))
+
+  legacy <- uploaded[uploaded$source == "legacy", ]
+  wren <- uploaded[uploaded$id == "694038", ]
   #Sources without lat and lon still line up with the standard columns
-  expect_identical(unlist(uploaded[1, c("deployment", "lat", "lon")], use.names=FALSE), c("pond", "", ""))
-  expect_identical(unlist(uploaded[2, c("deployment", "lat", "lon")], use.names=FALSE), c("", "42.8373", "-8.652"))
+  expect_identical(unlist(legacy[c("deployment", "lat", "lon")], use.names=FALSE), c("pond", "", ""))
+  expect_identical(unlist(wren[c("deployment", "lat", "lon")], use.names=FALSE), c("", "42.8373", "-8.652"))
   #as do sources without the columns added after them
   added <- c("time_of_day", "license", "info_url", "device")
-  expect_identical(unlist(uploaded[1, added], use.names=FALSE), c("", "", "", ""))
-  expect_identical(unlist(uploaded[2, added], use.names=FALSE),
+  expect_identical(unlist(legacy[added], use.names=FALSE), c("", "", "", ""))
+  expect_identical(unlist(wren[added], use.names=FALSE),
                    c("", "https://creativecommons.org/licenses/by-nc-sa/4.0/", "https://xeno-canto.org/694038", ""))
+})
+
+test_that("ingestR empties what a streamed source gave before, once for each table", {
+  deleted <- ingestWithSources(xcHarvest)$deleted
+
+  #Details and links replace what the source gave; the rest are updated by id
+  expect_length(deleted, 2)
+  expect_true(any(grepl("DELETE FROM `details`", deleted, fixed=TRUE)))
+  expect_true(any(grepl("DELETE FROM `links`", deleted, fixed=TRUE)))
+  expect_false(any(grepl("`recordings`", deleted, fixed=TRUE)))
 })
 
 test_that("ingestR uploads the details a harvest gives beside its recordings", {
@@ -604,4 +635,47 @@ test_that("uploadRecordings uploads lat and lon", {
   expect_identical(rows[[1]][18:21], list(NA_character_, "https://creativecommons.org/licenses/by-nc-sa/4.0/",
                                           "https://xeno-canto.org/694038", NA_character_))
   expect_identical(rows[[4]][c(13, 18)], list(NA_character_, "morning"))
+})
+
+test_that("a harvest given a directory streams to it instead of holding it", {
+  dir <- withr::local_tempdir()
+  local_mocked_bindings(curl_fetch_memory=function(url, handle) {
+    page <- as.integer(sub(".*[?&]page=([0-9]+).*", "\\1", url))
+    xcResponse(200, xcPage(list(c("1", "2"), c("2", "3"))[[page]], page, 2))
+  })
+
+  paths <- xenocantoR("grp:bats", key="secret", per_page=50, pause=0, dir=dir)
+
+  expect_identical(names(paths), c("recordings", "details", "taxa", "images",
+                                   "ann-o-mate", "links"))
+  expect_true(all(vapply(paths, is.character, logical(1))))
+
+  read <- list()
+  for (type in names(paths)) {
+    readStream(paths[[type]], -1L, function(chunk) read[[type]] <<- chunk)
+  }
+  #The same recordings as holding the harvest in memory would have given, and
+  #the one two pages both held is still harvested once
+  expect_identical(read$recordings$id, c("1", "2", "3"))
+  expect_identical(names(read$recordings), names(getHeaders("recordings")))
+  expect_identical(read$details$id, c("1", "2", "3"))
+  #A taxon every page names is written once, not once a page
+  expect_identical(read$taxa$id, c("Gryllus", "Gryllus campestris"))
+})
+
+test_that("a harvest holds nothing of a page once it has streamed it", {
+  dir <- withr::local_tempdir()
+  local_mocked_bindings(curl_fetch_memory=function(url, handle) {
+    page <- as.integer(sub(".*[?&]page=([0-9]+).*", "\\1", url))
+    xcResponse(200, xcPage(as.character(page * 2 + 0:1), page, 5))
+  })
+
+  paths <- xenocantoR("grp:bats", key="secret", per_page=50, pause=0, dir=dir)
+
+  #Five pages of two recordings, each written as it arrived
+  rows <- readStream(paths$recordings, -1L, function(chunk) invisible(NULL))
+  expect_equal(rows, 10)
+  #Streaming returns paths, so nothing of the harvest is left in memory to
+  #return: a million recordings cost a page rather than two gigabytes
+  expect_true(all(file.exists(unlist(paths[c("recordings", "details", "links")]))))
 })

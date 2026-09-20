@@ -22,10 +22,15 @@
 #' @param per_page Number of recordings per API request, from 50 to 500.
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on.
+#' @param dir Directory to stream the harvest to, a CSV of each type of table,
+#'   rather than holding it in memory. A harvest of every group is over a
+#'   million recordings and will not fit in memory as tables; streamed, it
+#'   holds a page, and uploadStreamed() uploads it a chunk at a time.
 #' @return Named list of the data frames a harvest gives: the recordings, the
 #'   details of them and of their annotations, the taxa they name, the
 #'   sonograms of them, the annotations of them (as ann-o-mate) and the links.
-#'   Each has an empty source column (see sourceR()).
+#'   Each has an empty source column (see sourceR()). With dir, the paths they
+#'   were streamed to instead.
 #' @examples
 #' \dontrun{
 #' harvest <- xenocantoR("grp:grasshoppers")
@@ -38,7 +43,8 @@
 #' }
 #' @importFrom curl new_handle
 #' @export
-xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=1, verbose=FALSE) {
+xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=1,
+                       verbose=FALSE, dir=NULL) {
   if (!is.character(query) || length(query) == 0 || any(is.na(query) | query == "")) {
     stop("query must be one or more xeno-canto search queries.")
   }
@@ -59,18 +65,31 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
                taxa=xenocantoTaxa, images=xenocantoImages,
                `ann-o-mate`=xenocantoAnnotations, links=xenocantoLinks)
 
-  #Each page is converted as it arrives and the recordings it came from let
-  #go of, as a harvest of every group is over a million recordings
+  #Each page is converted as it arrives and the recordings it came from let go
+  #of. With a dir the tables go to files as well, and nothing is held from one
+  #page to the next, which is what a harvest of every group needs: those are
+  #over a million recordings, and some two gigabytes of tables.
   seen <- new.env(hash=TRUE, parent=emptyenv())
+  named <- new.env(hash=TRUE, parent=emptyenv())
   pages <- lapply(make, function(from) list())
+  harvested <- 0
   for (q in query) {
     page <- 1
     repeat {
-      if (length(pages$recordings) > 0) Sys.sleep(pause)
+      if (harvested > 0) Sys.sleep(pause)
       response <- xenocantoFetch(q, page, as.integer(per_page), key, handle)
+      harvested <- harvested + 1
       fresh <- xenocantoFresh(response$recordings, seen)
       for (type in names(make)) {
-        pages[[type]][[length(pages[[type]]) + 1]] <- make[[type]](fresh)
+        table <- make[[type]](fresh)
+        #A taxon is one record however many recordings name it, so it is
+        #written once rather than once for every page that names it
+        if (type == "taxa") table <- xenocantoNewTaxa(table, named)
+        if (is.null(dir)) {
+          pages[[type]][[length(pages[[type]]) + 1]] <- table
+        } else {
+          streamTable(dir, type, table)
+        }
       }
       if (verbose) print(paste0("  xeno-canto ", q, ": page ", page, " of ", response$numPages))
       if (page >= as.numeric(response$numPages)) break
@@ -78,12 +97,15 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
     }
   }
 
+  if (!is.null(dir)) {
+    paths <- lapply(names(make), function(type) streamPath(dir, type))
+    names(paths) <- names(make)
+    if (verbose) print(paste("  xeno-canto harvested to", dir))
+    return(paths)
+  }
+
   data <- lapply(names(pages), function(type) xenocantoCombine(pages[[type]], type))
   names(data) <- names(pages)
-  #Every page names the taxa its recordings are about, and a taxon is one
-  #record however many recordings name it
-  data$taxa <- data$taxa[!duplicated(data$taxa$id), ]
-  rownames(data$taxa) <- NULL
   if (verbose) {
     for (type in names(data)) print(paste0("  xeno-canto ", type, ": ", nrow(data[[type]])))
   }
@@ -103,6 +125,20 @@ xenocantoCombine <- function(pages, type) {
   data <- as.data.frame(data, stringsAsFactors=FALSE, check.names=FALSE)
   rownames(data) <- NULL
   return(data)
+}
+
+#The taxa of a page that have not been named already, remembering the ones
+#that have, so that a taxon is one record however many recordings name it
+xenocantoNewTaxa <- function(taxa, named) {
+  if (nrow(taxa) == 0) return(taxa)
+  new <- vapply(taxa$id, function(id) {
+    if (!is.null(named[[id]])) return(FALSE)
+    assign(id, TRUE, envir=named)
+    return(TRUE)
+  }, logical(1), USE.NAMES=FALSE)
+  taxa <- taxa[new, , drop=FALSE]
+  rownames(taxa) <- NULL
+  return(taxa)
 }
 
 #The recordings of a page that have not been harvested already, remembering

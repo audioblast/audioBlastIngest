@@ -4,13 +4,17 @@
 \alias{uploadLinks}
 \title{Upload Links}
 \usage{
-uploadLinks(db, table)
+uploadLinks(db, table, replace = TRUE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of links to upload, with the columns of
 getHeaders("links").}
+
+\item{replace}{Whether to remove what each source gave before first. FALSE
+for a chunk of a streamed harvest, whose source has been emptied once
+already (see uploadStreamed()).}
 }
 \description{
 Replaces the links that each source gives in the database links table with
