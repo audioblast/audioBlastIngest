@@ -366,11 +366,88 @@ test_that("a harvest gives the taxa its recordings are of, and the taxa above th
   expect_identical(harvest$links$object_id, "9001")
 })
 
+test_that("a sound on two observations of one page is one recording", {
+  #The same sound on two observations that land on the same page, which the
+  #page after cannot catch
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    sound <- function(observation, taxon, name) list(
+      id=observation, observed_on="2020-07-01",
+      time_observed_at="2020-07-01T14:00:00+01:00",
+      created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1",
+      place_guess="London",
+      taxon=list(id=taxon, name=name, rank="species", parent_id=9000,
+                 ancestor_ids=list(9000, taxon), preferred_common_name=name),
+      user=list(name="A. Recordist", login="arecordist"),
+      sounds=list(list(id=136818, license_code="cc-by-nc",
+                       file_url="https://static.inaturalist.org/sounds/136818.wav?1",
+                       file_content_type="audio/x-wav", hidden=FALSE)))
+    inatResponse(200, rjson::toJSON(list(total_results=2, page=1, per_page=200,
+      results=list(sound(59940239, 153455, "Oecanthus rileyi"),
+                   sound(59947747, 226222, "Oecanthus quadripunctatus")))))
+  }))
+
+  harvest <- inaturalistR("47651", per_page=200, pause=0)
+
+  expect_identical(harvest$recordings$id, "136818")
+  expect_identical(harvest$links$object_id, c("153455", "226222"))
+})
+
+test_that("a harvest given a directory streams to it instead of holding it", {
+  dir <- withr::local_tempdir()
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    above <- as.numeric(sub(".*[?&]id_above=([0-9]+).*", "\\1", url))
+    if (above == 0) return(inatResponse(200, inatPage(c(1001, 1002), 3)))
+    inatResponse(200, inatPage(1003, 1))
+  }))
+
+  paths <- inaturalistR("47651", per_page=2, pause=0, dir=dir)
+
+  expect_identical(names(paths), c("recordings", "taxa", "links"))
+  expect_true(all(vapply(paths, is.character, logical(1))))
+
+  read <- list()
+  for (type in names(paths)) {
+    readStream(paths[[type]], -1L, function(chunk) read[[type]] <<- chunk)
+  }
+  #The same tables that holding the harvest in memory would have given
+  expect_identical(read$recordings$id, c("10010", "10020", "10030"))
+  expect_identical(names(read$recordings), names(getHeaders("recordings")))
+  expect_identical(read$links$subject_id, c("10010", "10020", "10030"))
+  #A taxon every page names is written once rather than once a page, and the
+  #taxon above it after the last page, when the harvest knows it needs it
+  expect_identical(read$taxa$id, c("9001", "9000"))
+  expect_identical(names(read$taxa), names(getHeaders("taxa")))
+})
+
+test_that("an interrupted harvest is taken up above the id it reached", {
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    above <- as.numeric(sub(".*[?&]id_above=([0-9]+).*", "\\1", url))
+    if (above < 1002) return(inatResponse(200, inatPage(c(1001, 1002), 3)))
+    inatResponse(200, inatPage(1003, 1))
+  }))
+
+  #A harvest says the id each page reached, which is what to resume above
+  expect_output(inaturalistR("47651", per_page=2, pause=0, verbose=TRUE),
+                "resume above 1002")
+
+  resumed <- inaturalistR("47651", per_page=2, pause=0, id_above="1002")
+
+  #What the first harvest would have gone on to give, and none of what it gave
+  expect_identical(resumed$recordings$id, "10030")
+  expect_identical(resumed$links$subject_id, "10030")
+  #A resumed harvest fetches the taxa it needs itself
+  expect_identical(resumed$taxa$id, c("9001", "9000"))
+})
+
 test_that("iNaturalist harvests check their arguments", {
   expect_error(inaturalistR(character(0)), "taxon_id")
   expect_error(inaturalistR("Orthoptera"), "taxon_id")
   expect_error(inaturalistR("47651", per_page=500), "per_page")
   expect_error(inaturalistR("47651", quality_grade="Research Grade"), "quality_grade")
+  expect_error(inaturalistR("47651", id_above="the last one"), "id_above")
+  #Each taxon is paged from its own place, so several cannot share a cursor
+  expect_error(inaturalistR(c("47651", "50186"), id_above="1002"),
+               "one taxon can be harvested above an id")
 })
 
 test_that("failed iNaturalist requests are retried", {

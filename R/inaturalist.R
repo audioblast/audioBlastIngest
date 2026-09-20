@@ -26,23 +26,49 @@
 #'   community has agreed.
 #' @param per_page Number of observations per API request, from 1 to 200.
 #' @param pause Seconds to wait between API requests.
-#' @param verbose If TRUE says more about what's going on.
+#' @param verbose If TRUE says more about what's going on, including the id to
+#'   resume a harvest above if it is interrupted.
+#' @param dir Directory to stream the harvest to, a CSV of each type of table,
+#'   rather than holding it in memory. A harvest of every taxon is about a
+#'   million recordings and will not fit in memory as tables; streamed, it
+#'   holds a page, and uploadStreamed() uploads it a chunk at a time.
+#' @param id_above Id to harvest the observations above, which is how an
+#'   interrupted harvest is taken up again: verbose says the id each page
+#'   reached, and a harvest started above it gives what the first one did not.
+#'   Only one taxon can be resumed at a time, as each is paged from its own
+#'   place.
 #' @return Named list of the data frames a harvest gives: the recordings, the
 #'   taxa they are of and the links saying which recording is about which
-#'   taxon. Each has an empty source column (see sourceR()).
+#'   taxon. Each has an empty source column (see sourceR()). With dir, the
+#'   paths they were streamed to instead.
 #' @examples
 #' \dontrun{
 #' harvest <- inaturalistR(c("47651", "50186"))
 #' uploadRecordings(db, sourceR("iNaturalist", harvest$recordings))
 #' uploadTaxa(db, taxonomiseR(sourceR("iNaturalist", harvest$taxa)))
 #' uploadLinks(db, sourceR("iNaturalist", harvest$links))
+#'
+#' #Every bird, which is too much to hold, streamed and uploaded a chunk at a
+#' #time, and taken up again above the last id it reached if it is interrupted
+#' inaturalistR("3", dir="birds", verbose=TRUE)
+#' uploadStreamed(db, "iNaturalist", "birds")
 #' }
 #' @importFrom curl new_handle
 #' @export
-inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=1, verbose=FALSE) {
+inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=1,
+                         verbose=FALSE, dir=NULL, id_above="0") {
   if (!is.character(taxon_id) || length(taxon_id) == 0 || any(is.na(taxon_id)) ||
       !all(grepl("^([0-9]+(,[0-9]+)*)?$", taxon_id))) {
     stop("taxon_id must be one or more iNaturalist taxon ids, or \"\" for every taxon.")
+  }
+  if (!is.character(id_above) || length(id_above) != 1 || is.na(id_above) ||
+      !grepl("^[0-9]+$", id_above)) {
+    stop("id_above must be the id to harvest the observations above.")
+  }
+  #Each taxon is paged from its own place, so resuming several at once would
+  #start the ones after the first above an id that is not theirs
+  if (id_above != "0" && length(taxon_id) > 1) {
+    stop("Only one taxon can be harvested above an id; resume them one at a time.")
   }
   if (!is.character(quality_grade) || length(quality_grade) != 1 || is.na(quality_grade) ||
       !grepl("^[a-z_]+(,[a-z_]+)*$", quality_grade)) {
@@ -58,78 +84,132 @@ inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause
     connecttimeout=30,
     timeout=300)
 
-  pages <- list()
-  taxaPages <- list()
-  linkPages <- list()
-  ancestry <- list()
+  #Each page is converted as it arrives and the observations it came from let go
+  #of. What is held from one page to the next is only what says whether a record
+  #has been given already: the sounds written, the taxa written, and the taxa
+  #above them, which are fetched once the harvest knows which it needs.
+  seen <- new.env(hash=TRUE, parent=emptyenv())
+  linked <- new.env(hash=TRUE, parent=emptyenv())
+  named <- new.env(hash=TRUE, parent=emptyenv())
+  ancestry <- new.env(hash=TRUE, parent=emptyenv())
+  types <- c("recordings", "taxa", "links")
+  pages <- lapply(types, function(type) list())
+  names(pages) <- types
+  requests <- 0
+
   for (t in taxon_id) {
     #A search is capped at 10000 results however it is paged, so each request
     #asks for the observations above the last id of the one before
-    id_above <- "0"
+    cursor <- id_above
     total <- NA_real_
     harvested <- 0
     repeat {
-      if (length(pages) > 0) Sys.sleep(pause)
-      response <- inaturalistFetch(t, quality_grade, id_above, as.integer(per_page), handle)
+      if (requests > 0) Sys.sleep(pause)
+      response <- inaturalistFetch(t, quality_grade, cursor, as.integer(per_page), handle)
+      requests <- requests + 1
       observations <- response[["results"]]
-      page <- inaturalistSounds(observations)
-      pages[[length(pages) + 1]] <- page
       #One harvest fills three tables: the recordings, the taxa they are of and
       #the links saying which recording is about which taxon
-      linkPages[[length(linkPages) + 1]] <- attr(page, "links")
-      taxa <- lapply(observations, `[[`, "taxon")
-      taxaPages[[length(taxaPages) + 1]] <- inaturalistTaxa(taxa)
-      above <- inaturalistAncestorIDs(taxa)
-      ancestry[names(above)] <- above
-      #total_results counts what is left above id_above, so the first page of a
-      #taxon is the only one that says how many there are altogether
+      tables <- inaturalistTables(observations, seen, linked, named, ancestry)
+      for (type in types) {
+        if (is.null(dir)) {
+          pages[[type]][[length(pages[[type]]) + 1]] <- tables[[type]]
+        } else {
+          streamTable(dir, type, tables[[type]])
+        }
+      }
+      #total_results counts what is left above the cursor, so the first page of
+      #a taxon is the only one that says how many there are altogether
       if (is.na(total)) total <- suppressWarnings(as.numeric(response[["total_results"]]))
       harvested <- harvested + length(observations)
+      reached <- if (length(observations) > 0) inaturalistLastID(observations) else cursor
       if (verbose) {
         print(paste0("  iNaturalist ", t, ": ", harvested, " of ",
                      ifelse(is.na(total), "?", format(total, scientific=FALSE, trim=TRUE)),
-                     " observations"))
+                     " observations, resume above ", reached))
       }
       if (length(observations) < per_page) break
-      id_above <- inaturalistLastID(observations)
+      cursor <- reached
     }
   }
 
-  data <- inaturalistCombine(pages, names(getHeaders("recordings")))
-  #An observation edited while a taxon is being paged can be read on two pages,
-  #and two taxa asked for at once can hold one observation between them
-  data <- data[!duplicated(data$id), ]
-  rownames(data) <- NULL
+  #taxonomiseR() reads a taxon's classification by following its parent, so
+  #every taxon above the ones observed has to be given too, or the walk stops at
+  #the first one missing and a species is left with only its own rank. They are
+  #fetched at the end, when the harvest knows every taxon it named.
+  wanted <- setdiff(unique(unlist(as.list(ancestry), use.names=FALSE)), ls(named))
+  if (length(wanted) > 0) {
+    above <- inaturalistTaxaByID(wanted, handle, pause=pause, verbose=verbose)
+    if (is.null(dir)) {
+      pages$taxa[[length(pages$taxa) + 1]] <- above
+    } else {
+      streamTable(dir, "taxa", above)
+    }
+  }
 
-  #One sound can be on more than one observation, where a recording has more
-  #than one taxon singing in it and its recordist entered it once for each of
-  #them. It is one recording, and it is about both taxa, so the links are kept
-  #apart by what they are about rather than one per recording. The recording's
-  #own taxon column can hold only the first of them; the links hold them all.
-  links <- inaturalistCombine(linkPages, names(getHeaders("links")))
-  links <- links[links$subject_id %in% data$id, ]
-  links <- links[!duplicated(links[c("subject_id", "object_id")]), ]
+  if (!is.null(dir)) {
+    paths <- lapply(types, function(type) streamPath(dir, type))
+    names(paths) <- types
+    if (verbose) print(paste("  iNaturalist harvested to", dir))
+    return(paths)
+  }
+
+  data <- lapply(types, function(type) {
+    inaturalistCombine(pages[[type]], names(getHeaders(type)))
+  })
+  names(data) <- types
+  if (verbose) {
+    for (type in types) print(paste0("  iNaturalist ", type, ": ", nrow(data[[type]])))
+  }
+  return(data)
+}
+
+#The tables a page of observations gives, leaving out what has been given
+#already: a sound written on an earlier page, and a taxon written on one.
+#
+#A sound can be on more than one observation, where a recording has more than
+#one taxon singing in it and its recordist entered it once for each of them. It
+#is one recording, and it is about both taxa, so a repeat of one is dropped from
+#the recordings but its link is kept: the recording's own taxon column can hold
+#only the first of them, and the links hold them all.
+inaturalistTables <- function(observations, seen, linked, named, ancestry) {
+  recordings <- inaturalistSounds(observations)
+  links <- attr(recordings, "links")
+  attr(recordings, "links") <- NULL
+
+  recordings <- recordings[!inaturalistKnown(recordings$id, seen), ]
+  rownames(recordings) <- NULL
+
+  #A link is kept apart by what it is about rather than one per recording, so
+  #the same observation reached under two taxa gives its links once
+  links <- links[!inaturalistKnown(paste(links$subject_id, links$object_id), linked), ]
   rownames(links) <- NULL
 
   #Only the taxa the recordings that were kept are of: an observation whose
   #sounds were all left out, for their licence or for having no audio, leaves
   #nothing behind for a taxon of its own to be about
-  taxa <- inaturalistCombine(taxaPages, names(getHeaders("taxa")))
-  taxa <- taxa[!duplicated(taxa$id) & taxa$id %in% links$object_id, ]
-  #taxonomiseR() reads a taxon's classification by following its parent, so
-  #every taxon above those has to be here too, or the walk stops at the first
-  #one missing and a species is left with only its own rank
-  wanted <- setdiff(unique(unlist(ancestry[taxa$id], use.names=FALSE)), taxa$id)
-  if (length(wanted) > 0) {
-    taxa <- rbind(taxa, inaturalistTaxaByID(wanted, handle, pause=pause, verbose=verbose))
-    taxa <- taxa[!duplicated(taxa$id), ]
+  taxa <- inaturalistTaxa(lapply(observations, `[[`, "taxon"))
+  taxa <- taxa[taxa$id %in% links$object_id, ]
+  above <- inaturalistAncestorIDs(lapply(observations, `[[`, "taxon"))
+  for (id in taxa$id) {
+    if (!is.null(above[[id]])) assign(id, above[[id]], envir=ancestry)
   }
+  taxa <- taxa[!inaturalistKnown(taxa$id, named), ]
   rownames(taxa) <- NULL
 
-  if (verbose) {
-    print(paste("  iNaturalist recordings:", nrow(data), "of", nrow(taxa), "taxa"))
-  }
-  return(list(recordings=data, taxa=taxa, links=links))
+  return(list(recordings=recordings, taxa=taxa, links=links))
+}
+
+#Whether each of a page's ids has been given already, marking the ones that had
+#not been so that the next page knows them
+inaturalistKnown <- function(ids, seen) {
+  #Marked as each is read rather than afterwards, so that a record given twice
+  #on one page is known the second time as well as on the page after
+  return(vapply(ids, function(id) {
+    if (!is.null(seen[[id]])) return(TRUE)
+    assign(id, TRUE, envir=seen)
+    return(FALSE)
+  }, logical(1), USE.NAMES=FALSE))
 }
 
 #The licences iNaturalist gives a sound, and the licence URL of each. They are

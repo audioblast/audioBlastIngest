@@ -9,7 +9,9 @@ inaturalistR(
   quality_grade = "research",
   per_page = 200,
   pause = 1,
-  verbose = FALSE
+  verbose = FALSE,
+  dir = NULL,
+  id_above = "0"
 )
 }
 \arguments{
@@ -25,12 +27,25 @@ community has agreed.}
 
 \item{pause}{Seconds to wait between API requests.}
 
-\item{verbose}{If TRUE says more about what's going on.}
+\item{verbose}{If TRUE says more about what's going on, including the id to
+resume a harvest above if it is interrupted.}
+
+\item{dir}{Directory to stream the harvest to, a CSV of each type of table,
+rather than holding it in memory. A harvest of every taxon is about a
+million recordings and will not fit in memory as tables; streamed, it
+holds a page, and uploadStreamed() uploads it a chunk at a time.}
+
+\item{id_above}{Id to harvest the observations above, which is how an
+interrupted harvest is taken up again: verbose says the id each page
+reached, and a harvest started above it gives what the first one did not.
+Only one taxon can be resumed at a time, as each is paged from its own
+place.}
 }
 \value{
 Named list of the data frames a harvest gives: the recordings, the
 taxa they are of and the links saying which recording is about which
-taxon. Each has an empty source column (see sourceR()).
+taxon. Each has an empty source column (see sourceR()). With dir, the
+paths they were streamed to instead.
 }
 \description{
 Harvests recording metadata from the iNaturalist API (version 2) and
@@ -58,5 +73,10 @@ harvest <- inaturalistR(c("47651", "50186"))
 uploadRecordings(db, sourceR("iNaturalist", harvest$recordings))
 uploadTaxa(db, taxonomiseR(sourceR("iNaturalist", harvest$taxa)))
 uploadLinks(db, sourceR("iNaturalist", harvest$links))
+
+#Every bird, which is too much to hold, streamed and uploaded a chunk at a
+#time, and taken up again above the last id it reached if it is interrupted
+inaturalistR("3", dir="birds", verbose=TRUE)
+uploadStreamed(db, "iNaturalist", "birds")
 }
 }
