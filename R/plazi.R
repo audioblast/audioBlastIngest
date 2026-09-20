@@ -44,12 +44,16 @@
 #'   25 to 100, so a large harvest makes a quarter as many requests. Keep
 #'   tokens out of code and version control.
 #' @param pause Seconds between requests.
+#' @param dir Directory to stream the harvest to, a CSV of each type of table,
+#'   instead of holding it all. A harvest of every acoustic treatment is some
+#'   hours of requests, and streaming it means a failed upload does not throw
+#'   those hours away (see uploadStreamed()).
 #' @param verbose If TRUE reports harvest progress.
 #' @return Named list of the data frames a harvest gives: the descriptions, the
 #'   acoustic parameters the same treatments measure as traits, the words they
 #'   render a call with as onomatopoeia, the treatments
 #'   they were read from as references, and the links. Each has an empty source
-#'   column (see sourceR()).
+#'   column (see sourceR()). With dir, the paths they were written to instead.
 #' @examples
 #' \dontrun{
 #' harvest <- plaziR()
@@ -62,7 +66,8 @@
 #' @importFrom stats setNames
 #' @export
 plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
-                   token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE) {
+                   token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE,
+                   dir=NULL) {
   if (!is.character(query) || length(query) != 1 || is.na(query) || !nzchar(query)) {
     stop("query must be a Zenodo search over the treatments.")
   }
@@ -86,61 +91,94 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
 
   found <- plaziFound(query, licenses, max, token, handle, pacing, verbose)
 
-  pages <- list()
-  cited <- list()
-  measures <- list()
-  rendered <- list()
-  linked <- list()
+  #Each treatment is converted as it arrives and the document let go of. With
+  #a dir the tables go to files as well and nothing is held from one treatment
+  #to the next, which is what a harvest of every acoustic treatment needs:
+  #those are some hours of requests, and a harvest lost to a failed upload is
+  #those hours thrown away.
+  pages <- lapply(plaziTables, function(type) list())
   for (i in seq_along(found)) {
     treatment <- found[[i]]
     pacing()
     document <- plaziRead(plaziFetch(
       paste0("https://tb.plazi.org/GgServer/xml/", treatment$uuid), handle), treatment$uuid)
-    #A treatment is read once: its sections are the descriptions and its
-    #heading is the reference they cite
-    reference <- plaziReference(document, treatment)
-    #The measured parameters are read first, because plaziSections() takes the
-    #captions out of the document as it goes
-    measured <- plaziTraits(document, treatment)
-    renderings <- plaziOnomatopoeia(document, treatment)
-    sections <- plaziSections(document, treatment$uuid)
-    #A treatment that says nothing and measures nothing is not a treatment
-    #this harvest wanted
-    if (nrow(sections) == 0 && nrow(measured$traits) == 0 &&
-        nrow(renderings$onomatopoeia) == 0) next
-    pages[[length(pages) + 1]] <- sections
-    measures[[length(measures) + 1]] <- measured$traits
-    rendered[[length(rendered) + 1]] <- renderings$onomatopoeia
-    cited[[length(cited) + 1]] <- reference
-    linked[[length(linked) + 1]] <- rbind(plaziLinks(sections$id, treatment),
-                                          measured$links, renderings$links)
+    tables <- plaziHarvested(document, treatment)
+    #A treatment that says nothing, measures nothing and renders nothing is
+    #not a treatment this harvest wanted, and its reference cites nothing
+    if (all(vapply(tables[setdiff(plaziTables, c("references", "links"))],
+                   nrow, integer(1)) == 0)) next
+    for (type in plaziTables) {
+      if (is.null(dir)) {
+        pages[[type]][[length(pages[[type]]) + 1]] <- tables[[type]]
+      } else {
+        streamTable(dir, type, tables[[type]])
+      }
+    }
     if (verbose && i %% 100 == 0) message("  Plazi: ", i, " of ", length(found), " treatments")
   }
 
-  descriptions <- do.call(rbind, c(list(getHeaders("descriptions")), pages))
-  descriptions <- descriptions[!duplicated(descriptions$id), , drop=FALSE]
-  rownames(descriptions) <- NULL
-  references <- do.call(rbind, c(list(getHeaders("references")), cited))
-  references <- references[!duplicated(references$id), , drop=FALSE]
-  rownames(references) <- NULL
-  traits <- do.call(rbind, c(list(getHeaders("traits")), measures))
-  traits <- traits[!duplicated(traits$traitID), , drop=FALSE]
-  rownames(traits) <- NULL
-  onomatopoeia <- do.call(rbind, c(list(getHeaders("onomatopoeia")), rendered))
-  onomatopoeia <- onomatopoeia[!duplicated(onomatopoeia$id), , drop=FALSE]
-  rownames(onomatopoeia) <- NULL
-  links <- do.call(rbind, c(list(getHeaders("links")), linked))
-  links <- links[links$subject_id %in% c(descriptions$id, references$id, traits$traitID,
-                                         onomatopoeia$id), , drop=FALSE]
-  links <- links[!duplicated(links), , drop=FALSE]
-  rownames(links) <- NULL
-  if (verbose) {
-    message("  Plazi descriptions: ", nrow(descriptions), ", traits: ", nrow(traits),
-            ", onomatopoeia: ", nrow(onomatopoeia), ", treatments: ", nrow(references),
-            ", links: ", nrow(links))
+  if (!is.null(dir)) {
+    paths <- lapply(plaziTables, function(type) streamPath(dir, type))
+    names(paths) <- plaziTables
+    if (verbose) message("  Plazi harvested to ", dir)
+    return(paths)
   }
-  return(list(descriptions=descriptions, traits=traits, onomatopoeia=onomatopoeia,
-              references=references, links=links))
+
+  data <- lapply(plaziTables, function(type) plaziCombine(pages[[type]], type))
+  names(data) <- plaziTables
+  if (verbose) {
+    for (type in plaziTables) message("  Plazi ", type, ": ", nrow(data[[type]]))
+  }
+  return(data)
+}
+
+#The tables a Plazi harvest gives, in the order a reference is needed before
+#the records that cite it. Naming them once is what lets a table be added
+#without the harvest, the streaming or the combining being told about it.
+plaziTables <- c("references", "descriptions", "traits", "onomatopoeia", "links")
+
+#What a treatment gives, as one table of each type. The measured parameters
+#and the renderings are read before the sections, because plaziSections()
+#takes the captions out of the document as it goes.
+plaziHarvested <- function(document, treatment) {
+  measured <- plaziTraits(document, treatment)
+  renderings <- plaziOnomatopoeia(document, treatment)
+  sections <- plaziSections(document, treatment$uuid)
+  links <- rbind(plaziLinks(sections$id, treatment), measured$links, renderings$links)
+  tables <- list(
+    #A treatment is read once: its sections are the descriptions and its
+    #heading is the reference they cite
+    references=plaziReference(document, treatment),
+    descriptions=sections,
+    traits=measured$traits,
+    onomatopoeia=renderings$onomatopoeia,
+    links=links)
+  #A link whose subject this treatment did not give has nothing to join. The
+  #ids are checked against the treatment's own tables rather than the whole
+  #harvest's, which is the same answer and is the one a streamed harvest can
+  #give, having let every other treatment go.
+  held <- unlist(lapply(setdiff(plaziTables, "links"),
+                        function(type) plaziIds(tables[[type]], type)), use.names=FALSE)
+  tables$links <- tables$links[tables$links$subject_id %in% held, , drop=FALSE]
+  rownames(tables$links) <- NULL
+  return(tables[plaziTables])
+}
+
+#The ids of a table, which traits call traitID
+plaziIds <- function(table, type) {
+  if (type == "traits") return(table$traitID)
+  return(table$id)
+}
+
+#The tables of every treatment as one, with the repeats left out. Two
+#treatments should not give a record twice, as an id carries the UUID of the
+#treatment it came from, so this is the belt to the braces.
+plaziCombine <- function(tables, type) {
+  data <- do.call(rbind, c(list(getHeaders(type)), tables))
+  keep <- if (type == "links") !duplicated(data) else !duplicated(plaziIds(data, type))
+  data <- data[keep, , drop=FALSE]
+  rownames(data) <- NULL
+  return(data)
 }
 
 #The treatments that say something about sound. Plazi holds over a million

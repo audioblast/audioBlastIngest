@@ -73,17 +73,35 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
       next
     } else if (is.element("plazi", names(source))) {
-      #A failed harvest skips this source rather than every source. Everything
-      #Plazi gives comes from one harvest: the uploads delete a source's rows
-      #before inserting, so two harvests under one source name would wipe each
-      #other's links.
-      tables <- tryCatch(
-        do.call(plaziR, c(source$plazi, list(verbose=verbose))),
-        error=function(e) {
-          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
-          NULL
-        })
-      if (is.null(tables)) next
+      #Everything Plazi gives comes from one harvest: the uploads delete a
+      #source's rows before inserting, so two harvests under one source name
+      #would wipe each other's links. Reading every acoustic treatment is a
+      #request each and some hours of them, so the harvest is written to files
+      #as it arrives and uploaded from them a chunk at a time, and a failed
+      #upload does not throw those hours away.
+      dir <- file.path(tempdir(), paste0("harvest-", gsub("[^A-Za-z0-9]+", "-", source$name)))
+      unlink(dir, recursive=TRUE)
+      #A failed harvest skips this source rather than every source
+      harvested <- tryCatch({
+        do.call(plaziR, c(source$plazi, list(verbose=verbose, dir=dir)))
+        TRUE
+      }, error=function(e) {
+        warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+        FALSE
+      })
+      if (!harvested) {
+        unlink(dir, recursive=TRUE)
+        next
+      }
+      #Files are kept if the upload fails, so that a harvest of some hours is
+      #not thrown away with it
+      if (!is.null(db)) {
+        uploadStreamed(db, source$name, dir, verbose=verbose)
+        unlink(dir, recursive=TRUE)
+      } else if (verbose) {
+        print(paste("  harvested to", dir))
+      }
+      next
     } else if (is.element("inaturalist", names(source))) {
       #A failed harvest skips this source rather than every source. Each taxon
       #group is a source of its own, so one that fails doesn't take the others

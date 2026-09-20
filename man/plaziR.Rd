@@ -10,7 +10,8 @@ plaziR(
   max = Inf,
   token = Sys.getenv("ZENODO_TOKEN"),
   pause = 1,
-  verbose = FALSE
+  verbose = FALSE,
+  dir = NULL
 )
 }
 \arguments{
@@ -32,11 +33,18 @@ tokens out of code and version control.}
 \item{pause}{Seconds between requests.}
 
 \item{verbose}{If TRUE reports harvest progress.}
+
+\item{dir}{Directory to stream the harvest to, a CSV of each type of table,
+instead of holding it all. A harvest of every acoustic treatment is some
+hours of requests, and streaming it means a failed upload does not throw
+those hours away (see uploadStreamed()).}
 }
 \value{
 Named list of the data frames a harvest gives: the descriptions, the
-treatments they were read from as references, and the links. Each has an
-empty source column (see sourceR()).
+acoustic parameters the same treatments measure as traits, the words they
+render a call with as onomatopoeia, the treatments
+they were read from as references, and the links. Each has an empty source
+column (see sourceR()). With dir, the paths they were written to instead.
 }
 \description{
 Harvests what taxonomic treatments say in prose from Plazi TreatmentBank and

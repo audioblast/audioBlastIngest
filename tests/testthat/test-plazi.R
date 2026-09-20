@@ -232,3 +232,59 @@ test_that("plaziR checks what it is asked to harvest", {
   expect_error(plaziR(max=0), "max must be")
   expect_error(plaziR(pause=-1), "pause must be")
 })
+
+test_that("a treatment gives one table of each kind the harvest names", {
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+
+  #Naming the tables once is what lets one be added without the harvest, the
+  #streaming and the combining each being told about it
+  expect_identical(names(tables), plaziTables)
+  for (type in plaziTables) {
+    expect_identical(names(tables[[type]]), names(getHeaders(type)), info=type)
+  }
+  #The treatment is its own reference, and its sections are descriptions
+  expect_identical(nrow(tables$references), 1L)
+  expect_identical(tables$references$id, treated)
+  expect_identical(nrow(tables$descriptions), 1L)
+})
+
+test_that("a link whose subject the treatment did not give is left out", {
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+
+  #Checking a link against the treatment's own ids is the same answer as
+  #checking it against the whole harvest's, and is the one a streamed harvest
+  #can give, having let every other treatment go
+  held <- c(tables$references$id, tables$descriptions$id, tables$traits$traitID,
+            tables$onomatopoeia$id)
+  expect_true(all(tables$links$subject_id %in% held))
+  expect_true(nrow(tables$links) > 0)
+})
+
+test_that("a harvest streams its tables instead of holding them", {
+  dir <- withr::local_tempdir()
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+  for (type in plaziTables) streamTable(dir, type, tables[[type]])
+
+  #Every type the harvest names can be streamed and read back
+  for (type in plaziTables) {
+    path <- streamPath(dir, type)
+    expect_true(file.exists(path), info=type)
+    rows <- readStream(path, -1L, function(chunk) {
+      expect_identical(names(chunk), names(getHeaders(type)), info=type)
+    })
+    expect_identical(rows, nrow(tables[[type]]), info=type)
+  }
+})
+
+test_that("every table a Plazi harvest gives can be uploaded from a stream", {
+  #uploadStreamed() reads streamUploads rather than the directory, so a type
+  #the harvest gives that is not registered would be silently dropped
+  expect_true(all(plaziTables %in% names(streamUploads)))
+  #And a reference is uploaded before the records that cite it
+  order <- names(streamUploads)
+  expect_true(all(match("references", order) <
+                    match(setdiff(plaziTables, "references"), order)))
+})
