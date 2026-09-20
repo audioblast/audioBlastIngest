@@ -24,7 +24,8 @@ uploads <- list(
   deployments=list(upload=uploadDeployments, table="deployments", update=-(1:2)),
   "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:15),
   references=list(upload=uploadReferences, table="references", update=-(1:2)),
-  specimens=list(upload=uploadSpecimens, table="specimens", update=-(1:2), normalise=normaliseSpecimens))
+  specimens=list(upload=uploadSpecimens, table="specimens", update=-(1:2), normalise=normaliseSpecimens),
+  locations=list(upload=uploadLocations, table="locations", update=-(1:2), normalise=normaliseLocations))
 
 for (type in names(uploads)) {
   test_that(paste("Uploading", type, "inserts every row, updating rows already there"), {

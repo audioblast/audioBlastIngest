@@ -19,6 +19,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   links <- getHeaders("links")
   specimens <- getHeaders("specimens")
   details <- getHeaders("details")
+  locations <- getHeaders("locations")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -127,6 +128,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: details"))
       details <- rbind(details, data)
     }
+    if (source$type == "locations") {
+      if (verbose) print(paste("  type: locations"))
+      locations <- rbind(locations, data)
+    }
   }
 
   #Upload
@@ -155,6 +160,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(references) > 0) {
       uploadReferences(db, references)
+    }
+    if (nrow(locations) > 0) {
+      uploadLocations(db, locations)
     }
     if (nrow(specimens) > 0) {
       uploadSpecimens(db, specimens)
@@ -222,6 +230,14 @@ getHeaders <- function(type) {
     #with a unit where it is measured. type and id are the record's, and a
     #record's values of one name are numbered by delta.
     heads <- c("source","type","id","name","delta","value","unit")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "locations") {
+    #The places records were made or collected, described once however many
+    #records share them, in columns named after the Darwin Core terms they hold
+    heads <- c("source","id","name","continent","countryCode","stateProvince","county","island","islandGroup","locality","decimalLatitude","decimalLongitude","coordinateUncertaintyInMeters","geodeticDatum","georeferenceRemarks","minimumElevationInMeters","maximumElevationInMeters","info_url")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
