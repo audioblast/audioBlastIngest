@@ -23,6 +23,23 @@ plaziRenders <- paste0("onomatopoe\\w*|(transcrib|render|writ)(ed|ten)\\s+as|",
 plaziSounded <- paste0("\\b(call|song|sing|sung|vocali[sz]|cry|cries|chirp|note|",
                        "stridulat|sound|voice|utter|whistl)")
 
+#A sentence saying what an animal is called. A name that imitates the sound
+#the animal makes is a rendering of that sound as much as a name for it, so
+#it is taken here: the Malay kekek, the Kichwa yaku telele, the Brazilian
+#haja-pau and jucurutu. What is kept of its being a name is the remark.
+plaziNamed <- "\\b(name|called|known as|moniker|term for)\\b"
+
+#Sentences that say where a word came from rather than what an animal is
+#called or what it sounds like. A genus's etymology quotes as freely as a
+#rendering does: Chatogekko is "a composite word from the Spanish Chato,
+#derived from the Greek Platus, meaning flat ... and gekko from the Malay
+#gekoq, onomatopoeic of the call of Gekko gecko" -- four quoted words, of
+#which none renders this animal's call and one is a translation.
+plaziWordOrigin <- paste0("\\b(etymolog|epithet|composite word|derived from|",
+                          "derivation|from the (latin|greek|spanish|portuguese|malay|",
+                          "arabic|sanskrit|french|german)|allud|referring to|",
+                          "in reference to|named (for|after))")
+
 #The quotation marks a treatment renders a word inside, which are the
 #typesetter's rather than the keyboard's
 plaziQuoteMarks <- "\u201c\u201d\u2018\u2019\"'\u00ab\u00bb"
@@ -38,9 +55,6 @@ plaziNotRenderings <- c("etymology", "nomenclature", "vernacular_names",
 
 #The same, as a treatment writes it in a run-in heading rather than a type
 plaziNotRenderingHeading <- "^(etymolog|nomenclat|vernacular|common name|derivation|type material)"
-
-#A sentence about what something is called is about a name, wherever it sits
-plaziNaming <- "\\b(epithet|etymolog|named (for|after)|name (of|is|comes)|is named|toponym|means )"
 
 #The renderings a treatment's XML gives, with the links that say what each is
 #about and where it came from, as list(onomatopoeia=, links=).
@@ -58,10 +72,13 @@ plaziOnomatopoeia <- function(document, treatment) {
   for (paragraph in xml_find_all(document, "//paragraph")) {
     id <- plaziValue(xml_attr(paragraph, "id"))
     if (id == "") next
+    #A section given over to explaining a name holds no rendering of a call,
+    #but it can still say what a people calls the animal, so only the naming
+    #sentences in one are read
     section <- xml_find_first(paragraph, "ancestor::subSubSection")
-    if (length(section) > 0 && !is.na(section) &&
-        tolower(plaziValue(xml_attr(section, "type"))) %in% plaziNotRenderings) next
-    if (grepl(plaziNotRenderingHeading, plaziRunIn(paragraph), ignore.case=TRUE)) next
+    namesOnly <- (length(section) > 0 && !is.na(section) &&
+                  tolower(plaziValue(xml_attr(section, "type"))) %in% plaziNotRenderings) ||
+      grepl(plaziNotRenderingHeading, plaziRunIn(paragraph), ignore.case=TRUE)
     text <- plaziText(paste(xml_text(xml_find_all(paragraph, ".//text()[not(ancestor::caption)]")),
                             collapse=" "))
     if (text == "" || !grepl(plaziRenders, text, ignore.case=TRUE, perl=TRUE)) next
@@ -69,17 +86,26 @@ plaziOnomatopoeia <- function(document, treatment) {
     cited <- plaziCitations(paragraph)
     n <- 0
     for (sentence in plaziSentences(text)) {
-      if (!grepl(plaziRenders, sentence, ignore.case=TRUE, perl=TRUE) ||
-          !grepl(plaziSounded, sentence, ignore.case=TRUE, perl=TRUE)) next
-      #A sentence saying what something is called is about a name
-      if (grepl(plaziNaming, sentence, ignore.case=TRUE, perl=TRUE)) next
+      if (!grepl(plaziRenders, sentence, ignore.case=TRUE, perl=TRUE)) next
+      named <- grepl(plaziNamed, sentence, ignore.case=TRUE, perl=TRUE)
+      #A rendering has to be of a sound. A name called onomatopoeic says that
+      #already -- it is a name because of how the animal sounds -- so it is not
+      #asked to name the sound as well.
+      if (!named && !grepl(plaziSounded, sentence, ignore.case=TRUE, perl=TRUE)) next
+      if (namesOnly && !named) next
+      #Where a word came from is neither a sound nor a name for the animal
+      if (grepl(plaziWordOrigin, sentence, ignore.case=TRUE, perl=TRUE)) next
       #A sentence naming another taxon may be rendering that one's call
       if (any(vapply(others, function(name) grepl(name, sentence, fixed=TRUE), logical(1)))) next
-      for (word in plaziRenderings(sentence)) {
+      #A rendering follows the phrase that marks it, so what is quoted before
+      #that phrase is quoted for some other reason. A name does not: a
+      #treatment quotes it and then says it imitates the call, so a naming
+      #sentence is read whole.
+      for (word in plaziRenderings(sentence, whole=named)) {
         n <- n + 1
         rows[[length(rows) + 1]] <- data.frame(
           id=paste0(treatment$uuid, "#", id, "#", n), word=word,
-          remarks=plaziAttributed(sentence, cited), stringsAsFactors=FALSE)
+          remarks=plaziRemark(sentence, cited), stringsAsFactors=FALSE)
       }
     }
   }
@@ -119,11 +145,10 @@ plaziQuoted <- function(text) {
 #The words a sentence renders a sound with: what is quoted after the phrase
 #that marks the rendering. What is quoted before it is being quoted for some
 #other reason.
-plaziRenderings <- function(sentence) {
+plaziRenderings <- function(sentence, whole=FALSE) {
   marker <- regexpr(plaziRenders, sentence, ignore.case=TRUE, perl=TRUE)
   if (marker == -1) return(character(0))
-  #What is quoted before the marker is quoted for some other reason
-  words <- plaziQuoted(substr(sentence, marker, nchar(sentence)))
+  words <- plaziQuoted(if (whole) sentence else substr(sentence, marker, nchar(sentence)))
   #A rendering is the sound written out, not a sentence about it
   return(words[lengths(regmatches(words, gregexpr("\\S+", words))) <= 8])
 }
@@ -157,6 +182,19 @@ plaziCitations <- function(paragraph) {
     cited <- c(cited, plaziText(paste(xml_text(xml_find_all(citation, ".//text()")), collapse=" ")))
   }
   return(unique(cited[nzchar(cited)]))
+}
+
+#What is worth saying of a rendering beside the word itself: that the
+#treatment gives it as a name the animal is known by, which is the one thing
+#lost by holding it here rather than among the taxon's names, and who the
+#rendering is credited to.
+plaziRemark <- function(sentence, cited) {
+  remarks <- character(0)
+  if (grepl(plaziNamed, sentence, ignore.case=TRUE, perl=TRUE)) {
+    remarks <- c(remarks, "The treatment gives this as a name the taxon is known by.")
+  }
+  credit <- plaziAttributed(sentence, cited)
+  return(trimws(paste(c(remarks, credit[nzchar(credit)]), collapse=" ")))
 }
 
 #Who a sentence credits a rendering to, where it credits anyone. The reference

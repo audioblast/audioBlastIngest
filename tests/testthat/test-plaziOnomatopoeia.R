@@ -105,3 +105,46 @@ test_that("a rendering normalises to an onomatopoetic word in no stated language
   #only vocabulary that names onomatopoeia at all
   expect_true(is.na(normalised$language))
 })
+
+test_that("a name that imitates the call is a rendering, and says it is a name", {
+  #audioBlast! takes acoustic content, so a taxon's names are not its to hold --
+  #except one derived from the sound the animal makes, which is acoustic
+  found <- plaziOnomatopoeia(
+    rendering(paste("Notably, the common name of this fish in Singapore is",
+                    "\u201ckekek\u201d, the onomatopoeic moniker linked to the chirping sound."),
+              type="discussion"),
+    list(uuid="U", taxon="urn:taxon", article="", doi=""))
+  expect_equal(found$onomatopoeia$word, "kekek")
+  expect_match(found$onomatopoeia$remarks, "a name the taxon is known by")
+  #It is still about the taxon rather than denoting it, as every rendering is
+  expect_true("http://purl.obolibrary.org/obo/IAO_0000136" %in% found$links$predicate)
+  expect_false("http://purl.obolibrary.org/obo/IAO_0000219" %in% found$links$predicate)
+})
+
+test_that("a name is read wherever it sits beside the word that marks it", {
+  #A rendering follows its marker ("described as zic-zic"), but a name usually
+  #precedes it, so a naming sentence is read whole
+  expect_equal(words(paste("Popular accounts of the mysterious \u201chaja-pau\u201d, an",
+                           "onomatopoeic local name attributed to this species,",
+                           "are restricted to the east.")), "haja-pau")
+})
+
+test_that("a name called onomatopoeic need not also name the sound", {
+  #Calling a name onomatopoeic is the acoustic claim: it is a name because of
+  #how the animal sounds. A rendering still has to be of a sound.
+  expect_equal(words("Its onomatopoeic local name, \u201cjucurutu\u201d, is used in the region."),
+               "jucurutu")
+  expect_equal(length(words("It was rendered as \u201czic-zic\u201d in the report.")), 0)
+})
+
+test_that("an etymology section still gives up a name, but not a rendering", {
+  #The section explains the epithet, and mentions in passing what people call
+  #the frog; the name is wanted and the etymology is not
+  expect_equal(words(paste("According to Kohn (2002), this species has a common name",
+                           "given by Kichwa people: \u201cyaku telele\u201d (telele,",
+                           "onomatopoeic word for the calling of some frog species)."),
+                     type="etymology"), "yaku telele")
+  #but a rendering in the same section is still not read
+  expect_equal(length(words("The call is described onomatopoeically as \u201ccri-cri\u201d.",
+                            type="etymology")), 0)
+})
