@@ -2,8 +2,8 @@
 #'
 #' Harvests recording metadata from the xeno-canto API (version 3) and converts
 #' it to the audioBlast! recordings format, with the details of each recording
-#' that the recordings table has no column for and the links saying which taxa
-#' are audible in it beside the one it is of.
+#' that the recordings table has no column for, the taxa they name, and the
+#' links saying which taxon each is of and which are audible behind it.
 #'
 #' Queries are built from xeno-canto search tags
 #' (<https://xeno-canto.org/help/search>), e.g. `grp:grasshoppers` or
@@ -21,13 +21,14 @@
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on.
 #' @return Named list of the data frames a harvest gives: the recordings, the
-#'   details of them, and the links to the taxa heard in the background. Each
-#'   has an empty source column (see sourceR()).
+#'   details of them, the taxa they name and the links to those taxa. Each has
+#'   an empty source column (see sourceR()).
 #' @examples
 #' \dontrun{
 #' harvest <- xenocantoR("grp:grasshoppers")
 #' uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
 #' uploadDetails(db, sourceR("xeno-canto", harvest$details))
+#' uploadTaxa(db, taxonomiseR(sourceR("xeno-canto", harvest$taxa)))
 #' uploadLinks(db, sourceR("xeno-canto", harvest$links))
 #' }
 #' @importFrom curl new_handle
@@ -50,7 +51,7 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
 
   #The tables a harvest gives, and what makes each of them from a page
   make <- list(recordings=xenocantoRecordings, details=xenocantoDetails,
-               links=xenocantoLinks)
+               taxa=xenocantoTaxa, links=xenocantoLinks)
 
   #Each page is converted as it arrives and the recordings it came from let
   #go of, as a harvest of every group is over a million recordings
@@ -73,6 +74,10 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
 
   data <- lapply(names(pages), function(type) xenocantoCombine(pages[[type]], type))
   names(data) <- names(pages)
+  #Every page names the taxa its recordings are about, and a taxon is one
+  #record however many recordings name it
+  data$taxa <- data$taxa[!duplicated(data$taxa$id), ]
+  rownames(data$taxa) <- NULL
   if (verbose) {
     for (type in names(data)) print(paste0("  xeno-canto ", type, ": ", nrow(data[[type]])))
   }
@@ -88,7 +93,8 @@ xenocantoCombine <- function(pages, type) {
     if (is.null(values)) character(0) else values
   })
   names(data) <- headers
-  data <- as.data.frame(data, stringsAsFactors=FALSE)
+  #Taxa have columns whose names have spaces in them, which are theirs to keep
+  data <- as.data.frame(data, stringsAsFactors=FALSE, check.names=FALSE)
   rownames(data) <- NULL
   return(data)
 }
@@ -258,45 +264,114 @@ xenocantoDetails <- function(recordings) {
     detail("regnr", field("regnr"))))
 }
 
-#The taxa a recording holds the sound of beside the one it is of: the species
-#audible in the background, which xeno-canto lists in also. A recording is
-#about them as it is about its own taxon, so the relationship is the same one,
-#IAO is about, qualified to say that the taxon is not what the recording is of.
-#Without the qualifier a background species would be indistinguishable from the
-#species someone went out to record.
-#
-#The taxon is named rather than identified, as xeno-canto holds no taxonomy and
-#no audioBLAST! taxa are its own, so these links have no taxon record to reach
-#until something gives xeno-canto one. A link is allowed to name a record that
-#is not there.
-xenocantoLinks <- function(recordings) {
-  #As for details, a recording that is not in the recordings table would leave
-  #the link with no recording to reach either
-  recordings <- recordings[xenocantoField(recordings, "id") != "" &
-                             xenocantoField(recordings, "file") != ""]
-  background <- lapply(recordings, function(r) {
-    if (length(r[["_meta"]][["redacted_fields"]][["also"]]) > 0) return(character(0))
-    taxa <- vapply(r[["also"]], xenocantoText, character(1), USE.NAMES=FALSE)
-    return(unique(taxa[taxa != ""]))
-  })
-  subject <- rep(xenocantoField(recordings, "id"), lengths(background))
-  object <- unlist(background, use.names=FALSE)
-  if (is.null(object)) object <- character(0)
-  column <- function(value) rep_len(value, length(object))
+#Recordings that are in the recordings table, which are the only ones a link or
+#a detail of a recording has a record to belong to (see xenocantoRecordings())
+xenocantoUsable <- function(recordings) {
+  return(recordings[xenocantoField(recordings, "id") != "" &
+                      xenocantoField(recordings, "file") != ""])
+}
 
+#Scientific names as xeno-canto writes them: a capitalised genus and one or two
+#lower case epithets. Anything else is not the name of a taxon here, so it is
+#left out rather than made one: an also entry of "Pipistrellus sp." names no
+#species, and an identification written "cf. graellsii" is a doubt rather than
+#a name.
+xenocantoName <- function(x) {
+  x <- as.character(x)
+  x[!grepl("^[A-Z][a-z]+( [a-z-]+){1,2}$", x)] <- ""
+  return(x)
+}
+
+#The name of the taxon each recording is of, empty for a soundscape or a
+#recording nobody has identified
+xenocantoFocal <- function(recordings) {
+  field <- function(name) xenocantoField(recordings, name)
+  return(xenocantoName(xenocantoTaxon(field("gen"), field("sp"), field("ssp"),
+                                      field("grp"), field("status"))))
+}
+
+#The names of the taxa heard behind each recording, which xeno-canto lists in
+#also, as a list of one character vector per recording
+xenocantoBackground <- function(recordings) {
+  return(lapply(recordings, function(r) {
+    if (length(r[["_meta"]][["redacted_fields"]][["also"]]) > 0) return(character(0))
+    taxa <- xenocantoName(vapply(r[["also"]], xenocantoText, character(1), USE.NAMES=FALSE))
+    return(unique(taxa[taxa != ""]))
+  }))
+}
+
+#The taxa a recording is about: the one it is of, and the ones audible behind
+#it, which xeno-canto lists in also. A recording is about a background species
+#as it is about its own taxon, so the relationship is the same one, IAO is
+#about; what tells them apart is the qualifier on the background ones, without
+#which a species someone merely overheard would look like the species they went
+#out to record, and a links query by is-about would return both.
+xenocantoLinks <- function(recordings) {
+  recordings <- xenocantoUsable(recordings)
+  id <- xenocantoField(recordings, "id")
+  focal <- xenocantoFocal(recordings)
+  background <- xenocantoBackground(recordings)
+
+  return(rbind(
+    xenocantoTaxonLink(id[focal != ""], focal[focal != ""], ""),
+    xenocantoTaxonLink(rep(id, lengths(background)), unlist(background, use.names=FALSE),
+                       "https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa")))
+}
+
+#Links from recordings to the taxa they are about, in the columns of
+#getHeaders("links"). The taxon is identified by its name, which is the only
+#identifier xeno-canto has for one (see xenocantoTaxa()).
+xenocantoTaxonLink <- function(id, taxon, qualifier) {
+  if (is.null(taxon)) taxon <- character(0)
+  column <- function(value) rep_len(value, length(taxon))
   return(data.frame(
     source=column(""),
     subject_type=column("recordings"),
     subject_source=column(""),
-    subject_id=subject,
+    subject_id=id,
     predicate=column("http://purl.obolibrary.org/obo/IAO_0000136"),
     object_type=column("taxa"),
     object_source=column(""),
-    object_id=object,
-    qualifier=column("https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa"),
+    object_id=taxon,
+    qualifier=column(qualifier),
     remarks=column(""),
     reference=column(""),
     stringsAsFactors=FALSE))
+}
+
+#The taxa a page of recordings names, so that the links to them reach a record
+#rather than dangling. A taxon is identified by its name, which is the only
+#identifier xeno-canto has for one.
+#
+#xeno-canto gives no taxonomy above the name: its API returns a genus, a
+#species and a subspecies and nothing higher, and fam is a search tag whose
+#value never comes back on a recording. A name is therefore placed in the name
+#it sits in, Larus fuscus fuscus in Larus fuscus in Larus, which is a
+#classification the name itself carries rather than one invented here. The
+#orders and families the xeno-canto website browses by are not harvested, as
+#they are on its pages rather than in its API.
+xenocantoTaxa <- function(recordings) {
+  recordings <- xenocantoUsable(recordings)
+  named <- c(xenocantoFocal(recordings),
+             unlist(xenocantoBackground(recordings), use.names=FALSE))
+  named <- unique(named[!is.na(named) & named != ""])
+
+  #A name implies the taxa it sits in, so a species reaches its genus whether
+  #or not anything was recorded of the genus alone
+  taxa <- unique(unlist(lapply(strsplit(named, " ", fixed=TRUE), function(parts) {
+    vapply(seq_along(parts), function(n) paste(parts[seq_len(n)], collapse=" "),
+           character(1))
+  }), use.names=FALSE))
+  if (is.null(taxa)) taxa <- character(0)
+
+  words <- lengths(strsplit(taxa, " ", fixed=TRUE))
+  parent <- ifelse(words > 1, sub(" [^ ]+$", "", taxa), "")
+  empty <- rep_len("", length(taxa))
+  data <- data.frame(empty, taxa, taxa, empty, empty, empty, empty,
+                     c("Genus", "Species", "Subspecies")[words], parent, parent,
+                     stringsAsFactors=FALSE)
+  names(data) <- names(getHeaders("taxa"))
+  return(data)
 }
 
 #The detail of one name of each recording that has a value for it, in the
@@ -317,7 +392,9 @@ xenocantoDetail <- function(id, name, value, unit="") {
 
 #Values saying the recordist did not know, which are no detail of a recording
 xenocantoKnown <- function(x, unknown) {
-  return(ifelse(tolower(x) %in% unknown, "", x))
+  x <- as.character(x)
+  x[tolower(x) %in% unknown] <- ""
+  return(x)
 }
 
 #xeno-canto names the country a recording was made in (Spain, Russian
