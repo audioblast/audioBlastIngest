@@ -153,15 +153,17 @@ test_that("a recording is linked to the taxon it is of and the ones behind it", 
   background <- "https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa"
 
   expect_identical(names(links), names(getHeaders("links")))
-  expect_true(all(links$subject_type == "recordings" & links$object_type == "taxa"))
   #A recording is about a background species as it is about its own taxon
   expect_true(all(links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136"))
   #The sources are the linking source's own, which normaliseLinks() fills in
   expect_true(all(links$source == "" & links$subject_source == "" & links$object_source == ""))
 
+  taxa <- links[links$object_type == "taxa", ]
+  expect_true(all(taxa$subject_type == "recordings"))
+
   #The wren and the gull are identified; the soundscape and the unidentified
   #recording are of no taxon, so neither is linked to one
-  focal <- links[links$qualifier == "", ]
+  focal <- taxa[taxa$qualifier == "", ]
   expect_identical(focal$subject_id, c("694038", "100000"))
   expect_identical(focal$object_id, c("Troglodytes troglodytes", "Larus fuscus fuscus"))
 
@@ -171,9 +173,11 @@ test_that("a recording is linked to the taxon it is of and the ones behind it", 
   expect_identical(heard$subject_id, c("694038", "694038"))
   expect_identical(heard$object_id, c("Turdus viscivorus", "Parus major"))
 
-  #uploadLinks() takes them without complaint and gives each one an id
+  #uploadLinks() takes them without complaint and gives each one an id: two
+  #taxa the wren recording is of and heard behind it, the gull's own taxon,
+  #and the sonogram of the wren recording
   normalised <- normaliseLinks(sourceR("xeno-canto", links))
-  expect_equal(nrow(normalised), 4)
+  expect_equal(nrow(normalised), 5)
   expect_true(all(normalised$subject_source == "xeno-canto" &
                     normalised$object_source == "xeno-canto"))
   expect_true(all(grepl("^[0-9a-f]{40}$", normalised$id)))
@@ -184,6 +188,49 @@ test_that("a page of recordings of nothing has no links", {
   #The restricted species recording has an empty also, and no audio either
   expect_equal(nrow(xenocantoLinks(xcFixture()$recordings[2])), 0)
   expect_identical(names(xenocantoLinks(list())), names(getHeaders("links")))
+})
+
+test_that("the sonogram xeno-canto renders is an image of its own", {
+  images <- xenocantoImages(xcFixture()$recordings)
+
+  expect_identical(names(images), names(getHeaders("images")))
+  #Only the wren has a sono in the fixture, and the colour one is taken rather
+  #than the greyscale thumbnails of it
+  expect_identical(images$id, "694038-colour")
+  expect_identical(images$file,
+                   "https://xeno-canto.org/sounds/spectrograms/X/694038/colour.png")
+  expect_identical(images$subtype, "Sonogram")
+  expect_identical(images$creator, "Xeno-canto Foundation")
+  #A sonogram is under the licence of the recording it depicts
+  expect_identical(images$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+  expect_identical(images$type, "image/png")
+  expect_true(all(images$title == "" & images$post_date == "" & images$width == ""))
+
+  #uploadImages() takes it as it stands
+  normalised <- normaliseImages(sourceR("xeno-canto", images))
+  expect_equal(nrow(normalised), 1)
+  expect_identical(normalised$source, "xeno-canto")
+})
+
+test_that("a sonogram is linked to the recording it shows", {
+  links <- xenocantoLinks(xcFixture()$recordings)
+  shows <- links[links$subject_type == "images", ]
+
+  expect_identical(shows$subject_id, "694038-colour")
+  expect_identical(shows$object_type, "recordings")
+  expect_identical(shows$object_id, "694038")
+  #An image says what it shows the way bio.acousti.ca's images do
+  expect_identical(shows$predicate, "http://purl.obolibrary.org/obo/IAO_0000136")
+  expect_identical(shows$qualifier, "")
+  #and the image it names is one the harvest gives
+  expect_true(all(shows$subject_id %in% xenocantoImages(xcFixture()$recordings)$id))
+})
+
+test_that("a page with no sonograms has no images", {
+  expect_equal(nrow(xenocantoImages(list())), 0)
+  expect_identical(names(xenocantoImages(list())), names(getHeaders("images")))
+  #The restricted species has no audio, so nothing rendered a sonogram of it
+  expect_equal(nrow(xenocantoImages(xcFixture()$recordings[2])), 0)
 })
 
 test_that("the taxa a recording names are records of their own", {
@@ -291,10 +338,11 @@ test_that("xeno-canto harvests page through every query", {
 
   harvest <- xenocantoR(c("grp:bats", 'grp:"land mammals"'), key="secret", per_page=50, pause=0)
 
-  expect_identical(names(harvest), c("recordings", "details", "taxa", "links"))
+  expect_identical(names(harvest), c("recordings", "details", "taxa", "images", "links"))
   expect_identical(names(harvest$recordings), names(getHeaders("recordings")))
   expect_identical(names(harvest$details), names(getHeaders("details")))
   expect_identical(names(harvest$taxa), names(getHeaders("taxa")))
+  expect_identical(names(harvest$images), names(getHeaders("images")))
   expect_identical(names(harvest$links), names(getHeaders("links")))
   #Every page names the same cricket, which is one taxon record, not four
   expect_identical(harvest$taxa$id, c("Gryllus", "Gryllus campestris"))
@@ -404,6 +452,7 @@ ingestWithSources <- function(harvest) {
     uploadDetails=function(db, table) uploaded$details <<- table,
     uploadLinks=function(db, table) uploaded$links <<- table,
     uploadTaxa=function(db, table) uploaded$taxa <<- table,
+    uploadImages=function(db, table) uploaded$images <<- table,
     uploadRecordings=function(db, table) uploaded$recordings <<- table)
   ingestR(db="db")
   unlink(csv)
@@ -413,7 +462,8 @@ ingestWithSources <- function(harvest) {
 xcHarvest <- function(query, ...) {
   recordings <- xcFixture()$recordings
   list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings),
-       taxa=xenocantoTaxa(recordings), links=xenocantoLinks(recordings))
+       taxa=xenocantoTaxa(recordings), images=xenocantoImages(recordings),
+       links=xenocantoLinks(recordings))
 }
 
 test_that("ingestR uploads xeno-canto recordings with other recordings sources", {
@@ -443,13 +493,20 @@ test_that("ingestR uploads the details a harvest gives beside its recordings", {
 
   expect_identical(names(uploaded$links), names(getHeaders("links")))
   expect_true(all(uploaded$links$source == "xeno-canto"))
-  expect_identical(uploaded$links$object_id,
+  taxonLinks <- uploaded$links[uploaded$links$object_type == "taxa", ]
+  expect_identical(taxonLinks$object_id,
                    c("Troglodytes troglodytes", "Larus fuscus fuscus",
                      "Turdus viscivorus", "Parus major"))
 
   #The taxa those links name reach a record of their own, taxonomised on the way
   expect_true(all(uploaded$taxa$source == "xeno-canto"))
-  expect_true(all(uploaded$links$object_id %in% uploaded$taxa$id))
+  expect_true(all(taxonLinks$object_id %in% uploaded$taxa$id))
+
+  #and the sonogram links reach an image record, uploaded from the same harvest
+  imageLinks <- uploaded$links[uploaded$links$subject_type == "images", ]
+  expect_identical(imageLinks$object_id, "694038")
+  expect_true(all(imageLinks$subject_id %in% uploaded$images$id))
+  expect_true(all(uploaded$images$source == "xeno-canto"))
   expect_identical(uploaded$taxa[uploaded$taxa$id == "Larus fuscus", "Genus"], "Larus")
 })
 

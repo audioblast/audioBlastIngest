@@ -2,8 +2,9 @@
 #'
 #' Harvests recording metadata from the xeno-canto API (version 3) and converts
 #' it to the audioBlast! recordings format, with the details of each recording
-#' that the recordings table has no column for, the taxa they name, and the
-#' links saying which taxon each is of and which are audible behind it.
+#' that the recordings table has no column for, the taxa they name, the
+#' sonograms xeno-canto renders of them, and the links saying which taxon each
+#' recording is of, which are audible behind it and which sonogram shows it.
 #'
 #' Queries are built from xeno-canto search tags
 #' (<https://xeno-canto.org/help/search>), e.g. `grp:grasshoppers` or
@@ -21,14 +22,15 @@
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on.
 #' @return Named list of the data frames a harvest gives: the recordings, the
-#'   details of them, the taxa they name and the links to those taxa. Each has
-#'   an empty source column (see sourceR()).
+#'   details of them, the taxa they name, the sonograms of them and the links
+#'   to all three. Each has an empty source column (see sourceR()).
 #' @examples
 #' \dontrun{
 #' harvest <- xenocantoR("grp:grasshoppers")
 #' uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
 #' uploadDetails(db, sourceR("xeno-canto", harvest$details))
 #' uploadTaxa(db, taxonomiseR(sourceR("xeno-canto", harvest$taxa)))
+#' uploadImages(db, sourceR("xeno-canto", harvest$images))
 #' uploadLinks(db, sourceR("xeno-canto", harvest$links))
 #' }
 #' @importFrom curl new_handle
@@ -51,7 +53,7 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
 
   #The tables a harvest gives, and what makes each of them from a page
   make <- list(recordings=xenocantoRecordings, details=xenocantoDetails,
-               taxa=xenocantoTaxa, links=xenocantoLinks)
+               taxa=xenocantoTaxa, images=xenocantoImages, links=xenocantoLinks)
 
   #Each page is converted as it arrives and the recordings it came from let
   #go of, as a harvest of every group is over a million recordings
@@ -300,43 +302,119 @@ xenocantoBackground <- function(recordings) {
   }))
 }
 
-#The taxa a recording is about: the one it is of, and the ones audible behind
-#it, which xeno-canto lists in also. A recording is about a background species
-#as it is about its own taxon, so the relationship is the same one, IAO is
-#about; what tells them apart is the qualifier on the background ones, without
-#which a species someone merely overheard would look like the species they went
-#out to record, and a links query by is-about would return both.
+#Each recording xeno-canto renders a sonogram of, with the sonogram's address
+#and the licence it is under.
+#
+#Only the colour, high resolution one is taken. xeno-canto renders four
+#addresses in sono: small and med are greyscale thumbnails of the same image,
+#large is the colour one its own pages scroll, and full repeats large for a
+#recording short enough to have one. A thumbnail is the same sonogram at a
+#smaller size rather than another image of the recording, and an images record
+#holds one file, so there is nowhere here to say that one is a thumbnail of
+#another; Audiovisual Core says that with ac:variant on a service access point.
+xenocantoSonograms <- function(recordings) {
+  recordings <- xenocantoUsable(recordings)
+  file <- vapply(recordings, function(r) {
+    #A restricted species has no audio, so there is no sonogram of it either
+    if ("sono" %in% names(r[["_meta"]][["redacted_fields"]])) return("")
+    url <- httpURL(xenocantoText(r[["sono"]][["large"]]))
+    return(if (is.na(url)) "" else url)
+  }, character(1), USE.NAMES=FALSE)
+
+  has <- which(file != "")
+  return(list(
+    recording=xenocantoField(recordings, "id")[has],
+    file=file[has],
+    license=xenocantoURL(xenocantoField(recordings, "lic"))[has]))
+}
+
+#The id of a sonogram: the recording's, and what xeno-canto calls the rendering
+#(colour), so that a thumbnail of the same recording could be told from it
+#later without either of them changing id
+xenocantoImageID <- function(recording, file) {
+  #paste0() of nothing and a separator is the separator, not nothing
+  if (length(file) == 0) return(character(0))
+  return(paste0(recording, "-", sub("\\.[^.]+$", "", basename(file))))
+}
+
+#The sonograms xeno-canto renders, as images. An image is a record of its own,
+#with the licence it is under, and what it shows is a link.
+#
+#The sonogram is under the licence of the recording it depicts, which
+#xeno-canto states, and the rights in it are the foundation's rather than the
+#recordist's, which it states as well.
+xenocantoImages <- function(recordings) {
+  sonograms <- xenocantoSonograms(recordings)
+  column <- function(value) rep_len(value, length(sonograms$file))
+
+  return(data.frame(
+    source=column(""),
+    id=xenocantoImageID(sonograms$recording, sonograms$file),
+    title=column(""),
+    file=sonograms$file,
+    subtype=column("Sonogram"),
+    creator=column("Xeno-canto Foundation"),
+    license=sonograms$license,
+    #xeno-canto says when a recording was uploaded, not when it rendered the
+    #sonogram of it, and the size and the dimensions would have to be fetched
+    post_date=column(""),
+    type=xenocantoMime(sonograms$file),
+    size_raw=column(""),
+    width=column(""),
+    height=column(""),
+    caption=column(""),
+    stringsAsFactors=FALSE))
+}
+
+#What a recording is about: the taxon it is of, and the ones audible behind it,
+#which xeno-canto lists in also. A recording is about a background species as
+#it is about its own taxon, so the relationship is the same one, IAO is about;
+#what tells them apart is the qualifier on the background ones, without which a
+#species someone merely overheard would look like the species they went out to
+#record, and a links query by is-about would return both.
+#
+#A sonogram is about the recording it was rendered from, which is how
+#bio.acousti.ca's images say what they show.
 xenocantoLinks <- function(recordings) {
   recordings <- xenocantoUsable(recordings)
   id <- xenocantoField(recordings, "id")
   focal <- xenocantoFocal(recordings)
   background <- xenocantoBackground(recordings)
+  sonograms <- xenocantoSonograms(recordings)
 
   return(rbind(
     xenocantoTaxonLink(id[focal != ""], focal[focal != ""], ""),
     xenocantoTaxonLink(rep(id, lengths(background)), unlist(background, use.names=FALSE),
-                       "https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa")))
+                       "https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa"),
+    xenocantoAboutLink("images", xenocantoImageID(sonograms$recording, sonograms$file),
+                       "recordings", sonograms$recording)))
 }
 
-#Links from recordings to the taxa they are about, in the columns of
-#getHeaders("links"). The taxon is identified by its name, which is the only
-#identifier xeno-canto has for one (see xenocantoTaxa()).
-xenocantoTaxonLink <- function(id, taxon, qualifier) {
-  if (is.null(taxon)) taxon <- character(0)
-  column <- function(value) rep_len(value, length(taxon))
+#Links saying that one record is about another, in the columns of
+#getHeaders("links")
+xenocantoAboutLink <- function(subjectType, subject, objectType, object, qualifier="") {
+  if (is.null(object)) object <- character(0)
+  column <- function(value) rep_len(value, length(object))
   return(data.frame(
     source=column(""),
-    subject_type=column("recordings"),
+    subject_type=column(subjectType),
     subject_source=column(""),
-    subject_id=id,
+    subject_id=subject,
     predicate=column("http://purl.obolibrary.org/obo/IAO_0000136"),
-    object_type=column("taxa"),
+    object_type=column(objectType),
     object_source=column(""),
-    object_id=taxon,
+    object_id=object,
     qualifier=column(qualifier),
     remarks=column(""),
     reference=column(""),
     stringsAsFactors=FALSE))
+}
+
+#Links from recordings to the taxa they are about. The taxon is identified by
+#its name, which is the only identifier xeno-canto has for one (see
+#xenocantoTaxa()).
+xenocantoTaxonLink <- function(id, taxon, qualifier) {
+  return(xenocantoAboutLink("recordings", id, "taxa", taxon, qualifier))
 }
 
 #The taxa a page of recordings names, so that the links to them reach a record
@@ -459,8 +537,11 @@ xenocantoDuration <- function(x) {
   }, character(1), USE.NAMES=FALSE)
 }
 
+#The MIME type a name of a file says it is of, for the audio xeno-canto holds
+#and for the sonograms it renders
 xenocantoMime <- function(filename) {
-  types <- c(mp3="audio/mpeg", wav="audio/x-wav", flac="audio/flac", ogg="audio/ogg", m4a="audio/mp4")
+  types <- c(mp3="audio/mpeg", wav="audio/x-wav", flac="audio/flac", ogg="audio/ogg",
+             m4a="audio/mp4", png="image/png", jpg="image/jpeg", jpeg="image/jpeg")
   extension <- ifelse(grepl("\\.[[:alnum:]]+$", filename), tolower(sub("^.*\\.", "", filename)), "")
   mime <- unname(types[extension])
   mime[is.na(mime)] <- ""
