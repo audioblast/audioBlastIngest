@@ -7,7 +7,9 @@
 #
 #A value written as a number and a spread (4 \u00b1 0.5), or as a range (4-6),
 #also gets the ends of that range as min and max. Values that aren't written
-#that way leave them empty. These are not uploaded yet.
+#that way leave them empty, as do ends that are the wrong way round: those are
+#either typed backwards (0.06-0.01) or a time of day that passes midnight
+#(1630-0300), and a range of two numbers says neither.
 seperatoR <- function(input) {
   values <- strsplit(as.character(input$Value), ";", fixed=TRUE)
   values <- lapply(values, function(value) {
@@ -30,6 +32,9 @@ seperatoR <- function(input) {
   range <- rangeEnds(output$Value, "-")
   output$min <- ifelse(is.na(spread[1, ]), range[1, ], spread[1, ] - spread[2, ])
   output$max <- ifelse(is.na(spread[1, ]), range[2, ], spread[1, ] + spread[2, ])
+  backwards <- !is.na(output$min) & output$min > output$max
+  output$min[backwards] <- NA
+  output$max[backwards] <- NA
   return(output)
 }
 
