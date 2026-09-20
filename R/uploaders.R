@@ -265,6 +265,47 @@ uploadVernacularNames <- function(db, table) {
                transaction=FALSE)
   })
 }
+
+#' Upload onomatopoeia
+#'
+#' Uploads onomatopoeia and imitations to audioBlast!: the words a human
+#' language renders an animal's sound with, such as bow-wow for a dog barking,
+#' each identified by its id within its source. The taxon whose sound a
+#' rendering renders, and the reference it was taken from, are links (see
+#' uploadLinks()).
+#'
+#' A rendering is about its taxon rather than denoting it. "bark" picks out
+#' what a dog does, not the dog, so unlike a vernacular name it is never one of
+#' the names a taxon is known by, and the link to the taxon says so.
+#'
+#' Renderings that have no id, or no word, are skipped with a warning. Values
+#' are normalised first, so that each column holds one form of value whichever
+#' source a rendering came from: words, localities and remarks are plain text,
+#' as sources often hold them as HTML, a language is a BCP 47 language tag, and
+#' kind_link is the class the source's kind names. Values that can't be read
+#' are uploaded as NULL, as is a language that a source doesn't give. The
+#' renderings of each source in the data frame are deleted and the new ones
+#' inserted in one transaction, so one a source no longer gives is removed
+#' rather than left rendering nothing.
+#'
+#' @param db database connector
+#' @param table dataframe of onomatopoeia to upload, with the columns of
+#'   getHeaders("onomatopoeia").
+#' @export
+#' @importFrom DBI dbExecute
+uploadOnomatopoeia <- function(db, table) {
+  onomatopoeia <- normaliseOnomatopoeia(table)
+  if (nrow(onomatopoeia) == 0) return(invisible(NULL))
+
+  columns <- names(getHeaders("onomatopoeia"))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(onomatopoeia$source)) {
+      dbExecute(db, "DELETE FROM `onomatopoeia` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "onomatopoeia", columns, onomatopoeia[columns], update=columns[-(1:2)],
+               transaction=FALSE)
+  })
+}
 #Inserts values (a data frame with a column for each of columns) into a table,
 #updating the update columns of rows already there. Rows are inserted in
 #batches, each by one statement in its own transaction, so a batch that fails
