@@ -64,6 +64,7 @@ importFrom(xml2,
   read_xml,
   xml_attr,
   xml_find_all,
+  xml_find_first,
   xml_remove,
   xml_text
 )

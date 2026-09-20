@@ -11,7 +11,7 @@ plaziZenodoPage <- function() rjson::fromJSON(plaziFixture("plazi-zenodo-page.js
 treated <- "5B3A87E1FFAC5D4F48A2FF532C0EF9B1"
 
 test_that("a treatment's sections are converted to the descriptions format", {
-  data <- plaziSections(plaziTreatmentXML(), treated)
+  data <- plaziSections(plaziRead(plaziTreatmentXML(), treated), treated)
 
   expect_identical(names(data), names(getHeaders("descriptions")))
   expect_true(all(vapply(data, is.character, logical(1))))
@@ -30,7 +30,7 @@ test_that("a treatment's sections are converted to the descriptions format", {
 })
 
 test_that("a figure's caption is not part of what a section says", {
-  data <- plaziSections(plaziTreatmentXML(), treated)
+  data <- plaziSections(plaziRead(plaziTreatmentXML(), treated), treated)
 
   #The caption of figure 3 is set inside the distribution section because that
   #is where the figure fell on the page, not because it is about distribution
@@ -68,41 +68,74 @@ test_that("a taxon GBIF has not matched is named by Plazi's own concept", {
   expect_identical(found$article, "https://doi.org/10.11646/zootaxa.5415.1.5")
 })
 
-test_that("a description is about a taxon and rests on an article", {
+test_that("a treatment is harvested as the reference its descriptions cite", {
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  reference <- plaziReference(plaziRead(plaziTreatmentXML(), treated), treatment)
+
+  expect_identical(names(reference), names(getHeaders("references")))
+  expect_identical(nrow(reference), 1L)
+  expect_identical(reference$source, "")
+  expect_identical(reference$id, treated)
+  #A titled part of a larger work
+  expect_identical(reference$type, "incollection")
+  #A treatment's title is the name it treats
+  expect_identical(reference$title, "Macroxiphus sumatranus")
+  expect_identical(reference$year, "2024")
+  expect_identical(reference$journal, "Zootaxa 5415 (1)")
+  expect_true(startsWith(reference$booktitle, "An account on some katydids"))
+  #Its own DOI, not the article's: a treatment is deposited as a publication
+  expect_identical(reference$doi, "10.5281/zenodo.10716201")
+  expect_identical(reference$info_url, paste0("https://treatment.plazi.org/id/", treated))
+})
+
+test_that("a description is about a taxon and rests on the treatment that says it", {
   treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
   links <- plaziLinks(c("a", "b"), treatment)
 
   expect_identical(names(links), names(getHeaders("links")))
-  expect_identical(nrow(links), 4L)
-  expect_true(all(links$subject_type == "descriptions"))
-  #audioBlast! does not hold Plazi's taxa or its articles, so both are named
-  #by their IRIs rather than by a record of a module
-  expect_true(all(links$object_type == "iri"))
-  expect_identical(sort(unique(links$predicate)),
-                   c("http://purl.obolibrary.org/obo/IAO_0000136",
-                     "http://purl.org/dc/terms/source"))
+  #Two descriptions, each about a taxon and each citing the treatment, and the
+  #treatment citing the article once rather than once per description
+  expect_identical(nrow(links), 5L)
 
   about <- links[links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136", ]
   expect_identical(about$subject_id, c("a", "b"))
+  expect_true(all(about$object_type == "iri"))
   expect_true(all(about$object_id == "https://www.gbif.org/species/221747866"))
 
-  #A treatment whose article Zenodo does not give says only what it is about
+  #The treatment is cited as a record, not as a URL, so that anything else
+  #harvested from it cites the same record
+  cites <- links[links$subject_type == "descriptions" &
+                   links$predicate == "http://purl.org/dc/terms/source", ]
+  expect_identical(cites$subject_id, c("a", "b"))
+  expect_true(all(cites$object_type == "references"))
+  expect_true(all(cites$object_id == treated))
+
+  #And the treatment rests on the article it is part of
+  part <- links[links$subject_type == "references", ]
+  expect_identical(nrow(part), 1L)
+  expect_identical(part$subject_id, treated)
+  expect_identical(part$object_type, "iri")
+  expect_identical(part$object_id, "https://doi.org/10.11646/zootaxa.5415.1.5")
+
+  #A treatment whose article Zenodo does not give still cites the treatment
   treatment$article <- ""
-  expect_identical(nrow(plaziLinks(c("a", "b"), treatment)), 2L)
+  expect_identical(nrow(plaziLinks(c("a", "b"), treatment)), 4L)
   expect_identical(nrow(plaziLinks(character(), treatment)), 0L)
 })
 
 test_that("the links a harvest gives can be uploaded", {
   treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
-  links <- plaziLinks("5B3A87E1FFAC5D4F48A2FF532C0EF9B1#9B89657C", treatment)
+  links <- plaziLinks(paste0(treated, "#9B89657C"), treatment)
 
   #normaliseLinks() skips links whose types or predicate it does not know
   expect_silent(normalised <- normaliseLinks(sourceR("Plazi", links)))
-  expect_identical(nrow(normalised), 2L)
+  expect_identical(nrow(normalised), 3L)
   expect_true(all(normalised$source == "Plazi"))
-  #The object of an iri link is the IRI itself, so it keeps no source
-  expect_true(all(normalised$object_source == ""))
   expect_true(all(normalised$subject_source == "Plazi"))
+  #A reference is a record audioBlast! holds, so it takes the harvesting
+  #source; the object of an iri link is the IRI itself and takes none
+  expect_identical(normalised$object_source[normalised$object_type == "references"], "Plazi")
+  expect_true(all(normalised$object_source[normalised$object_type == "iri"] == ""))
 })
 
 test_that("text broken by the typesetting is put back together", {
@@ -148,7 +181,7 @@ test_that("topics that name an info item in other words are read", {
 })
 
 test_that("a harvested treatment normalises into the descriptions table", {
-  data <- sourceR("Plazi", plaziSections(plaziTreatmentXML(), treated))
+  data <- sourceR("Plazi", plaziSections(plaziRead(plaziTreatmentXML(), treated), treated))
   normalised <- normaliseDescriptions(data)
 
   expect_identical(nrow(normalised), 1L)

@@ -23,10 +23,14 @@
 #' Figure captions are dropped too, as a caption describes a figure and is set
 #' inside whichever section the figure falls in, not in the one it belongs to.
 #'
-#' Each description is about the taxon the treatment treats, and rests on the
-#' article it was published in, which are links (see `attr(x, "links")`).
-#' audioBlast! does not hold Plazi's taxa, so a taxon is named by GBIF where
-#' Zenodo gives it and by Plazi's taxon concept otherwise.
+#' Each description is about the taxon the treatment treats and rests on the
+#' treatment that says it, which are links. The treatment is harvested as a
+#' reference of its own: it is deposited as a publication and has its own DOI,
+#' and an article holds many treatments (61 in one of the papers sampled), so
+#' citing the article instead would not say which treatment spoke. The
+#' article is in turn what the treatment rests on. audioBlast! does not hold
+#' Plazi's taxa, so a taxon is named by GBIF where Zenodo gives it and by
+#' Plazi's taxon concept otherwise.
 #'
 #' @param query Zenodo search over the treatments, e.g. `"stridulation"`. The
 #'   default finds the treatments that say something about sound.
@@ -41,13 +45,15 @@
 #'   tokens out of code and version control.
 #' @param pause Seconds between requests.
 #' @param verbose If TRUE reports harvest progress.
-#' @return Data frame in the descriptions format, with an empty source column
-#'   (see sourceR()), and the links it gives in `attr(x, "links")`.
+#' @return Named list of the data frames a harvest gives: the descriptions, the
+#'   treatments they were read from as references, and the links. Each has an
+#'   empty source column (see sourceR()).
 #' @examples
 #' \dontrun{
-#' descriptions <- sourceR("Plazi", plaziR())
-#' uploadDescriptions(db, descriptions)
-#' uploadLinks(db, sourceR("Plazi", attr(descriptions, "links")))
+#' harvest <- plaziR()
+#' uploadReferences(db, sourceR("Plazi", harvest$references))
+#' uploadDescriptions(db, sourceR("Plazi", harvest$descriptions))
+#' uploadLinks(db, sourceR("Plazi", harvest$links))
 #' }
 #' @importFrom curl new_handle curl_escape curl_fetch_memory
 #' @importFrom rjson fromJSON
@@ -77,37 +83,41 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   }
 
   found <- plaziFound(query, licenses, max, token, handle, pacing, verbose)
-  if (length(found) == 0) {
-    if (verbose) message("  Plazi descriptions: 0")
-    empty <- getHeaders("descriptions")
-    attr(empty, "links") <- getHeaders("links")
-    return(empty)
-  }
 
   pages <- list()
+  cited <- list()
   linked <- list()
   for (i in seq_along(found)) {
     treatment <- found[[i]]
     pacing()
-    sections <- plaziSections(plaziFetch(
+    document <- plaziRead(plaziFetch(
       paste0("https://tb.plazi.org/GgServer/xml/", treatment$uuid), handle), treatment$uuid)
+    #A treatment is read once: its sections are the descriptions and its
+    #heading is the reference they cite
+    reference <- plaziReference(document, treatment)
+    sections <- plaziSections(document, treatment$uuid)
     if (nrow(sections) == 0) next
     pages[[length(pages) + 1]] <- sections
+    cited[[length(cited) + 1]] <- reference
     linked[[length(linked) + 1]] <- plaziLinks(sections$id, treatment)
     if (verbose && i %% 100 == 0) message("  Plazi: ", i, " of ", length(found), " treatments")
   }
 
-  columns <- names(getHeaders("descriptions"))
-  data <- do.call(rbind, c(list(getHeaders("descriptions")), pages))
-  data <- data[!duplicated(data$id), columns, drop=FALSE]
-  rownames(data) <- NULL
+  descriptions <- do.call(rbind, c(list(getHeaders("descriptions")), pages))
+  descriptions <- descriptions[!duplicated(descriptions$id), , drop=FALSE]
+  rownames(descriptions) <- NULL
+  references <- do.call(rbind, c(list(getHeaders("references")), cited))
+  references <- references[!duplicated(references$id), , drop=FALSE]
+  rownames(references) <- NULL
   links <- do.call(rbind, c(list(getHeaders("links")), linked))
-  links <- links[links$subject_id %in% data$id, , drop=FALSE]
+  links <- links[links$subject_id %in% c(descriptions$id, references$id), , drop=FALSE]
   links <- links[!duplicated(links), , drop=FALSE]
   rownames(links) <- NULL
-  attr(data, "links") <- links
-  if (verbose) message("  Plazi descriptions: ", nrow(data), ", links: ", nrow(links))
-  return(data)
+  if (verbose) {
+    message("  Plazi descriptions: ", nrow(descriptions), ", treatments: ",
+            nrow(references), ", links: ", nrow(links))
+  }
+  return(list(descriptions=descriptions, references=references, links=links))
 }
 
 #The treatments that say something about sound. Plazi holds over a million
@@ -204,7 +214,7 @@ plaziTreatment <- function(hit) {
   }
   if (!grepl("^[0-9A-F]{32}$", uuid)) return(NULL)
 
-  #The article a treatment was published in, which the description rests on
+  #The article a treatment is part of, which the treatment rests on in turn
   article <- ""
   taxon <- ""
   for (related in metadata[["related_identifiers"]]) {
@@ -220,7 +230,11 @@ plaziTreatment <- function(hit) {
   #Plazi names the concept a treatment defines where GBIF has not matched it
   if (taxon == "") taxon <- paste0("http://taxon-concept.plazi.org/id/", uuid)
 
+  #A treatment is deposited as a publication of its own, so it has a DOI that
+  #is not the article's. It is the treatment that says what a description
+  #says, so it is the treatment that a description cites.
   return(list(uuid=uuid, article=article, taxon=taxon,
+              doi=plaziValue(hit[["doi"]]),
               license=plaziValue(metadata[["license"]][["id"]])))
 }
 
@@ -259,13 +273,46 @@ plaziFetch <- function(url, handle, token="", backoff=plaziBackoff) {
   stop("Plazi request for ", url, " failed: ", problem)
 }
 
+#A treatment's XML, read once: its sections are the descriptions and its
+#heading is the reference they cite
+#' @importFrom xml2 read_xml
+plaziRead <- function(xml, uuid) {
+  document <- tryCatch(read_xml(xml), error=function(e) NULL)
+  if (is.null(document)) stop("Plazi treatment ", uuid, " is not valid XML.")
+  return(document)
+}
+
+#The treatment a harvest read, as the reference its descriptions cite. A
+#treatment is deposited as a publication of its own and has its own DOI, so it
+#is citable; an article holds many of them (61 in one of the papers sampled),
+#so citing the article instead would not say which treatment spoke. It is an
+#incollection because it is a titled part of a larger work, and the work it is
+#part of is a link (see plaziLinks()).
+#' @importFrom xml2 xml_attr xml_find_first
+plaziReference <- function(document, treatment) {
+  #The document element is the root of a treatment's XML, so it is matched from
+  #anywhere in the tree rather than below the context node
+  heading <- xml_find_first(document, "//document")
+  at <- function(name) plaziValue(xml_attr(heading, name))
+  uri <- paste0("https://treatment.plazi.org/id/", treatment$uuid)
+  reference <- data.frame(
+    source="", id=treatment$uuid, type="incollection",
+    #A treatment's title is the name it treats, which is what it is a
+    #treatment of
+    title=at("docTitle"), author=at("docAuthor"), year=at("docDate"),
+    journal=at("docOrigin"), booktitle=at("masterDocTitle"),
+    doi=sub("^https?://(dx\\.)?doi\\.org/", "", treatment$doi),
+    url=uri, info_url=uri, stringsAsFactors=FALSE)
+  columns <- names(getHeaders("references"))
+  for (column in setdiff(columns, names(reference))) reference[[column]] <- ""
+  return(reference[columns])
+}
+
 #The descriptions a treatment's XML gives, one for each section that holds
 #prose. A section is identified within the treatment, so a treatment that is
 #reprocessed and gains a section does not renumber the others.
-#' @importFrom xml2 read_xml xml_attr xml_find_all xml_remove xml_text
-plaziSections <- function(xml, uuid) {
-  document <- tryCatch(read_xml(xml), error=function(e) NULL)
-  if (is.null(document)) stop("Plazi treatment ", uuid, " is not valid XML.")
+#' @importFrom xml2 xml_attr xml_find_all xml_remove xml_text
+plaziSections <- function(document, uuid) {
   sections <- xml_find_all(document, ".//subSubSection")
   descriptions <- getHeaders("descriptions")
   for (section in sections) {
@@ -322,18 +369,28 @@ plaziText <- function(x) {
 plaziLinks <- function(ids, treatment) {
   links <- getHeaders("links")
   if (length(ids) == 0) return(links)
-  about <- data.frame(
-    source="", subject_type="descriptions", subject_source="", subject_id=ids,
-    predicate="http://purl.obolibrary.org/obo/IAO_0000136",
-    object_type="iri", object_source="", object_id=treatment$taxon,
-    qualifier="", remarks="", reference="", stringsAsFactors=FALSE)
-  links <- rbind(links, about)
+  link <- function(subject_type, subject_id, predicate, object_type, object_id) {
+    data.frame(source="", subject_type=subject_type, subject_source="",
+               subject_id=subject_id, predicate=predicate, object_type=object_type,
+               object_source="", object_id=object_id, qualifier="", remarks="",
+               reference="", stringsAsFactors=FALSE)
+  }
+  links <- rbind(links, link("descriptions", ids,
+                             "http://purl.obolibrary.org/obo/IAO_0000136",
+                             "iri", treatment$taxon))
+  #A description rests on the treatment that says it, which audioBlast! holds
+  #as a reference of its own, so the citation reaches a record rather than a
+  #bare IRI: the links table's reference column is resolved to a references
+  #id, so nothing could cite a treatment that was only a URL
+  links <- rbind(links, link("descriptions", ids,
+                             "http://purl.org/dc/terms/source",
+                             "references", treatment$uuid))
+  #And the treatment rests on the article it is part of, once for the
+  #treatment rather than once for each of its descriptions
   if (treatment$article != "") {
-    links <- rbind(links, data.frame(
-      source="", subject_type="descriptions", subject_source="", subject_id=ids,
-      predicate="http://purl.org/dc/terms/source",
-      object_type="iri", object_source="", object_id=treatment$article,
-      qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
+    links <- rbind(links, link("references", treatment$uuid,
+                               "http://purl.org/dc/terms/source",
+                               "iri", treatment$article))
   }
   rownames(links) <- NULL
   return(links)

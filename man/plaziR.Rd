@@ -34,8 +34,9 @@ tokens out of code and version control.}
 \item{verbose}{If TRUE reports harvest progress.}
 }
 \value{
-Data frame in the descriptions format, with an empty source column
-(see sourceR()), and the links it gives in \code{attr(x, "links")}.
+Named list of the data frames a harvest gives: the descriptions, the
+treatments they were read from as references, and the links. Each has an
+empty source column (see sourceR()).
 }
 \description{
 Harvests what taxonomic treatments say in prose from Plazi TreatmentBank and
@@ -62,15 +63,20 @@ specimens, references and taxa a treatment gives, not to what it says.
 Figure captions are dropped too, as a caption describes a figure and is set
 inside whichever section the figure falls in, not in the one it belongs to.
 
-Each description is about the taxon the treatment treats, and rests on the
-article it was published in, which are links (see \code{attr(x, "links")}).
-audioBlast! does not hold Plazi's taxa, so a taxon is named by GBIF where
-Zenodo gives it and by Plazi's taxon concept otherwise.
+Each description is about the taxon the treatment treats and rests on the
+treatment that says it, which are links. The treatment is harvested as a
+reference of its own: it is deposited as a publication and has its own DOI,
+and an article holds many treatments (61 in one of the papers sampled), so
+citing the article instead would not say which treatment spoke. The
+article is in turn what the treatment rests on. audioBlast! does not hold
+Plazi's taxa, so a taxon is named by GBIF where Zenodo gives it and by
+Plazi's taxon concept otherwise.
 }
 \examples{
 \dontrun{
-descriptions <- sourceR("Plazi", plaziR())
-uploadDescriptions(db, descriptions)
-uploadLinks(db, sourceR("Plazi", attr(descriptions, "links")))
+harvest <- plaziR()
+uploadReferences(db, sourceR("Plazi", harvest$references))
+uploadDescriptions(db, sourceR("Plazi", harvest$descriptions))
+uploadLinks(db, sourceR("Plazi", harvest$links))
 }
 }
