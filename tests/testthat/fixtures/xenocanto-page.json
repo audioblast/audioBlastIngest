@@ -102,7 +102,12 @@
             "time": "?",
             "date": "1998-06-00",
             "uploaded": "2023-03-04",
-            "also": []
+            "also": [],
+            "alt": "?",
+            "q": "no score",
+            "sex": "uncertain",
+            "stage": "uncertain",
+            "auto": "unknown"
         },
         {
             "id": "1179094",
@@ -125,7 +130,12 @@
             "time": "7.05",
             "date": "0000-00-00",
             "uploaded": "2026-09-15",
-            "also": []
+            "also": [],
+            "alt": "-",
+            "temp": "23.5",
+            "regnr": "332",
+            "method": "in the hand",
+            "stage": "uncertain"
         },
         {
             "id": 100000,
@@ -149,7 +159,10 @@
             "date": "2004-00-00",
             "uploaded": "2008-02-29",
             "also": [],
-            "smp": 48000
+            "smp": 48000,
+            "rmk": "Calling from a rooftop.",
+            "animal-seen": "no",
+            "playback-used": "unknown"
         }
     ]
 }

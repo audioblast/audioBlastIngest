@@ -36,15 +36,19 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
+    #A source gives one table, of the type it declares, unless it is harvested:
+    #a harvest gives a named table of each type it found (see xenocantoR()),
+    #and each is ingested as though it had been a source of its own.
+    tables <- NULL
     if (is.element("xenocanto", names(source))) {
       #A failed harvest skips this source rather than every source
-      data <- tryCatch(
+      tables <- tryCatch(
         xenocantoR(source$xenocanto$query, verbose=verbose),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
         })
-      if (is.null(data)) next
+      if (is.null(tables)) next
     } else if (source$type == "references") {
       #References are BibTeX (.bib) or else CSV. One that cannot be read skips
       #this source rather than every source.
@@ -62,86 +66,97 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
     }
 
-    #Map source columns to standard columns (defined in module.php)
-    if (is.element("mapping", names(source)) || is.element("override", names(source))) {
-      data <- colmap(source, data)
+    if (is.null(tables)) {
+      #Map source columns to standard columns (defined in module.php)
+      if (is.element("mapping", names(source)) || is.element("override", names(source))) {
+        data <- colmap(source, data)
+      }
+      tables <- list(data)
+      names(tables) <- source$type
     }
 
-    if (length(source$process) > 0) {
-      for (j in 1:length(source$process)) {
-        if (source$process[[j]] == "sourceR") {
-          data <- sourceR(source$name, data)
-        }
-        if (source$process[[j]] == "date2dateAndTime") {
-          data <- date2dateAndTime(data)
-        }
-        if (source$process[[j]] == "hz2khz") {
-          data <- hz2khz(data)
+    #A source's processes are run on every table it gives, so a harvest should
+    #only declare ones that suit them all: sourceR names the source of any of
+    #them, while date2dateAndTime and hz2khz read columns only some types have.
+    for (type in names(tables)) {
+      data <- tables[[type]]
+
+      if (length(source$process) > 0) {
+        for (j in 1:length(source$process)) {
+          if (source$process[[j]] == "sourceR") {
+            data <- sourceR(source$name, data)
+          }
+          if (source$process[[j]] == "date2dateAndTime") {
+            data <- date2dateAndTime(data)
+          }
+          if (source$process[[j]] == "hz2khz") {
+            data <- hz2khz(data)
+          }
         }
       }
-    }
 
-    #Sources that don't give the columns at the end of their table are given
-    #them empty: recordings lat and lon, then time_of_day, license, info_url
-    #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
-    #and max; descriptions topic_link; links reference.
-    headers <- names(getHeaders(source$type))
-    if (source$type %in% c("recordings", "traits", "descriptions", "links") &&
-        ncol(data) < length(headers)) {
-      for (column in headers[-seq_len(ncol(data))]) {
-        data[[column]] <- rep_len("", nrow(data))
+      #Sources that don't give the columns at the end of their table are given
+      #them empty: recordings lat and lon, then time_of_day, license, info_url
+      #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
+      #and max; descriptions topic_link; links reference.
+      headers <- names(getHeaders(type))
+      if (type %in% c("recordings", "traits", "descriptions", "links") &&
+          ncol(data) < length(headers)) {
+        for (column in headers[-seq_len(ncol(data))]) {
+          data[[column]] <- rep_len("", nrow(data))
+        }
       }
-    }
 
-    colnames(data) <- headers
+      colnames(data) <- headers
 
-    if (source$type == "taxa") {
-      if (verbose) print(paste("  type: taxa"))
-      taxa <- rbind(taxa, data)
-    }
-    if (source$type == "recordings") {
-      if (verbose) print(paste("  type: recordings"))
-      recordings <- rbind(recordings, data)
-    }
-    if (source$type == "traits") {
-      if (verbose) print(paste("  type: traits"))
-      traits <- rbind(traits, data)
-    }
-    if (source$type == "deployments") {
-      if (verbose) print(paste("  type: deployments"))
-      deployments <- rbind(deployments, data)
-    }
-    if (source$type == "ann-o-mate") {
-      if (verbose) print(paste("  type: annOmate"))
-      annOmate <- rbind(annOmate, data)
-    }
-    if (source$type == "references") {
-      if (verbose) print(paste("  type: references"))
-      references <- rbind(references, data)
-    }
-    if (source$type == "links") {
-      if (verbose) print(paste("  type: links"))
-      links <- rbind(links, data)
-    }
-    if (source$type == "specimens") {
-      if (verbose) print(paste("  type: specimens"))
-      specimens <- rbind(specimens, data)
-    }
-    if (source$type == "details") {
-      if (verbose) print(paste("  type: details"))
-      details <- rbind(details, data)
-    }
-    if (source$type == "locations") {
-      if (verbose) print(paste("  type: locations"))
-      locations <- rbind(locations, data)
-    }
-    if (source$type == "descriptions") {
-      if (verbose) print(paste("  type: descriptions"))
-      descriptions <- rbind(descriptions, data)
-    }
-    if (source$type == "vernacularnames") {
-      if (verbose) print(paste("  type: vernacularnames"))
-      vernacular <- rbind(vernacular, data)
+      if (type == "taxa") {
+        if (verbose) print(paste("  type: taxa"))
+        taxa <- rbind(taxa, data)
+      }
+      if (type == "recordings") {
+        if (verbose) print(paste("  type: recordings"))
+        recordings <- rbind(recordings, data)
+      }
+      if (type == "traits") {
+        if (verbose) print(paste("  type: traits"))
+        traits <- rbind(traits, data)
+      }
+      if (type == "deployments") {
+        if (verbose) print(paste("  type: deployments"))
+        deployments <- rbind(deployments, data)
+      }
+      if (type == "ann-o-mate") {
+        if (verbose) print(paste("  type: annOmate"))
+        annOmate <- rbind(annOmate, data)
+      }
+      if (type == "references") {
+        if (verbose) print(paste("  type: references"))
+        references <- rbind(references, data)
+      }
+      if (type == "links") {
+        if (verbose) print(paste("  type: links"))
+        links <- rbind(links, data)
+      }
+      if (type == "specimens") {
+        if (verbose) print(paste("  type: specimens"))
+        specimens <- rbind(specimens, data)
+      }
+      if (type == "details") {
+        if (verbose) print(paste("  type: details"))
+        details <- rbind(details, data)
+      }
+      if (type == "locations") {
+        if (verbose) print(paste("  type: locations"))
+        locations <- rbind(locations, data)
+      }
+      if (type == "descriptions") {
+        if (verbose) print(paste("  type: descriptions"))
+        descriptions <- rbind(descriptions, data)
+      }
+      if (type == "vernacularnames") {
+        if (verbose) print(paste("  type: vernacularnames"))
+        vernacular <- rbind(vernacular, data)
+      }
     }
   }
 

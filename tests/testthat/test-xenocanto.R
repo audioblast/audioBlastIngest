@@ -9,6 +9,7 @@ xcPage <- function(ids, page, numPages) {
   recordings <- lapply(ids, function(id) {
     list(id=id, gen="Gryllus", sp="campestris", ssp="", grp="grasshoppers",
          status="identified", en="Field Cricket", rec="A. Recordist",
+         cnt="United Kingdom", q="A",
          lat="51.5", lon="-0.1", type="calling song",
          file=paste0("https://xeno-canto.org/", id, "/download"),
          `file-name`=paste0("XC", id, ".mp3"), length="0:30", time="14:00",
@@ -53,8 +54,8 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(wren$info_url, "https://xeno-canto.org/694038")
   expect_identical(wren$device, "")
   expect_identical(wren$rights_holder, "Jos\u00e9 N\u00fa\u00f1ez")
-  #xeno-canto names a country rather than coding it, so it is left out
-  expect_identical(wren$country, "")
+  #xeno-canto names a country rather than coding it, so the name is read as one
+  expect_identical(wren$country, "ES")
   expect_identical(wren$locality, "A Coru\u00f1a, Galicia")
   expect_identical(wren$sample_rate, "44100")
   expect_identical(wren$channels, "")
@@ -73,6 +74,7 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(soundscape$lon, NA_character_)
   expect_identical(soundscape$license, "")
   expect_identical(soundscape$info_url, "https://xeno-canto.org/700002")
+  expect_identical(soundscape$country, "BR")
 
   mystery <- data[3, ]
   expect_identical(mystery$Title, "XC1179094 Identity unknown - call, flight call")
@@ -100,6 +102,50 @@ test_that("an empty xeno-canto page has no recordings", {
   data <- xenocantoRecordings(list())
   expect_identical(names(data), names(getHeaders("recordings")))
   expect_equal(nrow(data), 0)
+})
+
+test_that("what a recording holds beside its columns becomes its details", {
+  details <- xenocantoDetails(xcFixture()$recordings)
+
+  expect_identical(names(details), names(getHeaders("details")))
+  expect_true(all(vapply(details, is.character, logical(1))))
+  expect_true(all(details$source == "" & details$type == "recordings" & details$delta == "0"))
+  #The restricted species recording is not in the recordings table, so its
+  #details would belong to no record
+  expect_false("700001" %in% details$id)
+
+  wren <- details[details$id == "694038", ]
+  expect_identical(
+    setNames(wren$value, wren$name),
+    c(alt="30", q="A", method="field recording", sex="male", stage="adult",
+      `animal-seen`="yes", `playback-used`="no"))
+  expect_identical(wren$unit[wren$name == "alt"], "m")
+  #An automatic recording of "unknown" says nothing about the recording
+  expect_false("auto" %in% wren$name)
+
+  #A soundscape whose every extra field says the recordist did not know
+  expect_equal(nrow(details[details$id == "700002", ]), 0)
+
+  mystery <- details[details$id == "1179094", ]
+  expect_identical(
+    setNames(mystery$value, mystery$name),
+    c(temp="23.5", method="in the hand", regnr="332"))
+  expect_identical(mystery$unit[mystery$name == "temp"], "\u00b0C")
+  #An altitude of "-" is not a number, and a life stage of "uncertain" is not one
+  expect_false(any(c("alt", "stage") %in% mystery$name))
+
+  gull <- details[details$id == "100000", ]
+  expect_identical(
+    setNames(gull$value, gull$name),
+    c(`animal-seen`="no", rmk="Calling from a rooftop."))
+  #Playback of "unknown" says nothing about whether playback was used
+  expect_false("playback-used" %in% gull$name)
+})
+
+test_that("an empty xeno-canto page has no details", {
+  details <- xenocantoDetails(list())
+  expect_identical(names(details), names(getHeaders("details")))
+  expect_equal(nrow(details), 0)
 })
 
 test_that("xeno-canto values are normalised", {
@@ -132,6 +178,16 @@ test_that("xeno-canto values are normalised", {
   expect_identical(
     coordinate(c("51.5", "-180", "180.5", "", "north"), 180),
     c("51.5", "-180", NA, NA, NA))
+  #The ISO 3166-1 name, a shortening only one country has, a name in common
+  #use, and one that is no country's
+  expect_identical(
+    countryOfName(c("Russian Federation", "Bolivia", "united  states", "Laos", "Atlantis", "")),
+    c("RU", "BO", "US", "LA", NA, NA))
+  #A shortening that two countries share names neither of them
+  expect_identical(countryOfName(c("Congo", "Korea", "South Korea")), c(NA, NA, "KR"))
+  expect_warning(
+    expect_identical(xenocantoCountry(c("Spain", "Atlantis", "")), c("ES", "", "")),
+    "country that could not be read")
 })
 
 test_that("xeno-canto harvests page through every query", {
@@ -146,10 +202,17 @@ test_that("xeno-canto harvests page through every query", {
     xcResponse(200, xcPage("4", 1, 1))
   })
 
-  data <- xenocantoR(c("grp:bats", 'grp:"land mammals"'), key="secret", per_page=50, pause=0)
+  harvest <- xenocantoR(c("grp:bats", 'grp:"land mammals"'), key="secret", per_page=50, pause=0)
 
-  expect_identical(names(data), names(getHeaders("recordings")))
-  expect_identical(data$id, c("1", "2", "3", "4"))
+  expect_identical(names(harvest), c("recordings", "details"))
+  expect_identical(names(harvest$recordings), names(getHeaders("recordings")))
+  expect_identical(names(harvest$details), names(getHeaders("details")))
+  #A recording that a shifting result set puts on two pages is harvested once
+  expect_identical(harvest$recordings$id, c("1", "2", "3", "4"))
+  #and so gives its details once as well
+  expect_identical(harvest$details$id, c("1", "2", "3", "4"))
+  expect_true(all(harvest$details$name == "q"))
+  expect_identical(harvest$recordings$country, rep("GB", 4))
   expect_length(urls, 3)
   expect_match(urls[1], "?query=grp%3Abats&page=1&per_page=50&key=secret", fixed=TRUE)
   expect_match(urls[2], "&page=2&", fixed=TRUE)
@@ -240,21 +303,27 @@ ingestWithSources <- function(harvest) {
               NonSpecimen="Soundscape", Date="", Time="", Duration="60", deployment="pond")
   write.csv(as.data.frame(t(legacy)), csv, row.names=FALSE)
 
-  uploaded <- NULL
+  uploaded <- list()
   local_mocked_bindings(
     getSources=function() list(
       list(name="legacy", type="recordings", url=csv, process=list()),
       list(name="xeno-canto", type="recordings", xenocanto=list(query="grp:birds"), process="sourceR")),
     xenocantoR=harvest,
     uploadTraits=function(db, table) NULL,
-    uploadRecordings=function(db, table) uploaded <<- table)
+    uploadDetails=function(db, table) uploaded$details <<- table,
+    uploadRecordings=function(db, table) uploaded$recordings <<- table)
   ingestR(db="db")
   unlink(csv)
   return(uploaded)
 }
 
+xcHarvest <- function(query, ...) {
+  recordings <- xcFixture()$recordings
+  list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings))
+}
+
 test_that("ingestR uploads xeno-canto recordings with other recordings sources", {
-  uploaded <- ingestWithSources(function(query, ...) xenocantoRecordings(xcFixture()$recordings))
+  uploaded <- ingestWithSources(xcHarvest)$recordings
 
   expect_identical(names(uploaded), names(getHeaders("recordings")))
   expect_identical(uploaded$source, c("legacy", rep("xeno-canto", 4)))
@@ -269,11 +338,23 @@ test_that("ingestR uploads xeno-canto recordings with other recordings sources",
                    c("", "https://creativecommons.org/licenses/by-nc-sa/4.0/", "https://xeno-canto.org/694038", ""))
 })
 
+test_that("ingestR uploads the details a harvest gives beside its recordings", {
+  uploaded <- ingestWithSources(xcHarvest)
+
+  #One source gave two types of table, and each was ingested as its own type
+  expect_identical(names(uploaded$details), names(getHeaders("details")))
+  expect_true(all(uploaded$details$source == "xeno-canto"))
+  expect_identical(sort(unique(uploaded$details$id)), c("100000", "1179094", "694038"))
+  expect_identical(uploaded$details$value[uploaded$details$name == "alt"], "30")
+})
+
 test_that("ingestR carries on when the xeno-canto harvest fails", {
   expect_warning(
     uploaded <- ingestWithSources(function(query, ...) stop("No xeno-canto API key")),
     "Skipping source xeno-canto - No xeno-canto API key")
-  expect_identical(uploaded$id, "7")
+  expect_identical(uploaded$recordings$id, "7")
+  #A source that gave nothing gives no details either
+  expect_null(uploaded$details)
 })
 
 test_that("uploadRecordings uploads lat and lon", {

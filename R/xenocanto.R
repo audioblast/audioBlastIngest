@@ -1,7 +1,8 @@
 #' Harvest recordings from xeno-canto
 #'
 #' Harvests recording metadata from the xeno-canto API (version 3) and converts
-#' it to the audioBlast! recordings format.
+#' it to the audioBlast! recordings format, with the details of each recording
+#' that the recordings table has no column for.
 #'
 #' Queries are built from xeno-canto search tags
 #' (<https://xeno-canto.org/help/search>), e.g. `grp:grasshoppers` or
@@ -18,12 +19,13 @@
 #' @param per_page Number of recordings per API request, from 50 to 500.
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on.
-#' @return Data frame of recordings, with an empty source column (see
-#'   sourceR()).
+#' @return Named list of the data frames a harvest gives: the recordings, and
+#'   the details of them. Each has an empty source column (see sourceR()).
 #' @examples
 #' \dontrun{
-#' recordings <- sourceR("xeno-canto", xenocantoR("grp:grasshoppers"))
-#' uploadRecordings(db, recordings)
+#' harvest <- xenocantoR("grp:grasshoppers")
+#' uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
+#' uploadDetails(db, sourceR("xeno-canto", harvest$details))
 #' }
 #' @importFrom curl new_handle
 #' @export
@@ -43,30 +45,60 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
     connecttimeout=30,
     timeout=300)
 
-  pages <- list()
+  #Each page is converted as it arrives and the recordings it came from let
+  #go of, as a harvest of every group is over a million recordings
+  seen <- new.env(hash=TRUE, parent=emptyenv())
+  pages <- list(recordings=list(), details=list())
   for (q in query) {
     page <- 1
     repeat {
-      if (length(pages) > 0) Sys.sleep(pause)
+      if (length(pages$recordings) > 0) Sys.sleep(pause)
       response <- xenocantoFetch(q, page, as.integer(per_page), key, handle)
-      pages[[length(pages) + 1]] <- xenocantoRecordings(response$recordings)
+      fresh <- xenocantoFresh(response$recordings, seen)
+      for (type in names(pages)) {
+        pages[[type]][[length(pages[[type]]) + 1]] <-
+          if (type == "recordings") xenocantoRecordings(fresh) else xenocantoDetails(fresh)
+      }
       if (verbose) print(paste0("  xeno-canto ", q, ": page ", page, " of ", response$numPages))
       if (page >= as.numeric(response$numPages)) break
       page <- page + 1
     }
   }
 
-  #Combine column by column, which is far quicker than rbind for many pages
-  headers <- names(getHeaders("recordings"))
-  data <- lapply(headers, function(h) unlist(lapply(pages, `[[`, h), use.names=FALSE))
+  data <- lapply(names(pages), function(type) xenocantoCombine(pages[[type]], type))
+  names(data) <- names(pages)
+  if (verbose) {
+    for (type in names(data)) print(paste0("  xeno-canto ", type, ": ", nrow(data[[type]])))
+  }
+  return(data)
+}
+
+#Combines the tables of each page column by column, which is far quicker than
+#rbind for many pages
+xenocantoCombine <- function(pages, type) {
+  headers <- names(getHeaders(type))
+  data <- lapply(headers, function(h) {
+    values <- unlist(lapply(pages, `[[`, h), use.names=FALSE)
+    if (is.null(values)) character(0) else values
+  })
   names(data) <- headers
   data <- as.data.frame(data, stringsAsFactors=FALSE)
-
-  #Results that change while paging can repeat a recording on two pages
-  data <- data[!duplicated(data$id), ]
   rownames(data) <- NULL
-  if (verbose) print(paste("  xeno-canto recordings:", nrow(data)))
   return(data)
+}
+
+#The recordings of a page that have not been harvested already, remembering
+#the ones that have. Results that change while paging can repeat a recording
+#on two pages, which would otherwise be counted twice and give it two of each
+#of its details.
+xenocantoFresh <- function(recordings, seen) {
+  fresh <- vapply(recordings, function(recording) {
+    id <- xenocantoText(recording[["id"]])
+    if (id == "" || !is.null(seen[[id]])) return(FALSE)
+    assign(id, TRUE, envir=seen)
+    return(TRUE)
+  }, logical(1), USE.NAMES=FALSE)
+  return(recordings[fresh])
 }
 
 #' @importFrom curl curl_escape curl_fetch_memory
@@ -111,20 +143,28 @@ xenocantoFetch <- function(query, page, per_page, key, handle, backoff=c(1,1,2,3
               gsub(key, "<key>", problem, fixed=TRUE)))
 }
 
+#A field of a recording as text, as xeno-canto gives a number as a number in
+#some recordings and as a string in others. Empty for a field it has no single
+#value of, such as the sono object or the also array.
+xenocantoText <- function(value) {
+  if (length(value) != 1 || is.na(value)) return("")
+  if (is.numeric(value)) value <- format(value, scientific=FALSE, digits=15, trim=TRUE)
+  value <- as.character(value)
+  Encoding(value) <- "UTF-8"
+  return(trimws(value))
+}
+
+#A field of every recording of a page
+xenocantoField <- function(recordings, name) {
+  vapply(recordings, function(r) {
+    #Fields withheld for restricted species are listed in _meta
+    if (name %in% names(r[["_meta"]][["redacted_fields"]])) return("")
+    return(xenocantoText(r[[name]]))
+  }, character(1), USE.NAMES=FALSE)
+}
+
 xenocantoRecordings <- function(recordings) {
-  field <- function(name) {
-    vapply(recordings, function(r) {
-      value <- r[[name]]
-      #Fields withheld for restricted species are listed in _meta
-      if (name %in% names(r[["_meta"]][["redacted_fields"]]) || length(value) != 1 || is.na(value)) {
-        return("")
-      }
-      if (is.numeric(value)) value <- format(value, scientific=FALSE, digits=15, trim=TRUE)
-      value <- as.character(value)
-      Encoding(value) <- "UTF-8"
-      return(trimws(value))
-    }, character(1), USE.NAMES=FALSE)
-  }
+  field <- function(name) xenocantoField(recordings, name)
   empty <- rep_len("", length(recordings))
 
   id <- field("id")
@@ -158,11 +198,10 @@ xenocantoRecordings <- function(recordings) {
     license=xenocantoURL(field("lic")),
     info_url=xenocantoURL(field("url")),
     device=xenocantoDevice(field("dvc"), field("mic")),
-    #The recordist holds the rights in a xeno-canto recording. Its country is
-    #named rather than coded (e.g. Spain), so it is left out, and its channels
-    #are not given.
+    #The recordist holds the rights in a xeno-canto recording, and its channels
+    #are not given
     rights_holder=field("rec"),
-    country=empty,
+    country=xenocantoCountry(field("cnt")),
     locality=field("loc"),
     sample_rate=field("smp"),
     channels=empty,
@@ -172,6 +211,75 @@ xenocantoRecordings <- function(recordings) {
   data <- data[data$id != "" & data$file != "", ]
   rownames(data) <- NULL
   return(data)
+}
+
+#The details of recordings: what xeno-canto holds about one that the recordings
+#table has no column for. Their names are xeno-canto's own, as each source's
+#names for its details are, until they are matched to vocabulary terms.
+#
+#A value saying the recordist did not know is left out, as it says nothing
+#about the recording: a sex or a life stage of "uncertain", an "unknown" for
+#whether the animal was seen, playback was used or the recording was automatic,
+#and a quality of "no score", which is a recording nobody has rated yet rather
+#than a bad one. An altitude or a temperature that is not a number is left out
+#as well, as xeno-canto writes "-" and "?" for some of them.
+#
+#Temperatures are taken to be degrees Celsius. xeno-canto does not say what it
+#measures them in, but it gives them for grasshoppers, whose recordists work in
+#Celsius, and a temperature with no unit is a number nothing can read.
+xenocantoDetails <- function(recordings) {
+  #Recordings without audio are left out of the recordings table (see
+  #xenocantoRecordings()), so their details would belong to no record
+  recordings <- recordings[xenocantoField(recordings, "id") != "" &
+                             xenocantoField(recordings, "file") != ""]
+  field <- function(name) xenocantoField(recordings, name)
+  id <- field("id")
+  detail <- function(name, value, unit="") xenocantoDetail(id, name, value, unit)
+
+  return(rbind(
+    detail("alt", decimalNumber(field("alt")), "m"),
+    detail("temp", decimalNumber(field("temp")), "\u00b0C"),
+    detail("q", xenocantoKnown(field("q"), "no score")),
+    detail("method", field("method")),
+    detail("sex", xenocantoKnown(field("sex"), "uncertain")),
+    detail("stage", xenocantoKnown(field("stage"), "uncertain")),
+    detail("auto", xenocantoKnown(field("auto"), "unknown")),
+    detail("animal-seen", xenocantoKnown(field("animal-seen"), "unknown")),
+    detail("playback-used", xenocantoKnown(field("playback-used"), "unknown")),
+    detail("rmk", field("rmk")),
+    #A registration number is the recordist's own, with nothing saying who holds
+    #the specimen, so it is what xeno-canto recorded rather than a specimen
+    detail("regnr", field("regnr"))))
+}
+
+#The detail of one name of each recording that has a value for it, in the
+#columns of getHeaders("details")
+xenocantoDetail <- function(id, name, value, unit="") {
+  value[is.na(value)] <- ""
+  has <- which(id != "" & value != "")
+  return(data.frame(
+    source=rep_len("", length(has)),
+    type=rep_len("recordings", length(has)),
+    id=id[has],
+    name=rep_len(name, length(has)),
+    delta=rep_len("0", length(has)),
+    value=value[has],
+    unit=rep_len(unit, length(has)),
+    stringsAsFactors=FALSE))
+}
+
+#Values saying the recordist did not know, which are no detail of a recording
+xenocantoKnown <- function(x, unknown) {
+  return(ifelse(tolower(x) %in% unknown, "", x))
+}
+
+#xeno-canto names the country a recording was made in (Spain, Russian
+#Federation) where the recordings table holds an ISO 3166-1 alpha-2 code, so
+#the name is read as one. A name that is no country's is left out and said so.
+xenocantoCountry <- function(cnt) {
+  code <- countryOfName(cnt)
+  warnUnread("xeno-canto recordings", "country", cnt, code)
+  return(ifelse(is.na(code), "", code))
 }
 
 xenocantoTaxon <- function(gen, sp, ssp, grp, status) {

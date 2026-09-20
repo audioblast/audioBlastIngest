@@ -25,12 +25,13 @@ environment variable. Keep keys out of code and version control.}
 \item{verbose}{If TRUE says more about what's going on.}
 }
 \value{
-Data frame of recordings, with an empty source column (see
-sourceR()).
+Named list of the data frames a harvest gives: the recordings, and
+the details of them. Each has an empty source column (see sourceR()).
 }
 \description{
 Harvests recording metadata from the xeno-canto API (version 3) and converts
-it to the audioBlast! recordings format.
+it to the audioBlast! recordings format, with the details of each recording
+that the recordings table has no column for.
 }
 \details{
 Queries are built from xeno-canto search tags
@@ -44,7 +45,8 @@ withholds their audio and location.
 }
 \examples{
 \dontrun{
-recordings <- sourceR("xeno-canto", xenocantoR("grp:grasshoppers"))
-uploadRecordings(db, recordings)
+harvest <- xenocantoR("grp:grasshoppers")
+uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
+uploadDetails(db, sourceR("xeno-canto", harvest$details))
 }
 }
