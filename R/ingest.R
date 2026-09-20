@@ -20,6 +20,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   specimens <- getHeaders("specimens")
   details <- getHeaders("details")
   locations <- getHeaders("locations")
+  descriptions <- getHeaders("descriptions")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -132,6 +133,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: locations"))
       locations <- rbind(locations, data)
     }
+    if (source$type == "descriptions") {
+      if (verbose) print(paste("  type: descriptions"))
+      descriptions <- rbind(descriptions, data)
+    }
   }
 
   #Upload
@@ -166,6 +171,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(specimens) > 0) {
       uploadSpecimens(db, specimens)
+    }
+    if (nrow(descriptions) > 0) {
+      uploadDescriptions(db, descriptions)
     }
     if (nrow(links) > 0) {
       uploadLinks(db, links)
@@ -221,6 +229,14 @@ getHeaders <- function(type) {
     #The specimens and observations that recordings are of, in columns named
     #after the Darwin Core terms they hold
     heads <- c("source","id","scientificName","basisOfRecord","institutionCode","collectionCode","catalogNumber","otherCatalogNumbers","typeStatus","sex","lifeStage","individualCount","recordedBy","eventDate","identifiedBy","dateIdentified","identificationQualifier","associatedSequences","locality","countryCode","decimalLatitude","decimalLongitude","occurrenceRemarks","info_url")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "descriptions") {
+    #What a source says about something in prose, such as how a taxon behaves.
+    #What a description is about, and the references it rests on, are links.
+    heads <- c("source","id","topic","value","info_url")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

@@ -99,6 +99,39 @@ uploadAnnOmate <- function(db, table) {
   uploadRows(db, "annomate", columns, table[1:15], update=columns)
 }
 
+#' Upload Descriptions
+#'
+#' Replaces the descriptions that each source gives in the database
+#' descriptions table with those in a data frame. A description is what a
+#' source says about something in prose, such as how a taxon behaves, with a
+#' topic saying what it is of. What it is about, and the references it rests
+#' on, are links, not columns.
+#'
+#' Descriptions with no id or nothing to say are skipped with a warning.
+#' Values are made plain text, as sources often hold them as HTML. The
+#' descriptions of each source in the data frame are deleted and the new ones
+#' inserted in one transaction, so a description a source no longer gives is
+#' removed.
+#'
+#' @param db database connector
+#' @param table dataframe of descriptions to upload, with the columns of
+#'   getHeaders("descriptions").
+#' @export
+#' @importFrom DBI dbExecute
+uploadDescriptions <- function(db, table) {
+  descriptions <- normaliseDescriptions(table)
+  if (nrow(descriptions) == 0) return(invisible(NULL))
+
+  columns <- names(getHeaders("descriptions"))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(descriptions$source)) {
+      dbExecute(db, "DELETE FROM `descriptions` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "descriptions", columns, descriptions[columns], update=columns[-(1:2)],
+               transaction=FALSE)
+  })
+}
+
 #' Upload Locations
 #'
 #' Adds locations from a data frame to the database locations table, updating
