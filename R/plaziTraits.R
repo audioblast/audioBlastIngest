@@ -155,7 +155,7 @@ plaziTraits <- function(document, treatment) {
     Call.Qualifier="", min="", max="", stringsAsFactors=FALSE)
   traits <- traits[names(getHeaders("traits"))]
   rownames(traits) <- NULL
-  return(list(traits=traits, links=plaziTraitLinks(traits$traitID, treatment)))
+  return(list(traits=traits, links=plaziAboutLinks("traits", traits$traitID, treatment)))
 }
 
 #The run-in heading a paragraph opens with, or "" where it opens with prose. A
@@ -430,25 +430,4 @@ plaziConditions <- function(label) {
     call <- ""
   }
   return(list(call=call, sex=sex, temperature=temperature))
-}
-
-#The links a treatment's traits give: each is about the taxon the treatment
-#treats and came from the treatment, which is a reference of its own. These are
-#the links plaziLinks() gives a description, said of a trait, so a measurement
-#and the prose around it rest on the same treatment.
-plaziTraitLinks <- function(ids, treatment) {
-  links <- getHeaders("links")
-  if (length(ids) == 0) return(links)
-  links <- rbind(links, data.frame(
-    source="", subject_type="traits", subject_source="", subject_id=ids,
-    predicate="http://purl.obolibrary.org/obo/IAO_0000136",
-    object_type="iri", object_source="", object_id=treatment$taxon,
-    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
-  links <- rbind(links, data.frame(
-    source="", subject_type="traits", subject_source="", subject_id=ids,
-    predicate="http://purl.org/dc/terms/source",
-    object_type="references", object_source="", object_id=treatment$uuid,
-    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
-  rownames(links) <- NULL
-  return(links)
 }

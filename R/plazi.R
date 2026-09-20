@@ -46,7 +46,8 @@
 #' @param pause Seconds between requests.
 #' @param verbose If TRUE reports harvest progress.
 #' @return Named list of the data frames a harvest gives: the descriptions, the
-#'   acoustic parameters the same treatments measure as traits, the treatments
+#'   acoustic parameters the same treatments measure as traits, the words they
+#'   render a call with as onomatopoeia, the treatments
 #'   they were read from as references, and the links. Each has an empty source
 #'   column (see sourceR()).
 #' @examples
@@ -88,6 +89,7 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   pages <- list()
   cited <- list()
   measures <- list()
+  rendered <- list()
   linked <- list()
   for (i in seq_along(found)) {
     treatment <- found[[i]]
@@ -100,15 +102,18 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
     #The measured parameters are read first, because plaziSections() takes the
     #captions out of the document as it goes
     measured <- plaziTraits(document, treatment)
+    renderings <- plaziOnomatopoeia(document, treatment)
     sections <- plaziSections(document, treatment$uuid)
     #A treatment that says nothing and measures nothing is not a treatment
     #this harvest wanted
-    if (nrow(sections) == 0 && nrow(measured$traits) == 0) next
+    if (nrow(sections) == 0 && nrow(measured$traits) == 0 &&
+        nrow(renderings$onomatopoeia) == 0) next
     pages[[length(pages) + 1]] <- sections
     measures[[length(measures) + 1]] <- measured$traits
+    rendered[[length(rendered) + 1]] <- renderings$onomatopoeia
     cited[[length(cited) + 1]] <- reference
     linked[[length(linked) + 1]] <- rbind(plaziLinks(sections$id, treatment),
-                                          measured$links)
+                                          measured$links, renderings$links)
     if (verbose && i %% 100 == 0) message("  Plazi: ", i, " of ", length(found), " treatments")
   }
 
@@ -121,17 +126,21 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   traits <- do.call(rbind, c(list(getHeaders("traits")), measures))
   traits <- traits[!duplicated(traits$traitID), , drop=FALSE]
   rownames(traits) <- NULL
+  onomatopoeia <- do.call(rbind, c(list(getHeaders("onomatopoeia")), rendered))
+  onomatopoeia <- onomatopoeia[!duplicated(onomatopoeia$id), , drop=FALSE]
+  rownames(onomatopoeia) <- NULL
   links <- do.call(rbind, c(list(getHeaders("links")), linked))
-  links <- links[links$subject_id %in% c(descriptions$id, references$id, traits$traitID), ,
-                 drop=FALSE]
+  links <- links[links$subject_id %in% c(descriptions$id, references$id, traits$traitID,
+                                         onomatopoeia$id), , drop=FALSE]
   links <- links[!duplicated(links), , drop=FALSE]
   rownames(links) <- NULL
   if (verbose) {
     message("  Plazi descriptions: ", nrow(descriptions), ", traits: ", nrow(traits),
-            ", treatments: ", nrow(references), ", links: ", nrow(links))
+            ", onomatopoeia: ", nrow(onomatopoeia), ", treatments: ", nrow(references),
+            ", links: ", nrow(links))
   }
-  return(list(descriptions=descriptions, traits=traits, references=references,
-              links=links))
+  return(list(descriptions=descriptions, traits=traits, onomatopoeia=onomatopoeia,
+              references=references, links=links))
 }
 
 #The treatments that say something about sound. Plazi holds over a million
