@@ -84,9 +84,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     #Sources that don't give the columns at the end of their table are given
     #them empty: recordings lat and lon, then time_of_day, license, info_url
     #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
-    #and max; descriptions topic_link. The ingest fills the last of each.
+    #and max; descriptions topic_link; links reference.
     headers <- names(getHeaders(source$type))
-    if (source$type %in% c("recordings", "traits", "descriptions") &&
+    if (source$type %in% c("recordings", "traits", "descriptions", "links") &&
         ncol(data) < length(headers)) {
       for (column in headers[-seq_len(ncol(data))]) {
         data[[column]] <- rep_len("", nrow(data))
@@ -301,8 +301,10 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "links") {
-    #source is the source giving the link; a link's id is made by uploadLinks()
-    heads <- c("source","subject_type","subject_source","subject_id","predicate","object_type","object_source","object_id","qualifier","remarks")
+    #source is the source giving the link; a link's id is made by uploadLinks().
+    #reference is the reference that established the link, which uploadLinks()
+    #makes a link of rather than a column; a source needn't give one.
+    heads <- c("source","subject_type","subject_source","subject_id","predicate","object_type","object_source","object_id","qualifier","remarks","reference")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
