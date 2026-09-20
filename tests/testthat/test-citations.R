@@ -67,3 +67,19 @@ test_that("links sources that give no reference are given the column", {
   expect_identical(names(uploaded), names(getHeaders("links")))
   expect_identical(unique(uploaded$reference), "")
 })
+
+test_that("a relationship from the vocabulary's interactions is one links can give", {
+  table <- rbind(
+    cited(subject_type="taxa", subject_id="8132",
+          predicate="https://vocab.audioblast.org/cv/interaction#AcousticallyOrientatingParasiteOf",
+          object_type="taxa", object_id="399", reference="58356"),
+    #Another vocabulary's terms say what a link is of, not what it is
+    cited(subject_id="1", predicate="https://vocab.audioblast.org/cv/referenceContent#Oscillogram"),
+    cited(subject_id="2", predicate="https://vocab.audioblast.org/cv/interaction"))
+
+  expect_warning(links <- normaliseLinks(table), "Skipping 2 links")
+
+  expect_equal(nrow(links), 1)
+  expect_identical(links$subject_id, "8132")
+  expect_equal(nrow(citedBy(links)), 1)
+})
