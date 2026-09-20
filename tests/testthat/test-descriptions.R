@@ -2,9 +2,10 @@ descriptionsFixture <- function() {
   return(test_path("fixtures", "descriptions.csv"))
 }
 
-#Descriptions as ingestR() reads them from a source
+#Descriptions as ingestR() reads them from a source, which gives no topic link
 readDescriptions <- function(source="bio.acousti.ca") {
   data <- sourceR(source, read.csv(descriptionsFixture(), colClasses="character", encoding="UTF-8"))
+  data$topic_link <- rep_len("", nrow(data))
   colnames(data) <- names(getHeaders("descriptions"))
   return(data)
 }
@@ -22,6 +23,38 @@ test_that("descriptions are made plain text, and empty ones are skipped", {
                    "Males were reported to call 0.3-4.0m up, in shrubs along the banks of small hill-streams.")
   expect_identical(descriptions$value[2], "A small frog, the male 24\u201328mm.")
   expect_identical(descriptions$info_url[1], "https://bio.acousti.ca/node/12289")
+  expect_identical(descriptions$topic_link,
+                   paste0("http://rs.tdwg.org/ontology/voc/SPMInfoItems#",
+                          c("Behaviour", "Morphology")))
+})
+
+test_that("a topic names the Species Profile Model info item it is", {
+  spm <- "http://rs.tdwg.org/ontology/voc/SPMInfoItems#"
+
+  expect_identical(
+    spmInfoItem(c("behaviour", "Behaviour", "BEHAVIOUR", "morphology")),
+    paste0(spm, c("Behaviour", "Behaviour", "Behaviour", "Morphology")))
+  #However a source spaces, hyphenates or capitalises it
+  expect_identical(
+    spmInfoItem(c("look alikes", "Look-Alikes", "trophic strategy", "Life Cycle")),
+    paste0(spm, c("LookAlikes", "LookAlikes", "TrophicStrategy", "LifeCycle")))
+  #And as sources shorten the two descriptions
+  expect_identical(
+    spmInfoItem(c("diagnostic", "general", "diagnostic description")),
+    paste0(spm, c("DiagnosticDescription", "GeneralDescription", "DiagnosticDescription")))
+  #A word the model has no item for names nothing
+  expect_identical(spmInfoItem(c("song", "", NA)), rep(NA_character_, 3))
+})
+
+test_that("descriptions from a source that gives no topic link are given one", {
+  table <- readDescriptions()
+  table <- table[, setdiff(names(table), "topic_link")]
+
+  descriptions <- suppressWarnings(normaliseDescriptions(table))
+
+  expect_identical(names(descriptions), names(getHeaders("descriptions")))
+  expect_identical(descriptions$topic_link[1],
+                   "http://rs.tdwg.org/ontology/voc/SPMInfoItems#Behaviour")
 })
 
 test_that("normalising descriptions again changes nothing", {

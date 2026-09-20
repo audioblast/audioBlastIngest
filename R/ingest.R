@@ -80,12 +80,13 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
     }
 
-    #Recordings and traits sources set up before columns were added to the end
-    #of their tables (for recordings lat and lon, then time_of_day, license,
-    #info_url and device; for traits Call.Part, Call.Type.Link and
-    #Call.Qualifier) don't have them, so they are added empty
+    #Sources that don't give the columns at the end of their table are given
+    #them empty: recordings lat and lon, then time_of_day, license, info_url
+    #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
+    #and max; descriptions topic_link. The ingest fills the last of each.
     headers <- names(getHeaders(source$type))
-    if (source$type %in% c("recordings", "traits") && ncol(data) < length(headers)) {
+    if (source$type %in% c("recordings", "traits", "descriptions") &&
+        ncol(data) < length(headers)) {
       for (column in headers[-seq_len(ncol(data))]) {
         data[[column]] <- rep_len("", nrow(data))
       }
@@ -235,8 +236,10 @@ getHeaders <- function(type) {
   }
   if (type == "descriptions") {
     #What a source says about something in prose, such as how a taxon behaves.
-    #What a description is about, and the references it rests on, are links.
-    heads <- c("source","id","topic","value","info_url")
+    #topic_link is the Species Profile Model info item the topic names, which
+    #normaliseDescriptions() reads; a source needn't give it. What a description
+    #is about, and the references it rests on, are links.
+    heads <- c("source","id","topic","value","info_url","topic_link")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
