@@ -1,0 +1,46 @@
+{
+    "@context": {
+        "dcterms": "http://purl.org/dc/terms/",
+        "owl": "http://www.w3.org/2002/07/owl#",
+        "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+        "rdfs": "http://www.w3.org/2000/01/rdf-schema#",
+        "skos": "http://www.w3.org/2004/02/skos/core#",
+        "vann": "http://purl.org/vocab/vann/",
+        "xsd": "http://www.w3.org/2001/XMLSchema#"
+    },
+    "@graph": [
+        {
+            "@id": "https://vocab.audioblast.org/",
+            "@type": "skos:ConceptScheme",
+            "skos:prefLabel": {"@value": "audioBlast Vocabulary Server", "@language": "en"},
+            "vann:preferredNamespacePrefix": "abv"
+        },
+        {
+            "@id": "https://vocab.audioblast.org/EchemeDuration",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Echeme Duration", "@language": "en"},
+            "rdf:value": "EchemeDuration"
+        },
+        {
+            "@id": "https://vocab.audioblast.org/CallType",
+            "@type": ["skos:Concept", "rdf:Property"],
+            "skos:prefLabel": {"@value": "Call Type", "@language": "en"},
+            "rdf:value": "CallType"
+        },
+        {
+            "@id": "https://vocab.audioblast.org/CallPart",
+            "@type": ["skos:Concept", "rdf:Property"],
+            "skos:prefLabel": {"@value": "Call Part", "@language": "en"},
+            "rdf:value": "CallPart"
+        },
+        {
+            "@id": "https://vocab.audioblast.org/CallPattern",
+            "@type": "skos:Concept",
+            "skos:prefLabel": {"@value": "Call Pattern", "@language": "en"},
+            "rdf:value": "CallPattern",
+            "skos:altLabel": [
+                {"@value": "Pattern of Component Calls", "@language": "en"}
+            ]
+        }
+    ]
+}
