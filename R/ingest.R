@@ -38,7 +38,15 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
-    if (is.element("xenocanto", names(source))) {
+    if (is.element("orthoptera", names(source))) {
+      data <- tryCatch(
+        do.call(orthopteraSpeciesFileR, c(source$orthoptera, list(verbose=verbose))),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
+    } else if (is.element("xenocanto", names(source))) {
       #A failed harvest skips this source rather than every source
       data <- tryCatch(
         xenocantoR(source$xenocanto$query, verbose=verbose),

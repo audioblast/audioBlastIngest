@@ -5,3 +5,4 @@
 ^codecov\.yml$
 ^audioblast_ingest
 ^small_ingests
+^\.claude$
