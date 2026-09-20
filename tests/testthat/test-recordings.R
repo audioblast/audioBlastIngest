@@ -106,6 +106,30 @@ test_that("normalising recordings again changes nothing", {
   expect_identical(normalised$lon, c("-0.1", NA, "0"))
 })
 
+test_that("the sound, rights and place of a recording are normalised", {
+  table <- recordingsTable(
+    id=as.character(1:4),
+    rights_holder=c("Natural History Museum, London", "", " Klaus-Gerhard Heller ", ""),
+    country=c("GB", "gy", "Guyana", ""),
+    locality=c("Mill Site", "", " Kabocalli ", ""),
+    sample_rate=c("44100", "44100.0", "0", ""),
+    channels=c("stereo", "Joint Stereo", "2", "5.1"))
+
+  expect_warning(
+    normalised <- normaliseRecordings(table),
+    '1 recordings have a country that could not be read, so it is left out, e.g. "Guyana"',
+    fixed=TRUE)
+
+  expect_identical(normaliseRecordings(normalised), normalised)
+  expect_identical(normalised$rights_holder,
+                   c("Natural History Museum, London", NA, "Klaus-Gerhard Heller", NA))
+  expect_identical(normalised$country, c("GB", "GY", NA, NA))
+  expect_identical(normalised$locality, c("Mill Site", NA, "Kabocalli", NA))
+  expect_identical(normalised$sample_rate, c("44100", "44100", NA, NA))
+  #A recording given as stereo has 2 channels
+  expect_identical(normalised$channels, c("2", "2", "2", NA))
+})
+
 test_that("recordings from before columns were added are given them", {
   table <- recordingsTable(id="1", Time="morning")[1:17]
 
