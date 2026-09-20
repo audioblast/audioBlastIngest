@@ -25,13 +25,15 @@ environment variable. Keep keys out of code and version control.}
 \item{verbose}{If TRUE says more about what's going on.}
 }
 \value{
-Named list of the data frames a harvest gives: the recordings, and
-the details of them. Each has an empty source column (see sourceR()).
+Named list of the data frames a harvest gives: the recordings, the
+details of them, and the links to the taxa heard in the background. Each
+has an empty source column (see sourceR()).
 }
 \description{
 Harvests recording metadata from the xeno-canto API (version 3) and converts
 it to the audioBlast! recordings format, with the details of each recording
-that the recordings table has no column for.
+that the recordings table has no column for and the links saying which taxa
+are audible in it beside the one it is of.
 }
 \details{
 Queries are built from xeno-canto search tags
@@ -48,5 +50,6 @@ withholds their audio and location.
 harvest <- xenocantoR("grp:grasshoppers")
 uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
 uploadDetails(db, sourceR("xeno-canto", harvest$details))
+uploadLinks(db, sourceR("xeno-canto", harvest$links))
 }
 }

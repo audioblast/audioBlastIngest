@@ -148,6 +148,37 @@ test_that("an empty xeno-canto page has no details", {
   expect_equal(nrow(details), 0)
 })
 
+test_that("the taxa heard behind a recording are links to those taxa", {
+  links <- xenocantoLinks(xcFixture()$recordings)
+
+  expect_identical(names(links), names(getHeaders("links")))
+  #Only the wren recording lists anything in also
+  expect_identical(links$subject_id, c("694038", "694038"))
+  expect_identical(links$object_id, c("Turdus viscivorus", "Parus major"))
+  expect_true(all(links$subject_type == "recordings" & links$object_type == "taxa"))
+  #A recording is about a background species as it is about its own taxon
+  expect_true(all(links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136"))
+  #but the qualifier says the taxon is not what the recording is of
+  expect_true(all(links$qualifier ==
+                    "https://vocab.audioblast.org/cv/recordingContent#NonFocalTaxa"))
+  #The sources are the linking source's own, which normaliseLinks() fills in
+  expect_true(all(links$source == "" & links$subject_source == "" & links$object_source == ""))
+
+  #uploadLinks() takes them without complaint and gives each one an id
+  normalised <- normaliseLinks(sourceR("xeno-canto", links))
+  expect_equal(nrow(normalised), 2)
+  expect_true(all(normalised$subject_source == "xeno-canto" &
+                    normalised$object_source == "xeno-canto"))
+  expect_true(all(grepl("^[0-9a-f]{40}$", normalised$id)))
+})
+
+test_that("a page with nothing heard in the background has no links", {
+  expect_equal(nrow(xenocantoLinks(list())), 0)
+  #The restricted species recording has an empty also, and no audio either
+  expect_equal(nrow(xenocantoLinks(xcFixture()$recordings[2])), 0)
+  expect_identical(names(xenocantoLinks(list())), names(getHeaders("links")))
+})
+
 test_that("xeno-canto values are normalised", {
   expect_identical(
     xenocantoDuration(c("0:05", "4:08", "1:02:03", "100:00:00", "", "?", "1:2:3:4")),
@@ -183,8 +214,14 @@ test_that("xeno-canto values are normalised", {
   expect_identical(
     countryOfName(c("Russian Federation", "Bolivia", "united  states", "Laos", "Atlantis", "")),
     c("RU", "BO", "US", "LA", NA, NA))
-  #A shortening that two countries share names neither of them
-  expect_identical(countryOfName(c("Congo", "Korea", "South Korea")), c(NA, NA, "KR"))
+  #A shortening that two countries share names neither of them, and xeno-canto
+  #tells the two Congos apart in brackets
+  expect_identical(
+    countryOfName(c("Congo", "Korea", "South Korea",
+                    "Congo (Brazzaville)", "Congo (Democratic Republic)")),
+    c(NA, NA, "KR", "CG", "CD"))
+  #xeno-canto writes these names without their and
+  expect_identical(countryOfName(c("Bosnia Herzegovina", "Trinidad Tobago")), c("BA", "TT"))
   expect_warning(
     expect_identical(xenocantoCountry(c("Spain", "Atlantis", "")), c("ES", "", "")),
     "country that could not be read")
@@ -204,9 +241,10 @@ test_that("xeno-canto harvests page through every query", {
 
   harvest <- xenocantoR(c("grp:bats", 'grp:"land mammals"'), key="secret", per_page=50, pause=0)
 
-  expect_identical(names(harvest), c("recordings", "details"))
+  expect_identical(names(harvest), c("recordings", "details", "links"))
   expect_identical(names(harvest$recordings), names(getHeaders("recordings")))
   expect_identical(names(harvest$details), names(getHeaders("details")))
+  expect_identical(names(harvest$links), names(getHeaders("links")))
   #A recording that a shifting result set puts on two pages is harvested once
   expect_identical(harvest$recordings$id, c("1", "2", "3", "4"))
   #and so gives its details once as well
@@ -311,6 +349,7 @@ ingestWithSources <- function(harvest) {
     xenocantoR=harvest,
     uploadTraits=function(db, table) NULL,
     uploadDetails=function(db, table) uploaded$details <<- table,
+    uploadLinks=function(db, table) uploaded$links <<- table,
     uploadRecordings=function(db, table) uploaded$recordings <<- table)
   ingestR(db="db")
   unlink(csv)
@@ -319,7 +358,8 @@ ingestWithSources <- function(harvest) {
 
 xcHarvest <- function(query, ...) {
   recordings <- xcFixture()$recordings
-  list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings))
+  list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings),
+       links=xenocantoLinks(recordings))
 }
 
 test_that("ingestR uploads xeno-canto recordings with other recordings sources", {
@@ -346,6 +386,10 @@ test_that("ingestR uploads the details a harvest gives beside its recordings", {
   expect_true(all(uploaded$details$source == "xeno-canto"))
   expect_identical(sort(unique(uploaded$details$id)), c("100000", "1179094", "694038"))
   expect_identical(uploaded$details$value[uploaded$details$name == "alt"], "30")
+
+  expect_identical(names(uploaded$links), names(getHeaders("links")))
+  expect_true(all(uploaded$links$source == "xeno-canto"))
+  expect_identical(uploaded$links$object_id, c("Turdus viscivorus", "Parus major"))
 })
 
 test_that("ingestR carries on when the xeno-canto harvest fails", {
