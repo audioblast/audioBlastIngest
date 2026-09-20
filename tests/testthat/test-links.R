@@ -57,6 +57,23 @@ test_that("links with unknown types or predicates, or without ids, are skipped w
   expect_identical(links$subject_id, "1")
 })
 
+test_that("every data module a source holds records in is a type a link can join", {
+  #A type missing from recordTypes is dropped by normaliseLinks() with a
+  #warning that is easy to miss in a full ingest, leaving the records uploaded
+  #and joined to nothing. onomatopoeia was missing when it was first added.
+  for (type in c("recordings", "specimens", "traits", "taxa", "references", "locations",
+                 "descriptions", "vernacularnames", "onomatopoeia")) {
+    expect_true(type %in% linkTypes, info=type)
+  }
+  links <- normaliseLinks(rbind(
+    link(subject_type="onomatopoeia", subject_id="58087",
+         predicate="http://purl.obolibrary.org/obo/IAO_0000136"),
+    link(subject_type="onomatopoeia", subject_id="58087",
+         predicate="http://purl.org/dc/terms/source", object_type="references")))
+
+  expect_identical(links$subject_type, rep("onomatopoeia", 2))
+})
+
 test_that("uploadLinks replaces the links of each source in one transaction", {
   table <- rbind(readLinks(), link(source="audioblast", predicate="http://www.w3.org/2004/02/skos/core#exactMatch",
                                    subject_type="recordings", subject_source="xeno-canto", object_type="recordings"))
