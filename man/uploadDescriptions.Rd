@@ -4,13 +4,17 @@
 \alias{uploadDescriptions}
 \title{Upload Descriptions}
 \usage{
-uploadDescriptions(db, table)
+uploadDescriptions(db, table, replace = TRUE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of descriptions to upload, with the columns of
 getHeaders("descriptions").}
+
+\item{replace}{Whether to remove what each source gave before first. FALSE
+for a chunk of a streamed harvest, whose source has been emptied once
+already (see uploadStreamed()).}
 }
 \description{
 Replaces the descriptions that each source gives in the database

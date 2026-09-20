@@ -135,3 +135,70 @@ test_that("a type a harvest gave nothing of is not uploaded", {
   expect_false(any(grepl("`links`", sql, fixed=TRUE)))
   expect_false(any(grepl("`details`", sql, fixed=TRUE)))
 })
+
+#The least a row of each type needs to survive its normaliser, so that a
+#streamed chunk is not dropped before it reaches the database
+streamFixture <- function(type, table) {
+  if (type == "images") table$file <- paste0("https://example.org/", table$id, ".jpg")
+  if (type == "descriptions") table$value <- "What it says."
+  if (type == "onomatopoeia") table$word <- "zic"
+  if (type == "vernacularnames") table$vernacularName <- "Field Cricket"
+  if (type == "details") {
+    table$type <- "recordings"
+    table$name <- "q"
+    table$delta <- "0"
+    table$value <- "A"
+  }
+  if (type == "links") {
+    table$subject_type <- "recordings"
+    table$subject_id <- table$id
+    table$predicate <- "http://purl.obolibrary.org/obo/IAO_0000136"
+    table$object_type <- "taxa"
+    table$object_id <- "1"
+  }
+  return(table)
+}
+
+test_that("a table a source replaces is emptied once, however many chunks it takes", {
+  #A chunked upload that emptied its source for each chunk would keep only the
+  #last one. images did exactly that: it was streamed, but uploaded with the
+  #DELETE its unstreamed form does.
+  replaced <- c("images", "descriptions", "onomatopoeia", "vernacularnames",
+                "details", "links")
+  for (type in replaced) {
+    dir <- withr::local_tempdir()
+    for (chunk in 1:3) {
+      table <- getHeaders(type)
+      table[1:2, ] <- ""
+      table$source <- ""
+      table$id <- as.character(c(chunk * 2 - 1, chunk * 2))
+      table <- streamFixture(type, table)
+      streamTable(dir, type, table)
+    }
+
+    upload <- mockUpload(function(db) uploadStreamed(db, "a-source", dir, each=2))
+    sql <- vapply(upload$executed, `[[`, character(1), "sql")
+
+    deletes <- grep(paste0("^DELETE FROM `", type, "`"), sql, value=TRUE)
+    expect_identical(length(deletes), 1L, info=type)
+    #And every chunk still arrives: six rows, whatever the type calls its id
+    inserted <- sum(vapply(upload$executed[grepl(paste0("INTO `", type, "`"), sql, fixed=TRUE)],
+                           function(e) length(boundRows(e)), integer(1)))
+    expect_identical(inserted, 6L, info=type)
+  }
+})
+
+test_that("every type a harvest can give can be streamed", {
+  #uploadStreamed() reads streamUploads rather than the directory, so a type
+  #left out of it is silently not uploaded
+  harvested <- c("recordings", "taxa", "references", "traits", "images",
+                 "ann-o-mate", "descriptions", "onomatopoeia", "vernacularnames",
+                 "details", "links")
+  expect_identical(sort(names(streamUploads)), sort(harvested))
+
+  #References are uploaded before the records that cite them
+  order <- names(streamUploads)
+  for (cites in c("traits", "descriptions", "onomatopoeia", "vernacularnames", "links")) {
+    expect_lt(match("references", order), match(cites, order))
+  }
+})

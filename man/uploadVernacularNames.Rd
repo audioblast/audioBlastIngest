@@ -4,13 +4,17 @@
 \alias{uploadVernacularNames}
 \title{Upload Vernacular Names}
 \usage{
-uploadVernacularNames(db, table)
+uploadVernacularNames(db, table, replace = TRUE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of vernacular names to upload, with the columns of
 getHeaders("vernacularnames").}
+
+\item{replace}{Whether to remove what each source gave before first. FALSE
+for a chunk of a streamed harvest, whose source has been emptied once
+already (see uploadStreamed()).}
 }
 \description{
 Replaces the vernacular names that each source gives in the database
