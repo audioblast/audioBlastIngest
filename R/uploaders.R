@@ -14,10 +14,12 @@ uploadTaxa <- function(db, table) {
   columns <- c("source", "id", "taxon", "parent_id", "Rank", "Kingdom",
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
-               "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies")
+               "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies",
+               "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
+               "acceptedNameUsage")
   unknown <- setdiff(names(table), columns)
   if (length(unknown) > 0) {
-    warning("The taxa table has no column for the rank ",
+    warning("The taxa table has no column for ",
             paste(unknown, collapse=", "), ", so it is left out", call.=FALSE)
   }
   for (column in setdiff(columns, names(table))) {

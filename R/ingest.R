@@ -116,9 +116,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     #Sources that don't give the columns at the end of their table are given
     #them empty: recordings lat and lon, then time_of_day, license, info_url
     #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
-    #and max; descriptions topic_link; onomatopoeia kind_link; links reference.
+    #and max; descriptions topic_link; onomatopoeia kind_link; links reference;
+    #taxa the four columns that say whether a name is the one in use.
     headers <- names(getHeaders(source$type))
-    if (source$type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links") &&
+    if (source$type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa") &&
         ncol(data) < length(headers)) {
       for (column in headers[-seq_len(ncol(data))]) {
         data[[column]] <- rep_len("", nrow(data))
@@ -261,7 +262,12 @@ getSources <- function() {
 
 getHeaders <- function(type) {
   if (type == "taxa") {
-    heads <-   col_names <- c("source", "id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon")
+    #taxonomicStatus says whether a name is the one in use, nomenclaturalStatus
+    #why it is not in its source's own words, and acceptedNameUsageID and
+    #acceptedNameUsage the name that replaced it. They belong to the name
+    #rather than to the classification, so taxonomiseR() carries them through
+    #rather than walking them.
+    heads <-   col_names <- c("source", "id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon","taxonomicStatus","nomenclaturalStatus","acceptedNameUsageID","acceptedNameUsage")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
