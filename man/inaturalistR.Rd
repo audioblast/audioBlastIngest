@@ -28,8 +28,9 @@ community has agreed.}
 \item{verbose}{If TRUE says more about what's going on.}
 }
 \value{
-Data frame of recordings, with an empty source column (see
-sourceR()).
+Named list of the data frames a harvest gives: the recordings, the
+taxa they are of and the links saying which recording is about which
+taxon. Each has an empty source column (see sourceR()).
 }
 \description{
 Harvests recording metadata from the iNaturalist API (version 2) and
@@ -53,7 +54,9 @@ and that there are no more than 60 of them a minute.
 }
 \examples{
 \dontrun{
-recordings <- sourceR("iNaturalist", inaturalistR(c("47651", "50186")))
-uploadRecordings(db, recordings)
+harvest <- inaturalistR(c("47651", "50186"))
+uploadRecordings(db, sourceR("iNaturalist", harvest$recordings))
+uploadTaxa(db, taxonomiseR(sourceR("iNaturalist", harvest$taxa)))
+uploadLinks(db, sourceR("iNaturalist", harvest$links))
 }
 }

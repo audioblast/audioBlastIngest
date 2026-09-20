@@ -11,7 +11,20 @@
             "location": "50.7365434086,7.165596485",
             "place_guess": "53 Bonn-Beuel, Germany",
             "taxon": {
+                "id": 123456,
                 "name": "Pholidoptera griseoaptera",
+                "rank": "species",
+                "parent_id": 123400,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    47651,
+                    123400,
+                    123456
+                ],
                 "preferred_common_name": "Dark Bush-cricket"
             },
             "user": {
@@ -43,7 +56,20 @@
             "location": "38.6036157073,-90.4449254488",
             "place_guess": "Missouri, US",
             "taxon": {
+                "id": 322222,
                 "name": "Neotibicen tibicen",
+                "rank": "species",
+                "parent_id": 322220,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    50186,
+                    322220,
+                    322222
+                ],
                 "preferred_common_name": "Morning Cicada"
             },
             "user": {
@@ -75,7 +101,20 @@
             "location": "49.8234,24.0322",
             "place_guess": "Lviv, Ukraine",
             "taxon": {
+                "id": 205461,
                 "name": "Orchelimum gladiator",
+                "rank": "species",
+                "parent_id": 205460,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    47651,
+                    205460,
+                    205461
+                ],
                 "preferred_common_name": "Gladiator Meadow Katydid"
             },
             "user": {
@@ -107,7 +146,19 @@
             "location": "45.7640,4.8357",
             "place_guess": "Lyon, France",
             "taxon": {
+                "id": 47936,
                 "name": "Gryllus",
+                "rank": "genus",
+                "parent_id": 47651,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    47651,
+                    47936
+                ],
                 "preferred_common_name": "Field Crickets"
             },
             "user": {
@@ -139,7 +190,20 @@
             "location": "37.1,-8.2",
             "place_guess": "Algarve, Portugal",
             "taxon": {
+                "id": 424321,
                 "name": "Tettigettalna argentata",
+                "rank": "species",
+                "parent_id": 424320,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    50186,
+                    424320,
+                    424321
+                ],
                 "preferred_common_name": "Silver Cicada"
             },
             "user": {
@@ -164,7 +228,18 @@
             "location": "44.9306,4.8912",
             "place_guess": "Vallée du Rhône, France",
             "taxon": {
+                "id": 47651,
                 "name": "Orthoptera",
+                "rank": "order",
+                "parent_id": 184884,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    47651
+                ],
                 "preferred_common_name": null
             },
             "user": {
@@ -189,7 +264,20 @@
             "location": "47.5567914318,7.8904450465",
             "place_guess": "Landstrasse Nord, Zeiningen, AG, CH",
             "taxon": {
+                "id": 332307,
                 "name": "Oecanthus pellucens",
+                "rank": "species",
+                "parent_id": 63036,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    47651,
+                    63036,
+                    332307
+                ],
                 "preferred_common_name": "Italian Tree Cricket"
             },
             "user": {
@@ -214,7 +302,18 @@
             "location": "0.0,0.0",
             "place_guess": "Nowhere",
             "taxon": {
+                "id": 50186,
                 "name": "Cicadidae",
+                "rank": "family",
+                "parent_id": 47158,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    50186
+                ],
                 "preferred_common_name": "Typical Cicadas"
             },
             "user": {
@@ -246,7 +345,18 @@
             "location": "1.0,1.0",
             "place_guess": "Nowhere Else",
             "taxon": {
+                "id": 50186,
                 "name": "Cicadidae",
+                "rank": "family",
+                "parent_id": 47158,
+                "ancestor_ids": [
+                    48460,
+                    1,
+                    47120,
+                    47158,
+                    184884,
+                    50186
+                ],
                 "preferred_common_name": "Typical Cicadas"
             },
             "user": {
