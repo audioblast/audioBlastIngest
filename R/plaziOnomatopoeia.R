@@ -168,25 +168,3 @@ plaziAttributed <- function(sentence, cited) {
   return(paste0("Rendered by ", paste(named, collapse="; "),
                 ", as quoted by the treatment."))
 }
-
-#The links a record of a treatment gives: it stands in some relation to the
-#taxon the treatment treats -- a measurement and a rendering are about it, a
-#name denotes it -- and it came from the treatment, which is a reference of
-#its own
-plaziAboutLinks <- function(type, ids, treatment,
-                            predicate="http://purl.obolibrary.org/obo/IAO_0000136") {
-  links <- getHeaders("links")
-  if (length(ids) == 0) return(links)
-  links <- rbind(links, data.frame(
-    source="", subject_type=type, subject_source="", subject_id=ids,
-    predicate=predicate,
-    object_type="iri", object_source="", object_id=treatment$taxon,
-    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
-  links <- rbind(links, data.frame(
-    source="", subject_type=type, subject_source="", subject_id=ids,
-    predicate="http://purl.org/dc/terms/source",
-    object_type="references", object_source="", object_id=treatment$uuid,
-    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
-  rownames(links) <- NULL
-  return(links)
-}
