@@ -9,13 +9,31 @@
 #Values are quoted as read.csv() reads them, so a remark with a comma, a quote
 #or a line of its own in it comes back as it went in.
 
-#The file a type of table is streamed to
+#' The file a type of table is streamed to
+#'
+#' The CSV that a streamed harvest writes a type of table to (see
+#' xenocantoR()), which is the type named after the directory it was
+#' harvested to.
+#'
+#' @param dir Directory the harvest was streamed to.
+#' @param type Type of table, e.g. recordings or details.
+#' @return Path of the file, whether or not anything has been written to it.
+#' @export
 streamPath <- function(dir, type) {
   return(file.path(dir, paste0(type, ".csv")))
 }
 
-#Appends a table's rows to the file of its type, which is given its header the
-#first time it is written to. Returns the path.
+#' Stream a table to a file
+#'
+#' Appends a table's rows to the file of its type, which is given its header
+#' the first time it is written to, so that a harvest too big to hold can be
+#' written a page at a time (see xenocantoR()).
+#'
+#' @param dir Directory to stream to, made if it isn't there.
+#' @param type Type of table, e.g. recordings or details.
+#' @param table Rows to append, with the columns of getHeaders(type).
+#' @return Path of the file written to.
+#' @export
 #' @importFrom utils write.table
 streamTable <- function(dir, type, table) {
   path <- streamPath(dir, type)
@@ -28,12 +46,29 @@ streamTable <- function(dir, type, table) {
   return(path)
 }
 
-#Reads a streamed table and gives it to a function a chunk of rows at a time,
-#returning how many rows there were. Rows are read as text, as sources are, and
-#the connection keeps its place between chunks, so the file is read once
-#however many chunks it takes. An each of -1 reads the whole table, which is
-#what a taxonomy needs: a taxon reaches its parent by walking the table it is
-#in, so a chunk that held a species without its genus would lose the walk.
+#' Read a streamed table a chunk at a time
+#'
+#' Reads a table a harvest streamed to a file (see xenocantoR()) and gives it
+#' to a function a chunk of rows at a time, so that a table of millions of rows
+#' costs a chunk of memory rather than all of them. Rows are read as text, as
+#' sources are, and the connection keeps its place between chunks, so the file
+#' is read once however many chunks it takes.
+#'
+#' It is also how to count what a harvest found without holding it: give it a
+#' function that does nothing and read the number of rows it returns.
+#'
+#' @param path Path of the streamed table, from streamPath().
+#' @param each Rows to read at a time, or -1 for the whole table. A taxonomy
+#'   needs the whole of it: a taxon reaches its parent by walking the table it
+#'   is in, so a chunk holding a species without its genus would lose the walk.
+#' @param FUN Function called with each chunk, as a data frame of text.
+#' @return Invisibly, the number of rows read.
+#' @examples
+#' \dontrun{
+#' paths <- xenocantoR("grp:bats", dir="harvest")
+#' readStream(paths$recordings, -1L, function(chunk) NULL)
+#' }
+#' @export
 #' @importFrom utils read.csv
 readStream <- function(path, each, FUN) {
   if (!file.exists(path) || file.size(path) == 0) return(invisible(0L))
