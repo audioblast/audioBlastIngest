@@ -159,6 +159,14 @@ positiveNumber <- function(x) {
   return(out)
 }
 
+#Numbers, as they are written, whether they are whole or decimal and above or
+#below 0 (an elevation is below it below sea level); NA for anything else
+decimalNumber <- function(x) {
+  x <- trimws(as.character(x))
+  value <- suppressWarnings(as.numeric(x))
+  return(ifelse(!is.na(value) & is.finite(value), x, NA_character_))
+}
+
 #Whole numbers greater than 0, written without a decimal point or an exponent,
 #or NA
 wholeNumber <- function(x) {

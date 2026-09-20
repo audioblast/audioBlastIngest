@@ -99,6 +99,27 @@ uploadAnnOmate <- function(db, table) {
   uploadRows(db, "annomate", columns, table[1:15], update=columns)
 }
 
+#' Upload Locations
+#'
+#' Adds locations from a data frame to the database locations table, updating
+#' locations already in it. A location is a place that records were made or
+#' collected at, described once however many of them share it, in columns named
+#' after the Darwin Core terms for them. Which records are of a place is a link
+#' (dwciri:inDescribedPlace), not a column here. Values are normalised first,
+#' so that each column holds one form of value whichever source a place came
+#' from: coordinates are decimal degrees, countries are ISO 3166-1 alpha-2
+#' codes, and elevations are numbers of metres. Values that can't be read are
+#' uploaded as NULL.
+#'
+#' @param db database connector
+#' @param table dataframe of locations to upload, with the columns of
+#'   getHeaders("locations").
+#' @export
+uploadLocations <- function(db, table) {
+  columns <- names(getHeaders("locations"))
+  uploadRows(db, "locations", columns, normaliseLocations(table), update=columns[-(1:2)])
+}
+
 #' Upload References
 #'
 #' Adds references from a data frame to the database references table, updating

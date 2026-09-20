@@ -1,0 +1,4 @@
+"id","name","continent","countryCode","stateProvince","county","island","islandGroup","locality","decimalLatitude","decimalLongitude","coordinateUncertaintyInMeters","geodeticDatum","georeferenceRemarks","minimumElevationInMeters","maximumElevationInMeters","info_url"
+"11150","Chapman's Pool, Dorset","Europe","GB","England","Dorset","","","","50.60165359291455","-1.9529056549072266","","","","","","https://bio.acousti.ca/node/11150"
+"11155","Corsica: Corse-du-Sud; 20km N of Ajaccio","Europe","fr","","","Corsica","","1km N of Sagone","42.12814780545614","8.708553314208984","1000","WGS84","Taken from the map","20","1796","https://bio.acousti.ca/node/11155"
+"11164","BMNH Acoustic  Laboratory","Europe","London","England","London","","","","","","0","","","","","bio.acousti.ca/node/11164"
