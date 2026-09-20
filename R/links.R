@@ -43,7 +43,7 @@ uploadLinks <- function(db, table) {
 #The data modules that audioBLAST! holds records in, which links join and
 #details belong to
 recordTypes <- c("recordings", "specimens", "traits", "taxa", "references",
-                 "locations", "deployments", "annomate")
+                 "locations", "descriptions", "deployments", "annomate")
 
 #Types of record that links can join: data modules, vocabulary terms (with
 #their IRI as id) and anything else with an IRI
