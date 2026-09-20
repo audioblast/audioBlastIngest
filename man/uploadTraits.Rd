@@ -9,8 +9,11 @@ uploadTraits(db, table)
 \arguments{
 \item{db}{database connector}
 
-\item{table}{dataframe of traits to upload.}
+\item{table}{dataframe of traits to upload, as seperatoR() gives them.}
 }
 \description{
-Replaces the database traits table with contents of a data frame
+Adds traits from a data frame to the database traits table, updating traits
+already in it. A value written as a range is uploaded with the ends of that
+range as well, as seperatoR() reads them; a value that isn't a range has
+none, and a value's own text is uploaded whether or not it is one.
 }

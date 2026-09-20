@@ -31,4 +31,10 @@ a link are left out. The links of each source in the data
 frame are deleted and the new ones inserted in one transaction, so links
 that a source no longer gives are removed. Empty qualifiers and remarks are
 uploaded as NULL.
+
+A link that gives a reference is the relationship that reference
+establishes, so a second link says so: the first link is its subject and the
+reference its object, by dcterms:source. A source needn't know how a link's
+id is made to cite one, and a citation is a link like any other, found and
+served the same way. A link with no reference gets none.
 }
