@@ -100,27 +100,32 @@ plaziOnomatopoeia <- function(document, treatment) {
               links=plaziAboutLinks("onomatopoeia", onomatopoeia$id, treatment)))
 }
 
+#The words a sentence quotes. A treatment sets them in the typesetter's
+#quotation marks rather than the keyboard's, and leaves the comma or full
+#stop that followed the quotation inside it.
+plaziQuoted <- function(text) {
+  pieces <- regmatches(text, gregexpr(
+    paste0("[", plaziQuoteMarks, "][^", plaziQuoteMarks, "]{2,80}[", plaziQuoteMarks, "]"),
+    text, perl=TRUE))[[1]]
+  words <- character(0)
+  for (piece in pieces) {
+    word <- trimws(substr(piece, 2, nchar(piece) - 1))
+    word <- trimws(gsub("[[:space:],.;:]+$", "", word))
+    if (word != "") words <- c(words, word)
+  }
+  return(unique(words))
+}
+
 #The words a sentence renders a sound with: what is quoted after the phrase
 #that marks the rendering. What is quoted before it is being quoted for some
 #other reason.
 plaziRenderings <- function(sentence) {
   marker <- regexpr(plaziRenders, sentence, ignore.case=TRUE, perl=TRUE)
   if (marker == -1) return(character(0))
-  after <- substr(sentence, marker, nchar(sentence))
-  quoted <- regmatches(after, gregexpr(
-    paste0("[", plaziQuoteMarks, "][^", plaziQuoteMarks, "]{2,80}[", plaziQuoteMarks, "]"),
-    after, perl=TRUE))[[1]]
-  words <- character(0)
-  for (piece in quoted) {
-    word <- trimws(substr(piece, 2, nchar(piece) - 1))
-    #A rendering is the sound written out, not a sentence about it, and the
-    #comma or full stop the typesetter left inside the quotation is not part of
-    #the word
-    word <- trimws(gsub("[[:space:],.;:]+$", "", word))
-    if (word == "" || grepl("\\s", trimws(word)) && lengths(regmatches(word, gregexpr("\\S+", word))) > 8) next
-    words <- c(words, word)
-  }
-  return(unique(words))
+  #What is quoted before the marker is quoted for some other reason
+  words <- plaziQuoted(substr(sentence, marker, nchar(sentence)))
+  #A rendering is the sound written out, not a sentence about it
+  return(words[lengths(regmatches(words, gregexpr("\\S+", words))) <= 8])
 }
 
 #The names of taxa a paragraph mentions that are not the one it treats, both as
@@ -164,14 +169,17 @@ plaziAttributed <- function(sentence, cited) {
                 ", as quoted by the treatment."))
 }
 
-#The links a record of a treatment gives: it is about the taxon the treatment
-#treats and it came from the treatment, which is a reference of its own
-plaziAboutLinks <- function(type, ids, treatment) {
+#The links a record of a treatment gives: it stands in some relation to the
+#taxon the treatment treats -- a measurement and a rendering are about it, a
+#name denotes it -- and it came from the treatment, which is a reference of
+#its own
+plaziAboutLinks <- function(type, ids, treatment,
+                            predicate="http://purl.obolibrary.org/obo/IAO_0000136") {
   links <- getHeaders("links")
   if (length(ids) == 0) return(links)
   links <- rbind(links, data.frame(
     source="", subject_type=type, subject_source="", subject_id=ids,
-    predicate="http://purl.obolibrary.org/obo/IAO_0000136",
+    predicate=predicate,
     object_type="iri", object_source="", object_id=treatment$taxon,
     qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
   links <- rbind(links, data.frame(
