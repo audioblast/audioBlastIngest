@@ -228,6 +228,43 @@ uploadDetails <- function(db, table) {
   })
 }
 
+
+#' Upload Vernacular Names
+#'
+#' Replaces the vernacular names that each source gives in the database
+#' vernacularnames table with those in a data frame. A vernacular name is a
+#' name a taxon is known by in a language, held in columns named after the
+#' Darwin Core terms for them, and identified by its id within its source. The
+#' taxon a name is for, and the reference it was taken from, are links (see
+#' uploadLinks()).
+#'
+#' Names that have no id, or nothing to name a taxon with, are skipped with a
+#' warning. Values are normalised first, so that each column holds one form of
+#' value whichever source a name came from: names, localities and remarks are
+#' plain text, as sources often hold them as HTML, and a language is a BCP 47
+#' language tag. Values that can't be read are uploaded as NULL, as is a
+#' language that a source doesn't give. The names of each source in the data
+#' frame are deleted and the new ones inserted in one transaction, so a name a
+#' source no longer gives is removed rather than left naming nothing.
+#'
+#' @param db database connector
+#' @param table dataframe of vernacular names to upload, with the columns of
+#'   getHeaders("vernacularnames").
+#' @export
+#' @importFrom DBI dbExecute
+uploadVernacularNames <- function(db, table) {
+  vernacular <- normaliseVernacularNames(table)
+  if (nrow(vernacular) == 0) return(invisible(NULL))
+
+  columns <- names(getHeaders("vernacularnames"))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(vernacular$source)) {
+      dbExecute(db, "DELETE FROM `vernacularnames` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "vernacularnames", columns, vernacular[columns], update=columns[-(1:2)],
+               transaction=FALSE)
+  })
+}
 #Inserts values (a data frame with a column for each of columns) into a table,
 #updating the update columns of rows already there. Rows are inserted in
 #batches, each by one statement in its own transaction, so a batch that fails

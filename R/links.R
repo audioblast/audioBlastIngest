@@ -43,7 +43,8 @@ uploadLinks <- function(db, table) {
 #The data modules that audioBLAST! holds records in, which links join and
 #details belong to
 recordTypes <- c("recordings", "specimens", "traits", "taxa", "references",
-                 "locations", "descriptions", "deployments", "annomate")
+                 "locations", "descriptions", "deployments", "annomate",
+                 "vernacularnames")
 
 #Types of record that links can join: data modules, vocabulary terms (with
 #their IRI as id) and anything else with an IRI
@@ -52,6 +53,7 @@ linkTypes <- c(recordTypes, "term", "iri")
 #Relationships that links can give
 linkPredicates <- c(
   "http://purl.obolibrary.org/obo/IAO_0000136", #is about
+  "http://purl.obolibrary.org/obo/IAO_0000219", #denotes, a subproperty of is about
   "http://purl.org/dc/terms/isReferencedBy",
   "http://purl.org/dc/terms/source",
   "http://purl.org/dc/terms/relation",
