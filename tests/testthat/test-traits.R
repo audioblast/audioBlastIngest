@@ -59,6 +59,18 @@ test_that("each of several values keeps its own range", {
   expect_identical(out$max, c(6, 12))
 })
 
+test_that("ends that are the wrong way round are not read as a range", {
+  #0.06-0.01 is typed backwards and 1630-0300 is a time of day passing midnight
+  table <- traitsTable(traitID=c("1", "2", "3"), Value=c("0.06-0.01", "1630-0300", "0.01-0.06"))
+
+  out <- seperatoR(table)
+
+  expect_identical(out$min, c(NA, NA, 0.01))
+  expect_identical(out$max, c(NA, NA, 0.06))
+  #The value itself is still uploaded, so nothing is lost
+  expect_identical(out$Value, c("0.06-0.01", "1630-0300", "0.01-0.06"))
+})
+
 test_that("a table with no traits is returned with the range columns", {
   out <- seperatoR(traitsTable()[0, , drop=FALSE])
 
@@ -66,8 +78,8 @@ test_that("a table with no traits is returned with the range columns", {
   expect_true(all(is.element(c("traitID", "Value", "min", "max"), names(out))))
 })
 
-test_that("uploadTraits uploads a value of each of a trait's values", {
-  table <- seperatoR(traitsTable(traitID=c("2170", "39548"), Value=c("Evening; Night", "0.4")))
+test_that("uploadTraits uploads a value of each of a trait's values, with its range", {
+  table <- seperatoR(traitsTable(traitID=c("2170", "39548"), Value=c("Evening; Night", "4-6")))
 
   upload <- mockUpload(uploadTraits, table)
 
@@ -75,6 +87,34 @@ test_that("uploadTraits uploads a value of each of a trait's values", {
   expect_identical(upload$executed[[1]]$sql, insertSQL("traits", columns, columns[-(1:2)], 3))
   rows <- boundRows(upload$executed[[1]])
   expect_identical(vapply(rows, `[[`, character(1), 2), c("2170", "2170.2", "39548"))
-  #min and max have no column in the traits table yet, so they aren't uploaded
+  expect_identical(rows[[3]][[which(columns == "min")]], 4)
+  expect_identical(rows[[3]][[which(columns == "max")]], 6)
+  #A value that isn't a range has no ends
+  expect_identical(rows[[1]][[which(columns == "min")]], NA_real_)
+})
+
+test_that("uploadTraits uploads the ends of a range as numbers, whatever a source gives", {
+  table <- traitsTable(traitID=c("1", "2"), Value=c("4-6", "Present"))
+  table$min <- c("4", "")
+  table$max <- c("6", "about 9")
+
+  upload <- mockUpload(uploadTraits, table)
+
+  columns <- names(getHeaders("traits"))
+  rows <- boundRows(upload$executed[[1]])
+  expect_identical(rows[[1]][[which(columns == "min")]], 4)
+  expect_identical(rows[[2]][[which(columns == "min")]], NA_real_)
+  expect_identical(rows[[2]][[which(columns == "max")]], NA_real_)
+})
+
+test_that("traits from a source that gives no range are uploaded without one", {
+  table <- traitsTable(traitID="1", Value="4-6")
+  table <- table[, setdiff(names(table), c("min", "max"))]
+
+  upload <- mockUpload(uploadTraits, table)
+
+  columns <- names(getHeaders("traits"))
+  rows <- boundRows(upload$executed[[1]])
   expect_length(rows[[1]], length(columns))
+  expect_identical(rows[[1]][[which(columns == "min")]], NA_real_)
 })

@@ -3,9 +3,10 @@ columnTable <- function(columns, rows=3) {
   data.frame(lapply(setNames(nm=columns), paste0, "-", seq_len(rows)), check.names=FALSE)
 }
 
-#The values of a table, row by row
+#The values of a table, row by row, each as the type its column holds
 byRow <- function(table) {
-  as.list(as.vector(t(as.matrix(table))))
+  return(unlist(lapply(seq_len(nrow(table)), function(i) unname(as.list(table[i, , drop=FALSE]))),
+                recursive=FALSE))
 }
 
 test_that("insertSQL inserts rows, updating rows already there", {
@@ -18,7 +19,7 @@ test_that("insertSQL inserts rows, updating rows already there", {
 #Each uploader, its database table, the columns it updates on rows already
 #there, and what it does to values before uploading them
 uploads <- list(
-  traits=list(upload=uploadTraits, table="traits", update=-(1:2)),
+  traits=list(upload=uploadTraits, table="traits", update=-(1:2), normalise=normaliseTraits),
   recordings=list(upload=uploadRecordings, table="recordings", update=-(1:2), normalise=normaliseRecordings),
   deployments=list(upload=uploadDeployments, table="deployments", update=-(1:2)),
   "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:15),

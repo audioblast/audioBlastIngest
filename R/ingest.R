@@ -227,7 +227,9 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "traits") {
-    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call.Type","Sex","Temperature","Reference","Cascade","Annotation.ID","Call.Part","Call.Type.Link","Call.Qualifier")
+    #min and max are the ends of the range a value is written as, which
+    #seperatoR() reads; a source needn't give them
+    heads <-   col_names <- c("source","traitID","taxonID","Taxonomic.name","Trait","Ontology.Link","Value","Call.Type","Sex","Temperature","Reference","Cascade","Annotation.ID","Call.Part","Call.Type.Link","Call.Qualifier","min","max")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

@@ -28,20 +28,39 @@ uploadTaxa <- function(db, table) {
 
 #' Upload Traits
 #'
-#' Replaces the database traits table with contents of a data frame
+#' Adds traits from a data frame to the database traits table, updating traits
+#' already in it. A value written as a range is uploaded with the ends of that
+#' range as well, as seperatoR() reads them; a value that isn't a range has
+#' none, and a value's own text is uploaded whether or not it is one.
 #'
 #' @param db database connector
-#' @param table dataframe of traits to upload.
+#' @param table dataframe of traits to upload, as seperatoR() gives them.
 #' @export
 uploadTraits <- function(db, table) {
   columns <- names(getHeaders("traits"))
-  #Traits from before the call's part, link and qualifier were added (see
-  #linkTraits()) don't have them; where they are missing or empty, they are NULL
+  uploadRows(db, "traits", columns, normaliseTraits(table), update=columns[-(1:2)])
+}
+
+#Normalises a data frame of traits (see uploadTraits()), so that each column
+#holds one form of value whichever source a trait came from. Traits from before
+#the call's part, link and qualifier were added (see linkTraits()), or from a
+#source that gives no range, are given those columns. Values that can't be read
+#are set to NA, which is uploaded as NULL:
+#
+#* min and max, the ends of the range a value is written as, are numbers, so
+#  that traits can be found by the range they cover.
+#
+#Normalising traits that are already normalised leaves them unchanged.
+normaliseTraits <- function(table) {
   for (column in c("Call.Part", "Call.Type.Link", "Call.Qualifier")) {
     if (!is.element(column, names(table))) table[[column]] <- rep_len(NA_character_, nrow(table))
     table[which(table[[column]] == ""), column] <- NA
   }
-  uploadRows(db, "traits", columns, table[columns], update=columns[-(1:2)])
+  for (column in c("min", "max")) {
+    if (!is.element(column, names(table))) table[[column]] <- rep_len(NA_real_, nrow(table))
+    table[[column]] <- suppressWarnings(as.numeric(table[[column]]))
+  }
+  return(table[names(getHeaders("traits"))])
 }
 
 #' Upload Recordings
