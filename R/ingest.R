@@ -67,13 +67,13 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #A failed harvest skips this source rather than every source. Each taxon
       #group is a source of its own, so one that fails doesn't take the others
       #with it.
-      data <- tryCatch(
+      tables <- tryCatch(
         inaturalistR(source$inaturalist$taxon_id, verbose=verbose),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
         })
-      if (is.null(data)) next
+      if (is.null(tables)) next
     } else if (is.element("orthoptera", names(source))) {
       #A failed harvest skips this source rather than every source
       data <- tryCatch(
