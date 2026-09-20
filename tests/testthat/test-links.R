@@ -2,9 +2,11 @@ linksFixture <- function() {
   return(test_path("fixtures", "links.csv"))
 }
 
-#Links as ingestR() reads them from a source
+#Links as ingestR() reads them from a source, which says nothing about what
+#established them
 readLinks <- function(source="bio.acousti.ca") {
   data <- sourceR(source, read.csv(linksFixture(), colClasses="character", encoding="UTF-8"))
+  data$reference <- rep_len("", nrow(data))
   colnames(data) <- names(getHeaders("links"))
   return(data)
 }
@@ -12,9 +14,11 @@ readLinks <- function(source="bio.acousti.ca") {
 #A link from a source, filling in whatever isn't given
 link <- function(source="bio.acousti.ca", subject_type="references", subject_source="",
                  subject_id="1", predicate="http://purl.org/dc/terms/relation",
-                 object_type="taxa", object_source="", object_id="2", qualifier="", remarks="") {
+                 object_type="taxa", object_source="", object_id="2", qualifier="", remarks="",
+                 reference="") {
   return(data.frame(source, subject_type, subject_source, subject_id, predicate, object_type,
-                    object_source, object_id, qualifier, remarks, stringsAsFactors=FALSE))
+                    object_source, object_id, qualifier, remarks, reference,
+                    stringsAsFactors=FALSE))
 }
 
 test_that("links get their source's records and an id, and repeats are left out", {
@@ -64,7 +68,8 @@ test_that("uploadLinks replaces the links of each source in one transaction", {
   expect_identical(upload$executed[[1]]$sql, "DELETE FROM `links` WHERE `source` = ?")
   expect_identical(upload$executed[[1]]$params, list("bio.acousti.ca"))
   expect_identical(upload$executed[[2]]$params, list("audioblast"))
-  columns <- c("source", "id", names(getHeaders("links"))[-1])
+  #reference says what established a link, which is a link of its own
+  columns <- c("source", "id", setdiff(names(getHeaders("links"))[-1], "reference"))
   expect_identical(
     upload$executed[[3]]$sql,
     insertSQL("links", columns, columns[-(1:2)], 7))

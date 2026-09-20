@@ -18,6 +18,12 @@
 #' that a source no longer gives are removed. Empty qualifiers and remarks are
 #' uploaded as NULL.
 #'
+#' A link that gives a reference is the relationship that reference
+#' establishes, so a second link says so: the first link is its subject and the
+#' reference its object, by dcterms:source. A source needn't know how a link's
+#' id is made to cite one, and a citation is a link like any other, found and
+#' served the same way. A link with no reference gets none.
+#'
 #' @param db database connector
 #' @param table dataframe of links to upload, with the columns of
 #'   getHeaders("links").
@@ -27,11 +33,13 @@
 uploadLinks <- function(db, table) {
   links <- normaliseLinks(table)
   if (nrow(links) == 0) return(invisible(NULL))
+  links <- rbind(links, citedBy(links))
+  links <- links[!duplicated(links[c("source", "id")]), , drop=FALSE]
   for (column in c("qualifier", "remarks")) {
     links[which(links[[column]] == ""), column] <- NA
   }
 
-  columns <- c("source", "id", names(getHeaders("links"))[-1])
+  columns <- c("source", "id", setdiff(names(getHeaders("links"))[-1], "reference"))
   DBI::dbWithTransaction(db, {
     for (source in unique(links$source)) {
       dbExecute(db, "DELETE FROM `links` WHERE `source` = ?", params=list(source))
@@ -41,10 +49,11 @@ uploadLinks <- function(db, table) {
 }
 
 #The data modules that audioBLAST! holds records in, which links join and
-#details belong to
+#details belong to. Links are among them: a link is a record with an id of its
+#own, so what established one can be said of it.
 recordTypes <- c("recordings", "specimens", "traits", "taxa", "references",
                  "locations", "descriptions", "deployments", "annomate",
-                 "vernacularnames")
+                 "vernacularnames", "links")
 
 #Types of record that links can join: data modules, vocabulary terms (with
 #their IRI as id) and anything else with an IRI
@@ -65,10 +74,30 @@ linkPredicates <- c(
   "http://www.w3.org/2004/02/skos/core#exactMatch"
 )
 
+#The links saying which reference established each of the links that give one,
+#with their own ids. The reference is the linking source's own, as a record of
+#a data module is.
+citedBy <- function(links) {
+  cited <- links[links$reference != "", , drop=FALSE]
+  if (nrow(cited) == 0) {
+    return(links[0, , drop=FALSE])
+  }
+  citations <- data.frame(
+    source=cited$source, subject_type="links", subject_source=cited$source,
+    subject_id=cited$id, predicate="http://purl.org/dc/terms/source",
+    object_type="references", object_source=cited$source, object_id=cited$reference,
+    qualifier="", remarks="", reference="", stringsAsFactors=FALSE)
+  return(normaliseLinks(citations))
+}
+
 #Trims links, fills in the sources of records that the linking source holds,
 #skips links that can't be used, and gives each link its id
 normaliseLinks <- function(table) {
   columns <- names(getHeaders("links"))
+  #A source needn't say what established a link, so the column is added empty
+  for (column in setdiff(columns, names(table))) {
+    table[[column]] <- rep_len("", nrow(table))
+  }
   links <- as.data.frame(
     lapply(table[columns], function(x) trimws(ifelse(is.na(x), "", as.character(x)))),
     stringsAsFactors=FALSE)
