@@ -45,7 +45,10 @@ importFrom(stats,
   ave,
   setNames
 )
-importFrom(stringi,stri_trans_nfc)
+importFrom(stringi,
+  stri_trans_general,
+  stri_trans_nfc
+)
 importFrom(stringr,
   str_replace,
   str_to_title,
@@ -53,5 +56,6 @@ importFrom(stringr,
 )
 importFrom(utils,
   head,
-  read.csv
+  read.csv,
+  tail
 )

@@ -12,8 +12,10 @@ orthopteraSpeciesFileR(
 )
 }
 \arguments{
-\item{token}{Public project token published by Orthoptera Species File.
-Override if the site's token changes.}
+\item{token}{Public project token. The Orthoptera Species File's is the
+default. It is not a credential: \url{https://sfg.taxonworks.org/api/v1/}
+needs no authentication and publishes the token of every open TaxonWorks
+project. Override it if the site's token changes.}
 
 \item{per_page}{Number of sounds per request, from 1 to 1000.}
 
@@ -22,17 +24,34 @@ Override if the site's token changes.}
 \item{verbose}{If TRUE reports harvest progress.}
 }
 \value{
-Data frame in the recordings format, with an empty source column.
+Data frame in the recordings format, with an empty source column
+(see sourceR()), and the links it gives in \code{attr(x, "links")}.
 }
 \description{
-Reads the public TaxonWorks sounds API, including attribution and linked
-taxa, including accepted identifications of linked specimens and field
-occurrences. Event links are resolved when their occurrences identify a
-single taxon. Otherwise, an explicitly named recording can be matched to
-an exact, unique accepted taxon in OSF. Unresolved taxa remain empty.
-Audio files are not downloaded. Unknown recording dates, locations,
-licences and file types are left empty. Attribution labels are preserved
-verbatim in author. Multiple linked taxa are separated by semicolons.
+Harvests recording metadata from the Orthoptera Species File's public
+TaxonWorks API and converts it to the audioBlast! recordings format.
+}
+\details{
+A sound is conveyed on a taxon (an OTU), a specimen, a field observation or
+a collecting event. Specimens and field observations are read as Darwin Core
+records, which give both the taxon of the accepted determination and where
+and when the recording was made. A collecting event is read through the
+Darwin Core records of its occurrences, which say what was recorded only
+where they all agree.
+
+Where an indirect link gives no taxon, a binomial that is the whole title or
+precedes a numbered recording label is matched to a unique accepted OSF
+taxon. The Orthoptera Species File does not identify those recordings, so
+the name is not put in taxon, which holds the scientific name the source
+gives: it is given as a link saying the identification was read from the
+title. A recording of more than one taxon is given links too, as a
+scientific name is one name. The links are \code{attr(x, "links")}, which
+ingestR() uploads.
+
+The MIME type and size of each recording are read with one HEAD request for
+its audio; audio is never downloaded. The API gives no time of day,
+recording device or number of channels, so those are left empty, as is
+info_url: the Orthoptera Species File has no page for a sound.
 }
 \examples{
 \dontrun{

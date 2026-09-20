@@ -38,15 +38,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       system(command)
       source$url <- paste0(source$git$repo,"/",source$git$file)
     }
-    if (is.element("orthoptera", names(source))) {
-      data <- tryCatch(
-        do.call(orthopteraSpeciesFileR, c(source$orthoptera, list(verbose=verbose))),
-        error=function(e) {
-          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
-          NULL
-        })
-      if (is.null(data)) next
-    } else if (is.element("xenocanto", names(source))) {
+    if (is.element("xenocanto", names(source))) {
       #A failed harvest skips this source rather than every source
       data <- tryCatch(
         xenocantoR(source$xenocanto$query, verbose=verbose),
@@ -61,6 +53,15 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #with it.
       data <- tryCatch(
         inaturalistR(source$inaturalist$taxon_id, verbose=verbose),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
+    } else if (is.element("orthoptera", names(source))) {
+      #A failed harvest skips this source rather than every source
+      data <- tryCatch(
+        do.call(orthopteraSpeciesFileR, c(source$orthoptera, list(verbose=verbose))),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
@@ -81,6 +82,16 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #Sources are UTF-8. Without declaring it, R sessions that are not UTF-8
       #(e.g. Windows R < 4.2) double-encode non-ASCII text on upload.
       data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
+    }
+
+    #A harvest can give links as well as records, for what a record holds that
+    #its own table has no column for. They are the harvesting source's links,
+    #and are taken here because adding the source column drops attributes.
+    harvested <- attr(data, "links")
+    attr(data, "links") <- NULL
+    if (!is.null(harvested) && nrow(harvested) > 0) {
+      harvested$source <- source$name
+      links <- rbind(links, harvested)
     }
 
     #Map source columns to standard columns (defined in module.php)
