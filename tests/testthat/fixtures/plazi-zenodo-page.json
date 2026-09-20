@@ -1,0 +1,81 @@
+{
+ "hits": {
+  "total": 3,
+  "hits": [
+   {
+    "doi": "10.5281/zenodo.10716201",
+    "metadata": {
+     "title": "Macroxiphus sumatranus",
+     "license": {
+      "id": "cc-zero"
+     },
+     "resource_type": {
+      "title": "Taxonomic treatment",
+      "type": "publication",
+      "subtype": "taxonomictreatment"
+     },
+     "alternate_identifiers": [
+      {
+       "identifier": "http://treatment.plazi.org/id/5B3A87E1FFAC5D4F48A2FF532C0EF9B1"
+      }
+     ],
+     "related_identifiers": [
+      {
+       "identifier": "10.11646/zootaxa.5415.1.5",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "https://www.gbif.org/species/221747866",
+       "relation": "isSourceOf",
+       "scheme": "url"
+      }
+     ]
+    }
+   },
+   {
+    "doi": "10.5281/zenodo.10716201",
+    "metadata": {
+     "title": "Restricted treatment",
+     "license": {
+      "id": "cc-by-nc-4.0"
+     },
+     "resource_type": {
+      "title": "Taxonomic treatment",
+      "type": "publication",
+      "subtype": "taxonomictreatment"
+     },
+     "alternate_identifiers": [
+      {
+       "identifier": "http://treatment.plazi.org/id/03EC5B27FFA8A42CB420FDF0FEC28D89"
+      }
+     ],
+     "related_identifiers": [
+      {
+       "identifier": "10.11646/zootaxa.5415.1.5",
+       "relation": "isPartOf",
+       "resource_type": "publication-article",
+       "scheme": "doi"
+      },
+      {
+       "identifier": "https://www.gbif.org/species/221747866",
+       "relation": "isSourceOf",
+       "scheme": "url"
+      }
+     ]
+    }
+   },
+   {
+    "metadata": {
+     "title": "Not at Plazi",
+     "license": {
+      "id": "cc-zero"
+     },
+     "alternate_identifiers": [],
+     "related_identifiers": []
+    }
+   }
+  ]
+ }
+}

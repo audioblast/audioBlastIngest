@@ -10,7 +10,8 @@ inatPage <- function(ids, remaining=length(ids)) {
     list(id=id, observed_on="2020-07-01", time_observed_at="2020-07-01T14:00:00+01:00",
          created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1",
          place_guess="London, England",
-         taxon=list(name="Gryllus campestris", preferred_common_name="Field Cricket"),
+         taxon=list(id=9001, name="Gryllus campestris", rank="species", parent_id=9000,
+                    ancestor_ids=list(9000, 9001), preferred_common_name="Field Cricket"),
          user=list(name="A. Recordist", login="arecordist"),
          sounds=list(list(
            id=id * 10, license_code="cc-by-nc",
@@ -20,8 +21,27 @@ inatPage <- function(ids, remaining=length(ids)) {
   rjson::toJSON(list(total_results=remaining, page=1, per_page=length(ids), results=observations))
 }
 
+#The taxa above the one the stub observations are of, as version 1 gives them
+inatTaxaPage <- function(ids) {
+  results <- lapply(ids, function(id) {
+    list(id=as.numeric(id), name="Gryllus", rank="genus", parent_id=47651)
+  })
+  rjson::toJSON(list(total_results=length(ids), page=1, per_page=30, results=results))
+}
+
 inatResponse <- function(status, body) {
   list(status_code=status, content=charToRaw(enc2utf8(body)))
+}
+
+#The stub API: observations from version 2, and the taxa above them from
+#version 1, which is the one request a harvest makes of it
+inatAPI <- function(observations) {
+  function(url, handle) {
+    if (grepl("/v1/taxa/", url, fixed=TRUE)) {
+      return(inatResponse(200, inatTaxaPage(strsplit(sub(".*/v1/taxa/", "", url), ",")[[1]])))
+    }
+    return(observations(url))
+  }
 }
 
 test_that("iNaturalist observations are converted to the recordings format", {
@@ -118,6 +138,53 @@ test_that("an empty iNaturalist page has no recordings", {
   data <- inaturalistSounds(list())
   expect_identical(names(data), names(getHeaders("recordings")))
   expect_equal(nrow(data), 0)
+  expect_equal(nrow(attr(data, "links")), 0)
+  expect_identical(names(inaturalistTaxa(list())), names(getHeaders("taxa")))
+})
+
+test_that("a page says which recording is about which taxon", {
+  data <- inaturalistSounds(inatFixture()$results)
+  links <- attr(data, "links")
+
+  expect_identical(names(links), names(getHeaders("links")))
+  #A link for every recording that was kept, and none for the sounds left out
+  expect_identical(links$subject_id, data$id)
+  expect_true(all(links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136"))
+  expect_true(all(links$subject_type == "recordings"))
+  expect_true(all(links$object_type == "taxa"))
+  #Both sounds of one observation are about its taxon
+  expect_identical(links$object_id[1:2], c("123456", "123456"))
+  #The ends are the linking source's own, which uploadLinks() fills in
+  expect_true(all(links$subject_source == "" & links$object_source == ""))
+})
+
+test_that("iNaturalist taxa are converted to the taxa format", {
+  taxa <- inaturalistTaxa(lapply(inatFixture()$results, `[[`, "taxon"))
+
+  expect_identical(names(taxa), names(getHeaders("taxa")))
+  #One row for each taxon, however many observations named it
+  expect_identical(taxa$id, c("123456", "322222", "205461", "47936", "424321",
+                              "47651", "332307", "50186"))
+  expect_identical(taxa$taxon[1], "Pholidoptera griseoaptera")
+  #Ranks are capitalised, as taxonomiseR() names a column after each and the
+  #taxa table's columns are capitalised
+  expect_identical(taxa$Rank, c("Species", "Species", "Species", "Genus", "Species",
+                                "Order", "Species", "Family"))
+  expect_identical(taxa$parent_id[1], "123400")
+  expect_identical(taxa$source[1], "")
+
+  #A taxon with no id or no name is not a taxon this can hold
+  expect_equal(nrow(inaturalistTaxa(list(list(name="Nameless"), list(id=1), list()))), 0)
+})
+
+test_that("the taxa above a taxon are the ones its classification needs", {
+  above <- inaturalistAncestorIDs(lapply(inatFixture()$results, `[[`, "taxon"))
+
+  expect_identical(above[["123456"]],
+                   c("48460", "1", "47120", "47158", "184884", "47651", "123400", "123456"))
+  #A taxon named twice is listed once
+  expect_equal(sum(names(above) == "50186"), 1)
+  expect_identical(inaturalistAncestorIDs(list(list(id=1))), setNames(list(character(0)), "1"))
 })
 
 test_that("iNaturalist recordings need no correcting on upload", {
@@ -198,7 +265,7 @@ test_that("iNaturalist values are normalised", {
 
 test_that("iNaturalist harvests page through every taxon with a sliding window", {
   urls <- character(0)
-  local_mocked_bindings(curl_fetch_memory=function(url, handle) {
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
     urls <<- c(urls, url)
     above <- as.numeric(sub(".*[?&]id_above=([0-9]+).*", "\\1", url))
     if (grepl("taxon_id=47651", url, fixed=TRUE)) {
@@ -207,9 +274,10 @@ test_that("iNaturalist harvests page through every taxon with a sliding window",
       return(inatResponse(200, inatPage(1003, 1)))
     }
     inatResponse(200, inatPage(2001, 1))
-  })
+  }))
 
-  data <- inaturalistR(c("47651", "50186"), per_page=2, pause=0)
+  harvest <- inaturalistR(c("47651", "50186"), per_page=2, pause=0)
+  data <- harvest$recordings
 
   expect_identical(names(data), names(getHeaders("recordings")))
   expect_identical(data$id, c("10010", "10020", "10030", "20010"))
@@ -226,14 +294,76 @@ test_that("iNaturalist harvests page through every taxon with a sliding window",
 })
 
 test_that("an observation harvested under two taxa is one recording", {
-  local_mocked_bindings(curl_fetch_memory=function(url, handle) {
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
     #Orthoptera is within Insecta, so both harvests hold this observation
     inatResponse(200, inatPage(1001, 1))
-  })
+  }))
 
-  data <- inaturalistR(c("47651", "47158"), per_page=2, pause=0)
+  harvest <- inaturalistR(c("47651", "47158"), per_page=2, pause=0)
 
-  expect_identical(data$id, "10010")
+  expect_identical(harvest$recordings$id, "10010")
+  #and one link to the taxon, not one for each harvest it was found in
+  expect_equal(nrow(harvest$links), 1)
+})
+
+test_that("a sound on two observations is one recording about two taxa", {
+  #A recording with two taxa singing in it, entered once for each of them
+  page <- function(observation, taxon, name) {
+    rjson::toJSON(list(total_results=1, page=1, per_page=200, results=list(list(
+      id=observation, observed_on="2020-07-01", time_observed_at="2020-07-01T14:00:00+01:00",
+      created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1", place_guess="London",
+      taxon=list(id=taxon, name=name, rank="species", parent_id=9000,
+                 ancestor_ids=list(9000, taxon), preferred_common_name=name),
+      user=list(name="A. Recordist", login="arecordist"),
+      sounds=list(list(id=136818, license_code="cc-by-nc",
+                       file_url="https://static.inaturalist.org/sounds/136818.wav?1",
+                       file_content_type="audio/x-wav", hidden=FALSE))))))
+  }
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    if (grepl("taxon_id=1", url, fixed=TRUE)) {
+      return(inatResponse(200, page(59940239, 153455, "Oecanthus rileyi")))
+    }
+    inatResponse(200, page(59947747, 226222, "Oecanthus quadripunctatus"))
+  }))
+
+  harvest <- inaturalistR(c("1", "2"), per_page=200, pause=0)
+
+  #One file is one recording, keeping the first observation it was found on
+  expect_identical(harvest$recordings$id, "136818")
+  expect_identical(harvest$recordings$taxon, "Oecanthus rileyi")
+  #but it is about both taxa, which is what the links are for
+  expect_equal(nrow(harvest$links), 2)
+  expect_identical(harvest$links$subject_id, c("136818", "136818"))
+  expect_identical(harvest$links$object_id, c("153455", "226222"))
+  expect_identical(sort(harvest$taxa$taxon[harvest$taxa$Rank == "Species"]),
+                   c("Oecanthus quadripunctatus", "Oecanthus rileyi"))
+})
+
+test_that("a harvest gives the taxa its recordings are of, and the taxa above them", {
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    inatResponse(200, inatPage(1001, 1))
+  }))
+
+  harvest <- inaturalistR("47651", per_page=2, pause=0)
+
+  expect_identical(names(harvest), c("recordings", "taxa", "links"))
+  expect_identical(names(harvest$taxa), names(getHeaders("taxa")))
+  #The taxon the observation was identified as, and the one above it, which is
+  #fetched because taxonomiseR() walks the classification by following parents
+  expect_identical(harvest$taxa$id, c("9001", "9000"))
+  expect_identical(harvest$taxa$taxon, c("Gryllus campestris", "Gryllus"))
+  #A rank is capitalised, as the taxa table's columns are
+  expect_identical(harvest$taxa$Rank, c("Species", "Genus"))
+  expect_identical(harvest$taxa$parent_id, c("9000", "47651"))
+  expect_identical(harvest$taxa$source, c("", ""))
+
+  expect_identical(names(harvest$links), names(getHeaders("links")))
+  expect_identical(harvest$links$subject_type, "recordings")
+  expect_identical(harvest$links$subject_id, "10010")
+  #A recording is about a taxon; it does not identify one
+  expect_identical(harvest$links$predicate, "http://purl.obolibrary.org/obo/IAO_0000136")
+  expect_identical(harvest$links$object_type, "taxa")
+  expect_identical(harvest$links$object_id, "9001")
 })
 
 test_that("iNaturalist harvests check their arguments", {
@@ -312,6 +442,8 @@ test_that("the iNaturalist source module is read from list_sources", {
 
 test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only itself", {
   uploaded <- NULL
+  uploadedTaxa <- NULL
+  uploadedLinks <- NULL
   local_mocked_bindings(
     getSources=function() list(
       list(name="iNaturalist", type="recordings",
@@ -320,9 +452,27 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
            inaturalist=list(taxon_id="50186"), process="sourceR")),
     inaturalistR=function(taxon_id, ...) {
       if (taxon_id == "50186") stop("nothing came back")
-      inaturalistSounds(inatFixture()$results)
+      observations <- inatFixture()$results
+      recordings <- inaturalistSounds(observations)
+      links <- attr(recordings, "links")
+      taxa <- inaturalistTaxa(lapply(observations, `[[`, "taxon"))
+      taxa <- taxa[taxa$id %in% links$object_id, ]
+      #The taxa above them, as inaturalistTaxaByID() would have fetched them
+      above <- inaturalistTaxa(list(
+        list(id=48460, name="Life", rank="stateofmatter"),
+        list(id=1, name="Animalia", rank="kingdom", parent_id=48460),
+        list(id=47120, name="Arthropoda", rank="phylum", parent_id=1),
+        list(id=47158, name="Insecta", rank="class", parent_id=47120),
+        list(id=184884, name="Pterygota", rank="subclass", parent_id=47158),
+        list(id=47651, name="Orthoptera", rank="order", parent_id=184884),
+        list(id=50186, name="Cicadidae", rank="family", parent_id=47158),
+        list(id=123400, name="Pholidoptera", rank="genus", parent_id=47651)))
+      taxa <- rbind(taxa, above[!above$id %in% taxa$id, ])
+      list(recordings=recordings, taxa=taxa, links=links)
     },
     uploadTraits=function(db, table) NULL,
+    uploadTaxa=function(db, table) uploadedTaxa <<- table,
+    uploadLinks=function(db, table) uploadedLinks <<- table,
     uploadRecordings=function(db, table) uploaded <<- table)
 
   expect_warning(ingestR(db="db"), "Skipping source iNaturalist - nothing came back")
@@ -330,4 +480,19 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   expect_identical(names(uploaded), names(getHeaders("recordings")))
   expect_identical(uploaded$source, rep("iNaturalist", 7))
   expect_identical(uploaded$id[1], "1654351")
+
+  #One harvest fills three tables, and every one of them is named as
+  #iNaturalist's by the source's own sourceR process
+  expect_identical(uploadedLinks$source, rep("iNaturalist", 7))
+  expect_identical(uploadedLinks$subject_id[1:2], c("1654351", "1654352"))
+  #Both sounds of one observation are about the same taxon
+  expect_identical(uploadedLinks$object_id[1:2], c("123456", "123456"))
+  expect_true(all(uploadedTaxa$source == "iNaturalist"))
+  #taxonomiseR() has walked the classification, so a taxon names itself and
+  #everything above it
+  bushcricket <- uploadedTaxa[uploadedTaxa$id == "123456", ]
+  expect_identical(bushcricket$Species, "Pholidoptera griseoaptera")
+  expect_identical(bushcricket$Order, "Orthoptera")
+  expect_identical(bushcricket$Class, "Insecta")
+  expect_identical(bushcricket$Kingdom, "Animalia")
 })

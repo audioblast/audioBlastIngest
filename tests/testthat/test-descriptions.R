@@ -42,8 +42,17 @@ test_that("a topic names the Species Profile Model info item it is", {
   expect_identical(
     spmInfoItem(c("diagnostic", "general", "diagnostic description")),
     paste0(spm, c("DiagnosticDescription", "GeneralDescription", "DiagnosticDescription")))
+  #And as sources spell them: diagnosis for a diagnostic description,
+  #biology_ecology for a section that is of both, behavior for Behaviour
+  expect_identical(
+    spmInfoItem(c("diagnosis", "biology_ecology", "behavior")),
+    paste0(spm, c("DiagnosticDescription", "Biology", "Behaviour")))
+  #The model defines nothing acoustic, so a topic that is of a sound is of the
+  #behaviour of making it
+  expect_identical(spmInfoItem(c("song", "Bioacoustics", "calling song.")),
+                   paste0(spm, rep("Behaviour", 3)))
   #A word the model has no item for names nothing
-  expect_identical(spmInfoItem(c("song", "", NA)), rep(NA_character_, 3))
+  expect_identical(spmInfoItem(c("etymology", "", NA)), rep(NA_character_, 3))
 })
 
 test_that("descriptions from a source that gives no topic link are given one", {
