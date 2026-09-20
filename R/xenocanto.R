@@ -578,7 +578,7 @@ xenocantoKnown <- function(x, unknown) {
 #Federation) where the recordings table holds an ISO 3166-1 alpha-2 code, so
 #the name is read as one. A name that is no country's is left out and said so.
 xenocantoCountry <- function(cnt) {
-  code <- countryOfName(cnt)
+  code <- countryName2Code(cnt)
   warnUnread("xeno-canto recordings", "country", cnt, code)
   return(ifelse(is.na(code), "", code))
 }

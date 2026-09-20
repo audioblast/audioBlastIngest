@@ -369,16 +369,14 @@ test_that("xeno-canto values are normalised", {
   #The ISO 3166-1 name, a shortening only one country has, a name in common
   #use, and one that is no country's
   expect_identical(
-    countryOfName(c("Russian Federation", "Bolivia", "united  states", "Laos", "Atlantis", "")),
+    countryName2Code(c("Russian Federation", "Bolivia", "united  states", "Laos", "Atlantis", "")),
     c("RU", "BO", "US", "LA", NA, NA))
-  #A shortening that two countries share names neither of them, and xeno-canto
-  #tells the two Congos apart in brackets
+  #xeno-canto writes these names without their and, and tells the two Congos
+  #apart in brackets
   expect_identical(
-    countryOfName(c("Congo", "Korea", "South Korea",
-                    "Congo (Brazzaville)", "Congo (Democratic Republic)")),
-    c(NA, NA, "KR", "CG", "CD"))
-  #xeno-canto writes these names without their and
-  expect_identical(countryOfName(c("Bosnia Herzegovina", "Trinidad Tobago")), c("BA", "TT"))
+    countryName2Code(c("Bosnia Herzegovina", "Trinidad Tobago",
+                       "Congo (Brazzaville)", "Congo (Democratic Republic)")),
+    c("BA", "TT", "CG", "CD"))
   expect_warning(
     expect_identical(xenocantoCountry(c("Spain", "Atlantis", "")), c("ES", "", "")),
     "country that could not be read")

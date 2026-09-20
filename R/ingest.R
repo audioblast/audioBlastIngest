@@ -51,6 +51,26 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           NULL
         })
       if (is.null(tables)) next
+    } else if (is.element("inaturalist", names(source))) {
+      #A failed harvest skips this source rather than every source. Each taxon
+      #group is a source of its own, so one that fails doesn't take the others
+      #with it.
+      data <- tryCatch(
+        inaturalistR(source$inaturalist$taxon_id, verbose=verbose),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
+    } else if (is.element("orthoptera", names(source))) {
+      #A failed harvest skips this source rather than every source
+      data <- tryCatch(
+        do.call(orthopteraSpeciesFileR, c(source$orthoptera, list(verbose=verbose))),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(data)) next
     } else if (source$type == "references") {
       #References are BibTeX (.bib) or else CSV. One that cannot be read skips
       #this source rather than every source.
@@ -68,7 +88,19 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       data <- read.csv(source$url, colClasses = "character", encoding = "UTF-8")
     }
 
+    #A source that gave one table can still give links beside it, for what a
+    #record holds that its own table has no column for. They are the harvesting
+    #source's links, and are taken here because adding the source column drops
+    #attributes. A harvest that names a table of each type it found gives its
+    #links as one of them instead.
     if (is.null(tables)) {
+      harvested <- attr(data, "links")
+      attr(data, "links") <- NULL
+      if (!is.null(harvested) && nrow(harvested) > 0) {
+        harvested$source <- source$name
+        links <- rbind(links, harvested)
+      }
+
       #Map source columns to standard columns (defined in module.php)
       if (is.element("mapping", names(source)) || is.element("override", names(source))) {
         data <- colmap(source, data)
