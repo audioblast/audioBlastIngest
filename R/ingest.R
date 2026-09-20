@@ -21,6 +21,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   details <- getHeaders("details")
   locations <- getHeaders("locations")
   descriptions <- getHeaders("descriptions")
+  vernacular <- getHeaders("vernacularnames")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -137,6 +138,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (verbose) print(paste("  type: descriptions"))
       descriptions <- rbind(descriptions, data)
     }
+    if (source$type == "vernacularnames") {
+      if (verbose) print(paste("  type: vernacularnames"))
+      vernacular <- rbind(vernacular, data)
+    }
   }
 
   #Upload
@@ -180,6 +185,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(details) > 0) {
       uploadDetails(db, details)
+    }
+    if (nrow(vernacular) > 0) {
+      uploadVernacularNames(db, vernacular)
     }
 
   }
@@ -276,6 +284,15 @@ getHeaders <- function(type) {
     #type is the BibTeX entry type (e.g. article), type_of_work its type field
     #and type_name the source's own name for the type (e.g. Journal Article)
     heads <- c("source","id","type","title","author","editor","year","month","journal","booktitle","series","howpublished","volume","number","pages","chapter","edition","publisher","organization","institution","school","address","type_of_work","note","isbn","issn","doi","url","attachments","keywords","abstract","type_name","journal_abbreviation","pmid","info_url")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "vernacularnames") {
+    #The names a taxon is known by, in columns named after the Darwin Core
+    #terms they hold. The taxon a name is for, and the reference it was taken
+    #from, are links.
+    heads <- c("source","id","vernacularName","language","locality","remarks")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
