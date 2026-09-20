@@ -1,0 +1,86 @@
+<?xml version='1.0' encoding='utf-8'?>
+<document ID-DOI="10.11646/zootaxa.5415.1.5" docAuthor="Tan, Ming Kai, Muhammad, Amira Aqilah, Gorochov, Andrei V. &amp; Abdullah, Nurul Ashikin" docDate="2024" docId="5B3A87E1FFAC5D4F48A2FF532C0EF9B1" docOrigin="Zootaxa 5415 (1)" docTitle="Macroxiphus sumatranus" masterDocTitle="An account on some katydids (Orthoptera: Tettigonioidea) from Panti Forest Reserve in Johor, Peninsular Malaysia"><treatment id="5B3A87E1FFAC5D4F48A2FF532C0EF9B1" ID-DOI="http://doi.org/10.5281/zenodo.10716201" ID-GBIF-Taxon="221747866" ID-Zenodo-Dep="10716201" LSID="urn:lsid:plazi:treatment:5B3A87E1FFAC5D4F48A2FF532C0EF9B1" httpUri="http://treatment.plazi.org/id/5B3A87E1FFAC5D4F48A2FF532C0EF9B1" lastPageId="6" lastPageNumber="123" pageId="2" pageNumber="119" scope_order="Orthoptera" scope_subFamily="Conocephalinae" scope_superFamily="Tettigonioidea"><subSubSection id="9B89657CFFAC5D4B48A2FF532B40FF20" box="[151,632,223,250]" pageId="2" pageNumber="119" type="nomenclature">
+<paragraph id="D32C36F7FFAC5D4B48A2FF532B40FF20" blockId="2.[151,632,223,286]" box="[151,632,223,250]" pageId="2" pageNumber="119">
+<heading id="8864819BFFAC5D4B48A2FF532B40FF20" bold="true" box="[151,632,223,250]" fontSize="11" level="1" pageId="2" pageNumber="119" reason="1">
+<taxonomicName id="14934D74FFAC5D4B48A2FF532B40FF20" ID-CoL="3XCY3" authority="(Haan, 1843)" baseAuthorityName="Haan" baseAuthorityYear="1843" box="[151,632,223,250]" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="2" pageNumber="119" phylum="Arthropoda" rank="species" species="sumatranus">
+<emphasis id="E1E7EAE5FFAC5D4B48A2FF532B40FF20" bold="true" box="[151,632,223,250]" pageId="2" pageNumber="119">
+<emphasis id="E1E7EAE5FFAC5D4B48A2FF5328F7FF20" bold="true" box="[151,463,223,250]" italics="true" pageId="2" pageNumber="119">Macroxiphus sumatranus</emphasis>
+(
+<bibRefCitation id="B7024B06FFAC5D4B49EAFF532B48FF20" author="Haan, W. de" box="[479,624,223,249]" pageId="2" pageNumber="119" pagination="165 - 228" refId="ref8584" refString="Haan, W. de (1843) Bijdragen tot de kennis der Orthoptera. In: Temminck, C. J. (Ed.), Verhandelingen over de Natuurlijke Geschiedenis der Nederlansche Overzeesche Bezittingen. Vol. 19 / 20. In commissie bij S. en J. Luchtmans, en C. C. van der Hoek, Leiden, pp. 165 - 228." type="book chapter" year="1843">Haan, 1843</bibRefCitation>
+)
+</emphasis>
+</taxonomicName>
+</heading>
+</paragraph>
+</subSubSection>
+<subSubSection id="9B89657CFFAC5D4B48A2FE8F2833FEC7" box="[151,267,259,286]" pageId="2" pageNumber="119" type="description">
+<paragraph id="D32C36F7FFAC5D4B48A2FE8F2833FEC7" blockId="2.[151,632,223,286]" box="[151,267,259,286]" pageId="2" pageNumber="119">
+(
+<figureCitation id="4BA82A72FFAC5D4B48AAFE8F283AFEC7" box="[159,258,259,286]" captionStart-0="FIGURE 1" captionStart-1="FIGURE 2" captionStart-2="FIGURE 3" captionStart-3="FIGURE 4" captionStart-4="FIGURE 5" captionStartId-0="2.[151,250,1430,1454]" captionStartId-1="3.[151,250,1394,1418]" captionStartId-2="4.[151,250,1734,1758]" captionStartId-3="5.[151,250,1922,1946]" captionStartId-4="6.[151,250,1399,1423]" captionTargetBox-0="[151,1435,548,1404]" captionTargetBox-1="[151,1436,194,1370]" captionTargetBox-2="[151,1385,181,1701]" captionTargetBox-3="[151,1436,181,1898]" captionTargetBox-4="[162,1425,392,1365]" captionTargetId-0="figure-87@2.[151,1435,548,1404]" captionTargetId-1="figure-19@3.[151,1436,181,1370]" captionTargetId-2="figure-25@4.[151,1436,181,1711]" captionTargetId-3="figure-19@5.[151,1436,181,1898]" captionTargetId-4="figure-122@6.[151,1436,381,1376]" captionTargetPageId-0="2" captionTargetPageId-1="3" captionTargetPageId-2="4" captionTargetPageId-3="5" captionTargetPageId-4="6" captionText-0="FIGURE 1. Macroxiphus sumatranus ♁ adult hiding among dried leaves." captionText-1="FIGURE 2. Macroxiphus sumatranus head and pronotum in dorsal (A) and lateral (B) views, face in anterior view (C), stridulatory apparatus of the left tegmen in ventral view (D) and of the right tegmen in dorsal view (E). Scale bars: 1 mm (all except E), 2 mm (E)." captionText-2="FIGURE 3. Macroxiphus sumatranus ♁ abdominal apex in dorso-posterior (A), lateral (B) and ventral (C) views, titillators in dorsal (D) and ventral (E) views. Scale bars: 1 mm (A, D, E), 2 mm (B, C)." captionText-3="FIGURE 4. Macroxiphus sumatranus ♀ (A) subadult and juvenile (B) in their natural environment." captionText-4="FIGURE 5. Macroxiphus sumatranus ♁ calling song recorded in the laboratory: oscillograms showing six isolated echemes (A) and one echeme (B), and spectrogram of the same echeme (C)." figureDoi-0="http://doi.org/10.5281/zenodo.10692703" figureDoi-1="http://doi.org/10.5281/zenodo.10692705" figureDoi-2="http://doi.org/10.5281/zenodo.10692707" figureDoi-3="http://doi.org/10.5281/zenodo.10692711" figureDoi-4="http://doi.org/10.5281/zenodo.10692723" httpUri-0="https://zenodo.org/record/10692703/files/figure.png" httpUri-1="https://zenodo.org/record/10692705/files/figure.png" httpUri-2="https://zenodo.org/record/10692707/files/figure.png" httpUri-3="https://zenodo.org/record/10692711/files/figure.png" httpUri-4="https://zenodo.org/record/10692723/files/figure.png" pageId="2" pageNumber="119">Figs 1–5</figureCitation>
+)
+</paragraph>
+</subSubSection>
+<subSubSection id="9B89657CFFAD5D4F48F2F91C2C0EF9B1" lastPageId="6" lastPageNumber="123" pageId="3" pageNumber="120" type="distribution">
+<paragraph id="D32C36F7FFAD5D4A48F2F91C2DD1F972" blockId="3.[151,1436,1572,1707]" box="[199,1257,1680,1707]" pageId="3" pageNumber="120">
+<emphasis id="E1E7EAE5FFAD5D4A48F2F91C2859F973" bold="true" box="[199,353,1680,1706]" pageId="3" pageNumber="120">Distribution.</emphasis>
+<collectingCountry id="AB847667FFAD5D4A4952F91D28C6F972" box="[359,510,1681,1707]" name="Indonesia" pageId="3" pageNumber="120">INDONESIA</collectingCountry>
+(
+<collectingRegion id="1157F815FFAD5D4A4A38F91D2B49F972" box="[525,625,1681,1707]" country="Indonesia" name="Sumatera Utara" pageId="3" pageNumber="120">Sumatra</collectingRegion>
+); PENINSULAR 
+<collectingCountry id="AB847667FFAD5D4A4B0CF91D2AF1F972" box="[825,969,1681,1707]" name="Malaysia" pageId="3" pageNumber="120">MALAYSIA</collectingCountry>
+(
+<collectingRegion id="1157F815FFAD5D4A4BE2F91C2D62F972" box="[983,1114,1680,1707]" country="Malaysia" name="Johor" pageId="3" pageNumber="120">Johor State</collectingRegion>
+: PFR) [new]
+</paragraph>
+<caption id="87EC667FFFAA5D4D48A2F94A2AAAF8DA" ID-DOI="http://doi.org/10.5281/zenodo.10692707" ID-Zenodo-Dep="10692707" httpUri="https://zenodo.org/record/10692707/files/figure.png" pageId="4" pageNumber="121" startId="4.[151,250,1734,1758]" targetBox="[151,1385,181,1701]" targetPageId="4" targetType="figure">
+<paragraph id="D32C36F7FFAA5D4D48A2F94A2AAAF8DA" blockId="4.[151,1436,1734,1795]" pageId="4" pageNumber="121">
+<emphasis id="E1E7EAE5FFAA5D4D48A2F94A282BF907" bold="true" box="[151,275,1734,1758]" pageId="4" pageNumber="121">FIGURE 3.</emphasis>
+<taxonomicName id="14934D74FFAA5D4D492FF94B2B23F907" baseAuthorityName="Haan" baseAuthorityYear="1843" box="[282,539,1735,1759]" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="4" pageNumber="121" phylum="Arthropoda" rank="species" species="sumatranus">
+<emphasis id="E1E7EAE5FFAA5D4D492FF94B2B23F907" box="[282,539,1735,1759]" italics="true" pageId="4" pageNumber="121">Macroxiphus sumatranus</emphasis>
+</taxonomicName>
+♁ abdominal apex in dorso-posterior (A), lateral (B) and ventral (C) views, titillators in dorsal (D) and ventral (E) views. Scale bars: 1 mm (A, D, E), 2 mm (B, C).
+</paragraph>
+</caption>
+<caption id="87EC667FFFAB5D4C48A2F80E2DB6F843" ID-DOI="http://doi.org/10.5281/zenodo.10692711" ID-Zenodo-Dep="10692711" box="[151,1166,1922,1946]" httpUri="https://zenodo.org/record/10692711/files/figure.png" pageId="5" pageNumber="122" startId="5.[151,250,1922,1946]" targetBox="[151,1436,181,1898]" targetPageId="5" targetType="figure">
+<paragraph id="D32C36F7FFAB5D4C48A2F80E2DB6F843" blockId="5.[151,1166,1922,1946]" box="[151,1166,1922,1946]" pageId="5" pageNumber="122">
+<emphasis id="E1E7EAE5FFAB5D4C48A2F80E282BF843" bold="true" box="[151,275,1922,1946]" pageId="5" pageNumber="122">FIGURE 4.</emphasis>
+<taxonomicName id="14934D74FFAB5D4C492CF80E2B22F843" baseAuthorityName="Haan" baseAuthorityYear="1843" box="[281,538,1922,1946]" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="5" pageNumber="122" phylum="Arthropoda" rank="species" species="sumatranus">
+<emphasis id="E1E7EAE5FFAB5D4C492CF80E2B22F843" box="[281,538,1922,1946]" italics="true" pageId="5" pageNumber="122">Macroxiphus sumatranus</emphasis>
+</taxonomicName>
+♀ (A) subadult and juvenile (B) in their natural environment.
+</paragraph>
+</caption>
+<paragraph id="D32C36F7FFA85D4F48F2FF1A28CEFEBC" blockId="6.[151,1437,150,357]" pageId="6" pageNumber="123">
+<emphasis id="E1E7EAE5FFA85D4F48F2FF1A2B60FF69" bold="true" box="[199,600,150,180]" pageId="6" pageNumber="123">
+Calling song (1♁, 28.3°C) (
+<figureCitation id="4BA82A72FFA85D4F4A31FF1A2B72FF69" box="[516,586,150,176]" captionStart="FIGURE 5" captionStartId="6.[151,250,1399,1423]" captionTargetBox="[162,1425,392,1365]" captionTargetId="figure-122@6.[151,1436,381,1376]" captionTargetPageId="6" captionText="FIGURE 5. Macroxiphus sumatranus ♁ calling song recorded in the laboratory: oscillograms showing six isolated echemes (A) and one echeme (B), and spectrogram of the same echeme (C)." figureDoi="http://doi.org/10.5281/zenodo.10692723" httpUri="https://zenodo.org/record/10692723/files/figure.png" pageId="6" pageNumber="123">Fig. 5</figureCitation>
+).
+</emphasis>
+The calling song is made up of a fairly isolated echeme, each consisting of two closely-spaced syllables. Each echeme has an average duration of 0.35±0.02 s (0.33–0.37 s). The first syllable has an average duration of 18.7±0.9 ms (17.6–19.9 ms) and an average period of 0.15±0.01 s (0.14–0.16 s). The second syllable has an average duration of 18.9±1.2 ms (17.8–20.7 ms). The interval between the two syllables has an average duration of 0.13±0.01 s (0.11–0.14 s). The call spectrum is broad-based and has a peak frequency of 11.7±1.0 kHz (10.8–13.4 kHz).
+</paragraph>
+<caption id="87EC667FFFA85D4F48A2FAFB2A2DFA6D" ID-DOI="http://doi.org/10.5281/zenodo.10692723" ID-Zenodo-Dep="10692723" httpUri="https://zenodo.org/record/10692723/files/figure.png" pageId="6" pageNumber="123" startId="6.[151,250,1399,1423]" targetBox="[162,1425,392,1365]" targetPageId="6" targetType="figure">
+<paragraph id="D32C36F7FFA85D4F48A2FAFB2A2DFA6D" blockId="6.[151,1436,1399,1460]" pageId="6" pageNumber="123">
+<emphasis id="E1E7EAE5FFA85D4F48A2FAFB282AFA49" bold="true" box="[151,274,1399,1424]" pageId="6" pageNumber="123">FIGURE 5.</emphasis>
+<taxonomicName id="14934D74FFA85D4F4922FAFB2B2FFA56" baseAuthorityName="Haan" baseAuthorityYear="1843" box="[279,535,1399,1423]" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="6" pageNumber="123" phylum="Arthropoda" rank="species" species="sumatranus">
+<emphasis id="E1E7EAE5FFA85D4F4922FAFB2B2FFA56" box="[279,535,1399,1423]" italics="true" pageId="6" pageNumber="123">Macroxiphus sumatranus</emphasis>
+</taxonomicName>
+♁ calling song recorded in the laboratory: oscillograms showing six isolated echemes (A) and one echeme (B), and spectrogram of the same echeme (C).
+</paragraph>
+</caption>
+<paragraph id="D32C36F7FFA85D4F48F2F98A2C0EF9B1" blockId="6.[151,1437,1542,1640]" pageId="6" pageNumber="123">
+The calling song of the male from PFR consists of two syllables, similar to that of 
+<taxonomicName id="14934D74FFA85D4F4C4BF98A2822F99A" baseAuthorityName="Haan" baseAuthorityYear="1843" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="6" pageNumber="123" phylum="Arthropoda" rank="subSpecies" species="sumatranus" subSpecies="sumatranus">
+<emphasis id="E1E7EAE5FFA85D4F4C4BF98A2822F99A" italics="true" pageId="6" pageNumber="123">Macroxiphus sumatranus sumatranus</emphasis>
+</taxonomicName>
+(recorded from Maninjau from West Sumatra), whereas that of 
+<taxonomicName id="14934D74FFA85D4F4C30F9A62CA4F99A" authorityName="Helfert &amp; Sanger" authorityYear="1995" box="[1029,1436,1578,1604]" class="Insecta" family="Tettigoniidae" genus="Macroxiphus" kingdom="Animalia" order="Orthoptera" pageId="6" pageNumber="123" phylum="Arthropoda" rank="subSpecies" species="sumatranus" subSpecies="siamensis">
+<emphasis id="E1E7EAE5FFA85D4F4C30F9A62CA4F99A" box="[1029,1436,1578,1604]" italics="true" pageId="6" pageNumber="123">Macroxiphus sumatranus siamensis</emphasis>
+</taxonomicName>
+(recorded from Ulu Gombak in Selangor and 
+<collectingRegion id="1157F815FFA85D4F4AA3F9C22A21F9B1" box="[662,793,1614,1640]" country="Thailand" name="Surat Thani" pageId="6" pageNumber="123">Surat Thani</collectingRegion>
+in 
+<collectingCountry id="AB847667FFA85D4F4B09F9C22A99F9B1" box="[828,929,1614,1640]" name="Thailand" pageId="6" pageNumber="123">Thailand</collectingCountry>
+) typically consists of four syllables.
+</paragraph>
+</subSubSection>
+<subSubSection id="5B3A87E1FFAC5D4F48A2FF53FFFF" type="etymology"><paragraph>Fig. 7.</paragraph></subSubSection></treatment></document>

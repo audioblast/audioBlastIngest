@@ -16,7 +16,8 @@ Imports:
     digest,
     rjson,parsedate,
     stringi,
-    stringr
+    stringr,
+    xml2
 LazyData: true
 Roxygen: list(markdown = TRUE)
 Suggests:

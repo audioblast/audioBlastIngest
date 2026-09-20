@@ -39,7 +39,8 @@ normaliseDescriptions <- function(table) {
 
 #The IRI of the Species Profile Model info item that a topic names, or NA where
 #it names none. A topic matches an info item however it is spaced, hyphenated
-#or capitalised, and a few are shortened as sources shorten them.
+#or capitalised, a few are shortened or spelled as sources shorten and spell
+#them, and one that is of a sound is of behaviour.
 #
 #The Species Profile Model is the standard a Scratchpads species profile
 #implements, so the fields such a profile has are these info items. TDWG no
@@ -48,13 +49,34 @@ normaliseDescriptions <- function(table) {
 #GBIF's Taxon Description extension and the Encyclopedia of Life name a
 #description's topic with. A bare word names nothing at all.
 spmInfoItem <- function(topic) {
-  shortened <- c("diagnostic"="DiagnosticDescription", "general"="GeneralDescription",
-                 "generaldescription"="GeneralDescription")
   key <- gsub("[^a-z]", "", tolower(as.character(topic)))
   item <- spmInfoItems[match(key, tolower(spmInfoItems))]
-  item[is.na(item)] <- unname(shortened[key[is.na(item)]])
+  item[is.na(item)] <- unname(spmOtherWords[key[is.na(item)]])
+  #The Species Profile Model defines nothing acoustic, so a topic that is of a
+  #sound is of the behaviour of making it, which is the nearest thing it does
+  #define. The topic itself is kept as the source's own word, so what the
+  #description is of is not lost to the approximation.
+  item[is.na(item) & grepl(spmAcoustic, key)] <- "Behaviour"
   return(ifelse(is.na(item), NA_character_, paste0(spm, item)))
 }
+
+#Topics that name an info item in other words: one a source shortens, and one
+#it spells differently. diagnosis is what a treatment calls a diagnostic
+#description, biology_ecology is Plazi's own name for a section that is both,
+#and behavior is Behaviour, which the Species Profile Model spells the British
+#way.
+spmOtherWords <- c("diagnostic"="DiagnosticDescription",
+                   "diagnosis"="DiagnosticDescription",
+                   "general"="GeneralDescription",
+                   "generaldescription"="GeneralDescription",
+                   "biologyecology"="Biology",
+                   "behavior"="Behaviour")
+
+#Topics that are of a sound. Everything but the letters is gone by the time
+#these are matched, so they are the stems that survive: bioacoustics, calling
+#song, song, stridulation and the pictures of a sound. call is not among them,
+#as a callus is a part of a wing.
+spmAcoustic <- "song|acoustic|stridulat|sonogram|oscillogram|spectrogram"
 
 #The namespace of the Species Profile Model's info items
 spm <- "http://rs.tdwg.org/ontology/voc/SPMInfoItems#"

@@ -51,6 +51,18 @@ ingestR <- function(db=NULL, verbose=FALSE) {
           NULL
         })
       if (is.null(tables)) next
+    } else if (is.element("plazi", names(source))) {
+      #A failed harvest skips this source rather than every source. Everything
+      #Plazi gives comes from one harvest: the uploads delete a source's rows
+      #before inserting, so two harvests under one source name would wipe each
+      #other's links.
+      tables <- tryCatch(
+        do.call(plaziR, c(source$plazi, list(verbose=verbose))),
+        error=function(e) {
+          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+          NULL
+        })
+      if (is.null(tables)) next
     } else if (is.element("inaturalist", names(source))) {
       #A failed harvest skips this source rather than every source. Each taxon
       #group is a source of its own, so one that fails doesn't take the others
