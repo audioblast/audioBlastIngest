@@ -3,8 +3,9 @@
 #' Harvests recording metadata from the xeno-canto API (version 3) and converts
 #' it to the audioBlast! recordings format, with the details of each recording
 #' that the recordings table has no column for, the taxa they name, the
-#' sonograms xeno-canto renders of them, and the links saying which taxon each
-#' recording is of, which are audible behind it and which sonogram shows it.
+#' sonograms xeno-canto renders of them, the regions of them anyone has
+#' annotated, and the links saying which taxon each recording is of, which are
+#' audible behind it and which sonogram shows it.
 #'
 #' Queries are built from xeno-canto search tags
 #' (<https://xeno-canto.org/help/search>), e.g. `grp:grasshoppers` or
@@ -22,8 +23,9 @@
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on.
 #' @return Named list of the data frames a harvest gives: the recordings, the
-#'   details of them, the taxa they name, the sonograms of them and the links
-#'   to all three. Each has an empty source column (see sourceR()).
+#'   details of them and of their annotations, the taxa they name, the
+#'   sonograms of them, the annotations of them (as ann-o-mate) and the links.
+#'   Each has an empty source column (see sourceR()).
 #' @examples
 #' \dontrun{
 #' harvest <- xenocantoR("grp:grasshoppers")
@@ -31,6 +33,7 @@
 #' uploadDetails(db, sourceR("xeno-canto", harvest$details))
 #' uploadTaxa(db, taxonomiseR(sourceR("xeno-canto", harvest$taxa)))
 #' uploadImages(db, sourceR("xeno-canto", harvest$images))
+#' uploadAnnOmate(db, sourceR("xeno-canto", harvest[["ann-o-mate"]]))
 #' uploadLinks(db, sourceR("xeno-canto", harvest$links))
 #' }
 #' @importFrom curl new_handle
@@ -53,7 +56,8 @@ xenocantoR <- function(query, key=Sys.getenv("XC_API_KEY"), per_page=500, pause=
 
   #The tables a harvest gives, and what makes each of them from a page
   make <- list(recordings=xenocantoRecordings, details=xenocantoDetails,
-               taxa=xenocantoTaxa, images=xenocantoImages, links=xenocantoLinks)
+               taxa=xenocantoTaxa, images=xenocantoImages,
+               `ann-o-mate`=xenocantoAnnotations, links=xenocantoLinks)
 
   #Each page is converted as it arrives and the recordings it came from let
   #go of, as a harvest of every group is over a million recordings
@@ -242,13 +246,17 @@ xenocantoRecordings <- function(recordings) {
 #measures them in, but it gives them for grasshoppers, whose recordists work in
 #Celsius, and a temperature with no unit is a number nothing can read.
 xenocantoDetails <- function(recordings) {
+  return(rbind(xenocantoRecordingDetails(recordings),
+               xenocantoAnnotationDetails(recordings)))
+}
+
+xenocantoRecordingDetails <- function(recordings) {
   #Recordings without audio are left out of the recordings table (see
   #xenocantoRecordings()), so their details would belong to no record
-  recordings <- recordings[xenocantoField(recordings, "id") != "" &
-                             xenocantoField(recordings, "file") != ""]
+  recordings <- xenocantoUsable(recordings)
   field <- function(name) xenocantoField(recordings, name)
   id <- field("id")
-  detail <- function(name, value, unit="") xenocantoDetail(id, name, value, unit)
+  detail <- function(name, value, unit="") xenocantoDetail("recordings", id, name, value, unit)
 
   return(rbind(
     detail("alt", decimalNumber(field("alt")), "m"),
@@ -264,6 +272,97 @@ xenocantoDetails <- function(recordings) {
     #A registration number is the recordist's own, with nothing saying who holds
     #the specimen, so it is what xeno-canto recorded rather than a specimen
     detail("regnr", field("regnr"))))
+}
+
+#The annotations of each recording: the regions of it someone marked as a
+#sound of a taxon, with the times that bound them, as a list of one list of
+#annotations per recording.
+#
+#xeno-canto wraps them in a set built for the response it is answering -- its
+#set_creation_date is the moment the request was made -- and gives each
+#annotation the set it really came from in original_set_metadata, which is
+#where its date, its address and the terms it is under are read from.
+xenocantoAnnotationSets <- function(recordings) {
+  return(lapply(xenocantoUsable(recordings), function(r) {
+    annotations <- r[["annotation-set"]][["annotations"]]
+    if (!is.list(annotations)) return(list())
+    return(annotations)
+  }))
+}
+
+#One field of every annotation of a page, in the order xenocantoAnnotations()
+#puts them, read from the annotation or from the set it came from
+xenocantoAnnotationField <- function(sets, name, set=FALSE) {
+  values <- unlist(lapply(sets, function(annotations) {
+    vapply(annotations, function(a) {
+      return(xenocantoText(if (set) a[["original_set_metadata"]][[name]] else a[[name]]))
+    }, character(1), USE.NAMES=FALSE)
+  }), use.names=FALSE)
+  return(if (is.null(values)) character(0) else values)
+}
+
+#The annotations xeno-canto holds, as ann-o-mate rows. An annotation is of a
+#recording, so it carries where and what that recording is, and is identified
+#by the number xeno-canto gives it, which is its own across the whole
+#collection rather than within a set.
+#
+#The frequencies an annotation bounds, and what it says about the animal, are
+#details of it: ann-o-mate has no column for them (see
+#xenocantoAnnotationDetails()).
+xenocantoAnnotations <- function(recordings) {
+  recordings <- xenocantoUsable(recordings)
+  sets <- xenocantoAnnotationSets(recordings)
+  field <- function(name, set=FALSE) xenocantoAnnotationField(sets, name, set)
+
+  #Each annotation takes the recording it is of, however many it has
+  of <- function(name, read=identity) {
+    values <- read(xenocantoField(recordings, name))
+    values[is.na(values)] <- ""
+    return(rep(values, lengths(sets)))
+  }
+
+  date <- isoDate(field("set_creation_date", set=TRUE))
+  date[is.na(date)] <- ""
+  return(data.frame(
+    source=rep_len("", length(date)),
+    source_id=of("id"),
+    annotator=field("annotator"),
+    annotation_id=field("annotation_xc_id"),
+    annotation_date=date,
+    annotation_info_url=xenocantoURL(field("set_uri", set=TRUE)),
+    recording_url=of("file", xenocantoURL),
+    recording_info_url=of("url", xenocantoURL),
+    time_start=field("start_time"),
+    time_end=field("end_time"),
+    taxon=field("scientific_name"),
+    type=field("sound_type"),
+    lat=of("lat", function(x) coordinate(x, 90)),
+    lon=of("lon", function(x) coordinate(x, 180)),
+    #xeno-canto gives no way to write to an annotator
+    contact=rep_len("", length(date)),
+    stringsAsFactors=FALSE))
+}
+
+#What an annotation holds that ann-o-mate has no column for: the frequencies it
+#bounds, what it says about the animal, and the set it came from with the terms
+#that set is under. xeno-canto gives the licence as its own name for it
+#(CC-BY-NC-4.0) rather than as an address, so that is what is kept.
+xenocantoAnnotationDetails <- function(recordings) {
+  sets <- xenocantoAnnotationSets(xenocantoUsable(recordings))
+  field <- function(name, set=FALSE) xenocantoAnnotationField(sets, name, set)
+  id <- field("annotation_xc_id")
+  detail <- function(name, value, unit="") xenocantoDetail("annomate", id, name, value, unit)
+
+  return(rbind(
+    #An annotation can be bounded from 0 Hz, which is a frequency it holds
+    #rather than one it does not have
+    detail("frequency_low", decimalNumber(field("frequency_low")), "Hz"),
+    detail("frequency_high", decimalNumber(field("frequency_high")), "Hz"),
+    detail("sex", field("sex")),
+    detail("life_stage", field("life_stage")),
+    detail("annotation_remarks", field("annotation_remarks")),
+    detail("set_name", field("set_name", set=TRUE)),
+    detail("set_license", field("set_license", set=TRUE))))
 }
 
 #Recordings that are in the recordings table, which are the only ones a link or
@@ -452,14 +551,14 @@ xenocantoTaxa <- function(recordings) {
   return(data)
 }
 
-#The detail of one name of each recording that has a value for it, in the
-#columns of getHeaders("details")
-xenocantoDetail <- function(id, name, value, unit="") {
+#The detail of one name of each record that has a value for it, in the columns
+#of getHeaders("details")
+xenocantoDetail <- function(type, id, name, value, unit="") {
   value[is.na(value)] <- ""
   has <- which(id != "" & value != "")
   return(data.frame(
     source=rep_len("", length(has)),
-    type=rep_len("recordings", length(has)),
+    type=rep_len(type, length(has)),
     id=id[has],
     name=rep_len(name, length(has)),
     delta=rep_len("0", length(has)),

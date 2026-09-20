@@ -47,7 +47,59 @@
             "auto": "unknown",
             "dvc": "",
             "mic": "",
-            "smp": "44100"
+            "smp": "44100",
+            "annotation-set": {
+                "set_name": "Annotation set for XC694038",
+                "set_creator": null,
+                "set_creation_date": "2026-09-20 15:43:24",
+                "set_remarks": "Metadata of the original set is provided for each individual annotation",
+                "annotations": [
+                    {
+                        "annotation_xc_id": 86,
+                        "xc_nr": "694038",
+                        "scientific_name": "Troglodytes troglodytes",
+                        "annotator": "W.P. Vellinga",
+                        "start_time": 0.27,
+                        "end_time": 3.33,
+                        "frequency_high": 10204,
+                        "frequency_low": 2551,
+                        "sound_type": "song",
+                        "sex": "male",
+                        "life_stage": "adult",
+                        "annotation_remarks": "audible rain drops",
+                        "original_set_metadata": {
+                            "set_name": "Demonstration set",
+                            "set_creator": null,
+                            "set_owner": null,
+                            "set_license": "CC-BY-NC-4.0",
+                            "set_uri": "https://xeno-canto.org/annotation/set/1",
+                            "set_creation_date": "2026-03-01 00:00:00"
+                        }
+                    },
+                    {
+                        "annotation_xc_id": 87,
+                        "xc_nr": "694038",
+                        "scientific_name": "Periparus ater",
+                        "annotator": "W.P. Vellinga",
+                        "start_time": 10.28,
+                        "end_time": 11.92,
+                        "frequency_high": 6651,
+                        "frequency_low": 0,
+                        "sound_type": null,
+                        "sex": null,
+                        "life_stage": null,
+                        "annotation_remarks": null,
+                        "original_set_metadata": {
+                            "set_name": "Untitled Set (14)",
+                            "set_creator": null,
+                            "set_owner": null,
+                            "set_license": "CC-BY-NC-4.0",
+                            "set_uri": "https://xeno-canto.org/annotation/set/14",
+                            "set_creation_date": "2026-03-18 21:55:51"
+                        }
+                    }
+                ]
+            }
         },
         {
             "id": "700001",

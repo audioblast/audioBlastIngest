@@ -26,15 +26,17 @@ environment variable. Keep keys out of code and version control.}
 }
 \value{
 Named list of the data frames a harvest gives: the recordings, the
-details of them, the taxa they name, the sonograms of them and the links
-to all three. Each has an empty source column (see sourceR()).
+details of them and of their annotations, the taxa they name, the
+sonograms of them, the annotations of them (as ann-o-mate) and the links.
+Each has an empty source column (see sourceR()).
 }
 \description{
 Harvests recording metadata from the xeno-canto API (version 3) and converts
 it to the audioBlast! recordings format, with the details of each recording
 that the recordings table has no column for, the taxa they name, the
-sonograms xeno-canto renders of them, and the links saying which taxon each
-recording is of, which are audible behind it and which sonogram shows it.
+sonograms xeno-canto renders of them, the regions of them anyone has
+annotated, and the links saying which taxon each recording is of, which are
+audible behind it and which sonogram shows it.
 }
 \details{
 Queries are built from xeno-canto search tags
@@ -53,6 +55,7 @@ uploadRecordings(db, sourceR("xeno-canto", harvest$recordings))
 uploadDetails(db, sourceR("xeno-canto", harvest$details))
 uploadTaxa(db, taxonomiseR(sourceR("xeno-canto", harvest$taxa)))
 uploadImages(db, sourceR("xeno-canto", harvest$images))
+uploadAnnOmate(db, sourceR("xeno-canto", harvest[["ann-o-mate"]]))
 uploadLinks(db, sourceR("xeno-canto", harvest$links))
 }
 }

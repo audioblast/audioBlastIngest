@@ -109,7 +109,9 @@ test_that("what a recording holds beside its columns becomes its details", {
 
   expect_identical(names(details), names(getHeaders("details")))
   expect_true(all(vapply(details, is.character, logical(1))))
-  expect_true(all(details$source == "" & details$type == "recordings" & details$delta == "0"))
+  expect_true(all(details$source == "" & details$delta == "0"))
+  expect_true(all(details$type %in% c("recordings", "annomate")))
+  details <- details[details$type == "recordings", ]
   #The restricted species recording is not in the recordings table, so its
   #details would belong to no record
   expect_false("700001" %in% details$id)
@@ -188,6 +190,64 @@ test_that("a page of recordings of nothing has no links", {
   #The restricted species recording has an empty also, and no audio either
   expect_equal(nrow(xenocantoLinks(xcFixture()$recordings[2])), 0)
   expect_identical(names(xenocantoLinks(list())), names(getHeaders("links")))
+})
+
+test_that("the regions someone marked in a recording become annotations", {
+  annotations <- xenocantoAnnotations(xcFixture()$recordings)
+
+  expect_identical(names(annotations), names(getHeaders("ann-o-mate")))
+  expect_true(all(vapply(annotations, is.character, logical(1))))
+  #Only the wren recording has an annotation set, and its number is
+  #xeno-canto's own across the collection rather than within the set
+  expect_identical(annotations$annotation_id, c("86", "87"))
+  expect_true(all(annotations$source_id == "694038"))
+  expect_identical(annotations$taxon, c("Troglodytes troglodytes", "Periparus ater"))
+  expect_identical(annotations$time_start, c("0.27", "10.28"))
+  expect_identical(annotations$time_end, c("3.33", "11.92"))
+  expect_identical(annotations$annotator, c("W.P. Vellinga", "W.P. Vellinga"))
+  #A sound type xeno-canto does not hold is empty rather than "NULL"
+  expect_identical(annotations$type, c("song", ""))
+
+  #The date and address are the set the annotation really came from, not the
+  #set xeno-canto builds for the response, whose date is the request's
+  expect_identical(annotations$annotation_date, c("2026-03-01", "2026-03-18"))
+  expect_identical(annotations$annotation_info_url,
+                   c("https://xeno-canto.org/annotation/set/1",
+                     "https://xeno-canto.org/annotation/set/14"))
+
+  #Each annotation carries where and what the recording it is of is
+  expect_true(all(annotations$recording_url == "https://xeno-canto.org/694038/download"))
+  expect_true(all(annotations$recording_info_url == "https://xeno-canto.org/694038"))
+  expect_true(all(annotations$lat == "42.8373" & annotations$lon == "-8.652"))
+  expect_true(all(annotations$contact == ""))
+})
+
+test_that("what an annotation holds beside its columns becomes its details", {
+  details <- xenocantoDetails(xcFixture()$recordings)
+  annotation <- details[details$type == "annomate", ]
+
+  expect_identical(
+    setNames(annotation$value[annotation$id == "86"], annotation$name[annotation$id == "86"]),
+    c(frequency_low="2551", frequency_high="10204", sex="male", life_stage="adult",
+      annotation_remarks="audible rain drops", set_name="Demonstration set",
+      set_license="CC-BY-NC-4.0"))
+  expect_identical(annotation$unit[annotation$name == "frequency_low"], c("Hz", "Hz"))
+
+  #The second annotation says nothing about the animal, and is bounded from
+  #0 Hz, which is a frequency it holds rather than one it does not have
+  second <- annotation[annotation$id == "87", ]
+  expect_identical(second$name, c("frequency_low", "frequency_high", "set_name", "set_license"))
+  expect_identical(second$value[second$name == "frequency_low"], "0")
+  #and a recording's own details are still there beside them
+  expect_true(any(details$type == "recordings" & details$name == "alt"))
+})
+
+test_that("a page with no annotations has none", {
+  expect_equal(nrow(xenocantoAnnotations(list())), 0)
+  expect_identical(names(xenocantoAnnotations(list())), names(getHeaders("ann-o-mate")))
+  #The soundscape has no annotation-set at all
+  expect_equal(nrow(xenocantoAnnotations(xcFixture()$recordings[3])), 0)
+  expect_equal(nrow(xenocantoAnnotationDetails(list())), 0)
 })
 
 test_that("the sonogram xeno-canto renders is an image of its own", {
@@ -338,11 +398,13 @@ test_that("xeno-canto harvests page through every query", {
 
   harvest <- xenocantoR(c("grp:bats", 'grp:"land mammals"'), key="secret", per_page=50, pause=0)
 
-  expect_identical(names(harvest), c("recordings", "details", "taxa", "images", "links"))
+  expect_identical(names(harvest),
+                   c("recordings", "details", "taxa", "images", "ann-o-mate", "links"))
   expect_identical(names(harvest$recordings), names(getHeaders("recordings")))
   expect_identical(names(harvest$details), names(getHeaders("details")))
   expect_identical(names(harvest$taxa), names(getHeaders("taxa")))
   expect_identical(names(harvest$images), names(getHeaders("images")))
+  expect_identical(names(harvest[["ann-o-mate"]]), names(getHeaders("ann-o-mate")))
   expect_identical(names(harvest$links), names(getHeaders("links")))
   #Every page names the same cricket, which is one taxon record, not four
   expect_identical(harvest$taxa$id, c("Gryllus", "Gryllus campestris"))
@@ -453,6 +515,7 @@ ingestWithSources <- function(harvest) {
     uploadLinks=function(db, table) uploaded$links <<- table,
     uploadTaxa=function(db, table) uploaded$taxa <<- table,
     uploadImages=function(db, table) uploaded$images <<- table,
+    uploadAnnOmate=function(db, table) uploaded$annomate <<- table,
     uploadRecordings=function(db, table) uploaded$recordings <<- table)
   ingestR(db="db")
   unlink(csv)
@@ -463,7 +526,7 @@ xcHarvest <- function(query, ...) {
   recordings <- xcFixture()$recordings
   list(recordings=xenocantoRecordings(recordings), details=xenocantoDetails(recordings),
        taxa=xenocantoTaxa(recordings), images=xenocantoImages(recordings),
-       links=xenocantoLinks(recordings))
+       `ann-o-mate`=xenocantoAnnotations(recordings), links=xenocantoLinks(recordings))
 }
 
 test_that("ingestR uploads xeno-canto recordings with other recordings sources", {
@@ -488,8 +551,13 @@ test_that("ingestR uploads the details a harvest gives beside its recordings", {
   #One source gave two types of table, and each was ingested as its own type
   expect_identical(names(uploaded$details), names(getHeaders("details")))
   expect_true(all(uploaded$details$source == "xeno-canto"))
-  expect_identical(sort(unique(uploaded$details$id)), c("100000", "1179094", "694038"))
-  expect_identical(uploaded$details$value[uploaded$details$name == "alt"], "30")
+  recorded <- uploaded$details[uploaded$details$type == "recordings", ]
+  expect_identical(sort(unique(recorded$id)), c("100000", "1179094", "694038"))
+  expect_identical(recorded$value[recorded$name == "alt"], "30")
+  #The annotations of those recordings are uploaded with their own details
+  expect_identical(uploaded$annomate$annotation_id, c("86", "87"))
+  expect_identical(sort(unique(uploaded$details$id[uploaded$details$type == "annomate"])),
+                   c("86", "87"))
 
   expect_identical(names(uploaded$links), names(getHeaders("links")))
   expect_true(all(uploaded$links$source == "xeno-canto"))
