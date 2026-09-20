@@ -59,7 +59,8 @@ recordTypes <- c("recordings", "specimens", "traits", "taxa", "references",
 #their IRI as id) and anything else with an IRI
 linkTypes <- c(recordTypes, "term", "iri")
 
-#Relationships that links can give
+#Relationships that links can give, beside any term of the vocabulary's
+#interactions (see interactionPredicates)
 linkPredicates <- c(
   "http://purl.obolibrary.org/obo/IAO_0000136", #is about
   "http://purl.obolibrary.org/obo/IAO_0000219", #denotes, a subproperty of is about
@@ -73,6 +74,12 @@ linkPredicates <- c(
   "http://rs.tdwg.org/dwc/terms/nameAccordingToID",
   "http://www.w3.org/2004/02/skos/core#exactMatch"
 )
+
+#The vocabulary's interactions, which are relationships by definition: one
+#taxon eats, parasitises or listens for another. They are named here by their
+#namespace rather than one by one, as the vocabulary grows a term at a time and
+#the list above is for the relationships that other standards name.
+interactionPredicates <- "https://vocab.audioblast.org/cv/interaction#"
 
 #The links saying which reference established each of the links that give one,
 #with their own ids. The reference is the linking source's own, as a record of
@@ -108,8 +115,10 @@ normaliseLinks <- function(table) {
     links[[source]][own] <- links$source[own]
   }
 
+  related <- links$predicate %in% linkPredicates |
+    startsWith(links$predicate, interactionPredicates)
   usable <- links$subject_type %in% linkTypes & links$object_type %in% linkTypes &
-    links$predicate %in% linkPredicates & links$subject_id != "" & links$object_id != ""
+    related & links$subject_id != "" & links$object_id != ""
   if (!all(usable)) {
     warning(paste0("Skipping ", sum(!usable), " links with unknown types or predicates, or no ids, e.g. ",
                    paste(unlist(links[which(!usable)[1], ]), collapse=" | ")))
