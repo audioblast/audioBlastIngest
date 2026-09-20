@@ -22,6 +22,8 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   locations <- getHeaders("locations")
   descriptions <- getHeaders("descriptions")
   vernacular <- getHeaders("vernacularnames")
+  onomatopoeia <- getHeaders("onomatopoeia")
+  images <- getHeaders("images")
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
@@ -98,9 +100,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #Sources that don't give the columns at the end of their table are given
       #them empty: recordings lat and lon, then time_of_day, license, info_url
       #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
-      #and max; descriptions topic_link; links reference.
+      #and max; descriptions topic_link; onomatopoeia kind_link; links reference.
       headers <- names(getHeaders(type))
-      if (type %in% c("recordings", "traits", "descriptions", "links") &&
+      if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links") &&
           ncol(data) < length(headers)) {
         for (column in headers[-seq_len(ncol(data))]) {
           data[[column]] <- rep_len("", nrow(data))
@@ -157,6 +159,14 @@ ingestR <- function(db=NULL, verbose=FALSE) {
         if (verbose) print(paste("  type: vernacularnames"))
         vernacular <- rbind(vernacular, data)
       }
+      if (type == "onomatopoeia") {
+        if (verbose) print(paste("  type: onomatopoeia"))
+        onomatopoeia <- rbind(onomatopoeia, data)
+      }
+      if (type == "images") {
+        if (verbose) print(paste("  type: images"))
+        images <- rbind(images, data)
+      }
     }
   }
 
@@ -204,6 +214,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     }
     if (nrow(vernacular) > 0) {
       uploadVernacularNames(db, vernacular)
+    }
+    if (nrow(onomatopoeia) > 0) {
+      uploadOnomatopoeia(db, onomatopoeia)
+    }
+    if (nrow(images) > 0) {
+      uploadImages(db, images)
     }
 
   }
@@ -311,6 +327,28 @@ getHeaders <- function(type) {
     #terms they hold. The taxon a name is for, and the reference it was taken
     #from, are links.
     heads <- c("source","id","vernacularName","language","locality","remarks")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "images") {
+    #The images a source holds, each with the licence it is under, so that an
+    #image is published with the terms it may be used on rather than as a bare
+    #URL. subtype is what kind of image it is in the source's own words, such as
+    #a photograph or a scanning electron micrograph. An image that several
+    #records share is one image here, and what an image shows is links.
+    heads <- c("source","id","title","file","subtype","creator","license","post_date","type","size_raw","width","height","caption")
+    df <- data.frame(matrix(ncol=length(heads), nrow=0))
+    colnames(df) <- heads
+    return(df)
+  }
+  if (type == "onomatopoeia") {
+    #The words a human language renders an animal's sound with, such as bow-wow
+    #for a dog barking. kind is what sort of rendering it is in the source's own
+    #words, and kind_link is the class that names, which
+    #normaliseOnomatopoeia() reads; a source needn't give it. The taxon whose
+    #sound a rendering renders, and the reference it was taken from, are links.
+    heads <- c("source","id","word","kind","language","sex","lifeStage","locality","remarks","info_url","kind_link")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
