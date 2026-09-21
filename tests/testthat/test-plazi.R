@@ -283,3 +283,48 @@ test_that("plaziR takes one search or many", {
   expect_error(plaziR(query=c("song", NA)), "one or more")
   expect_error(plaziR(query=c("song", "")), "one or more")
 })
+
+test_that("a treatment gives one table of each kind the harvest names", {
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+
+  expect_identical(names(tables), plaziTables)
+  for (type in plaziTables) {
+    expect_identical(names(tables[[type]]), names(getHeaders(type)), info=type)
+  }
+  expect_identical(nrow(tables$references), 1L)
+  expect_identical(tables$references$id, treated)
+  expect_identical(nrow(tables$descriptions), 1L)
+
+  #A link is checked against the ids of its own treatment, which is the same
+  #answer as the whole harvest's and the one a streamed harvest can give
+  held <- c(tables$references$id, tables$descriptions$id)
+  expect_true(all(tables$links$subject_id %in% held))
+  expect_true(nrow(tables$links) > 0)
+})
+
+test_that("a harvest streams its tables instead of holding them", {
+  dir <- withr::local_tempdir()
+  treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+  tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+  for (type in plaziTables) streamTable(dir, type, tables[[type]])
+
+  for (type in plaziTables) {
+    path <- streamPath(dir, type)
+    expect_true(file.exists(path), info=type)
+    rows <- readStream(path, -1L, function(chunk) {
+      expect_identical(names(chunk), names(getHeaders(type)), info=type)
+    })
+    expect_identical(rows, nrow(tables[[type]]), info=type)
+  }
+})
+
+test_that("every table a Plazi harvest gives can be uploaded from a stream", {
+  #uploadStreamed() reads streamUploads rather than the directory, so a type
+  #the harvest gives that is not registered would be silently dropped
+  expect_true(all(plaziTables %in% names(streamUploads)))
+  #And a reference is uploaded before the records that cite it
+  order <- names(streamUploads)
+  expect_true(all(match("references", order) <
+                    match(setdiff(plaziTables, "references"), order)))
+})

@@ -10,7 +10,8 @@ plaziR(
   max = Inf,
   token = Sys.getenv("ZENODO_TOKEN"),
   pause = 1,
-  verbose = FALSE
+  verbose = FALSE,
+  dir = NULL
 )
 }
 \arguments{
@@ -35,11 +36,18 @@ tokens out of code and version control.}
 \item{pause}{Seconds between requests.}
 
 \item{verbose}{If TRUE reports harvest progress.}
+
+\item{dir}{Directory to stream the harvest to, a CSV of each type of table,
+instead of holding it all. The whole harvest is some 12,000 treatments of
+prose and will not fit in memory; streaming it also means a failed upload
+does not throw hours of requests away, as the files are kept. Upload them
+with uploadStreamed().}
 }
 \value{
 Named list of the data frames a harvest gives: the descriptions, the
 treatments they were read from as references, and the links. Each has an
-empty source column (see sourceR()).
+empty source column (see sourceR()). With dir, the paths they were
+written to instead.
 }
 \description{
 Harvests what taxonomic treatments say in prose from Plazi TreatmentBank and
@@ -88,5 +96,9 @@ harvest <- plaziR()
 uploadReferences(db, sourceR("Plazi", harvest$references))
 uploadDescriptions(db, sourceR("Plazi", harvest$descriptions))
 uploadLinks(db, sourceR("Plazi", harvest$links))
+
+#The whole harvest will not fit in memory, so stream it and upload the files
+plaziR(dir="plazi-harvest", verbose=TRUE)
+uploadStreamed(db, "Plazi", "plazi-harvest", verbose=TRUE)
 }
 }
