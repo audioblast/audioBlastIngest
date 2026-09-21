@@ -4,17 +4,13 @@
 \alias{uploadImages}
 \title{Upload images}
 \usage{
-uploadImages(db, table, replace = TRUE)
+uploadImages(db, table)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of images to upload, with the columns of
 getHeaders("images").}
-
-\item{replace}{Whether to remove what each source gave before first. FALSE
-for a chunk of a streamed harvest, whose source has been emptied once
-already (see uploadStreamed()).}
 }
 \description{
 Uploads images to the audioBLAST! database: the pictures a source holds,
