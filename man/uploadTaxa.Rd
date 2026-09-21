@@ -4,12 +4,16 @@
 \alias{uploadTaxa}
 \title{Upload Taxa}
 \usage{
-uploadTaxa(db, table)
+uploadTaxa(db, table, replace = FALSE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{data.frame of taxa to upload, as taxonomiseR() gives them.}
+
+\item{replace}{Whether to remove the taxa each source in the table gave
+before, so that what it no longer gives goes. The removal and the upload
+are one transaction.}
 }
 \description{
 Adds taxa from a data frame to the database taxa table, updating taxa
@@ -17,4 +21,15 @@ already in it. Each taxon has a column for its own rank and for the rank of
 every taxon above it (see taxonomiseR()). A source whose taxa don't reach
 every rank is given the ranks it doesn't use empty, and a rank the table has
 no column for is left out with a warning.
+}
+\details{
+By default a taxon a source no longer gives is left where it is, because a
+source that failed halfway through a harvest would otherwise take its whole
+taxonomy out of audioBLAST!. A source that gives its taxa whole every time,
+as an import of another taxonomy does, should replace them instead: a taxon
+the source has dropped is a taxon nothing points at any more, and one whose
+id has moved to another animal is worse than that. Links are replaced by
+their source whether or not this is (see uploadLinks()), so an import that
+updates its links without replacing its taxa leaves rows behind that nothing
+links to.
 }

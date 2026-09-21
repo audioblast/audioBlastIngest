@@ -37,7 +37,8 @@ importFrom(DBI,
   dbClearResult,
   dbExecute,
   dbQuoteString,
-  dbSendQuery
+  dbSendQuery,
+  dbWithTransaction
 )
 importFrom(curl,
   curl_escape,

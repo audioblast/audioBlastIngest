@@ -6,11 +6,24 @@
 #' every rank is given the ranks it doesn't use empty, and a rank the table has
 #' no column for is left out with a warning.
 #'
+#' By default a taxon a source no longer gives is left where it is, because a
+#' source that failed halfway through a harvest would otherwise take its whole
+#' taxonomy out of audioBLAST!. A source that gives its taxa whole every time,
+#' as an import of another taxonomy does, should replace them instead: a taxon
+#' the source has dropped is a taxon nothing points at any more, and one whose
+#' id has moved to another animal is worse than that. Links are replaced by
+#' their source whether or not this is (see uploadLinks()), so an import that
+#' updates its links without replacing its taxa leaves rows behind that nothing
+#' links to.
+#'
 #' @param db database connector
 #' @param table data.frame of taxa to upload, as taxonomiseR() gives them.
+#' @param replace Whether to remove the taxa each source in the table gave
+#'   before, so that what it no longer gives goes. The removal and the upload
+#'   are one transaction.
 #' @export
-#' @importFrom DBI dbBind dbSendQuery
-uploadTaxa <- function(db, table) {
+#' @importFrom DBI dbBind dbSendQuery dbExecute dbWithTransaction
+uploadTaxa <- function(db, table, replace=FALSE) {
   columns <- c("source", "id", "taxon", "parent_id", "Rank", "Kingdom",
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
@@ -23,7 +36,17 @@ uploadTaxa <- function(db, table) {
   for (column in setdiff(columns, names(table))) {
     table[[column]] <- rep_len(NA_character_, nrow(table))
   }
-  uploadRows(db, "taxa", columns, table[columns], update=columns[-(1:2)])
+  if (!replace) {
+    return(uploadRows(db, "taxa", columns, table[columns], update=columns[-(1:2)]))
+  }
+  if (nrow(table) == 0) return(invisible(NULL))
+  DBI::dbWithTransaction(db, {
+    for (source in unique(as.character(table$source))) {
+      dbExecute(db, "DELETE FROM `taxa` WHERE `source` = ?", params=list(source))
+    }
+    uploadRows(db, "taxa", columns, table[columns], update=columns[-(1:2)],
+               transaction=FALSE)
+  })
 }
 
 #' Upload Traits

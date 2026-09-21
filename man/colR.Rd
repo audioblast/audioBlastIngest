@@ -77,7 +77,10 @@ reached is worth reading in the outcomes before it is trusted.
 \examples{
 \dontrun{
 harvest <- colR(verbose=TRUE)
-uploadTaxa(db, taxonomiseR(sourceR("CoL", harvest$taxa)))
+#replace, because this gives its taxa whole every time: a taxon the release
+#no longer holds is one that nothing points at any more, and its links are
+#replaced whether the taxa are or not
+uploadTaxa(db, taxonomiseR(sourceR("CoL", harvest$taxa)), replace=TRUE)
 uploadLinks(db, sourceR("CoL", harvest$links))
 }
 }

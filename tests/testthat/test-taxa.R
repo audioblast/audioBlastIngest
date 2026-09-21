@@ -107,6 +107,34 @@ test_that("uploadTaxa gives a source the ranks it doesn't use", {
   expect_identical(rows[[2]][[which(columns == "Species")]], NA_character_)
 })
 
+test_that("uploadTaxa leaves what a source no longer gives unless asked to replace it", {
+  table <- taxonomiseR(taxonomy(animalia, insecta))
+
+  #A source that failed halfway through a harvest must not take its whole
+  #taxonomy out of audioBLAST!, so nothing is removed by default
+  kept <- mockUpload(uploadTaxa, table)
+  expect_false(any(grepl("DELETE", vapply(kept$executed, function(x) x$sql, character(1)))))
+
+  #A source that gives its taxa whole every time, as an import of another
+  #taxonomy does, replaces them: a taxon it has dropped is one that nothing
+  #points at any more, and its links are replaced whether this is or not
+  replaced <- mockUpload(uploadTaxa, table, replace=TRUE)
+  expect_identical(replaced$executed[[1]]$sql, "DELETE FROM `taxa` WHERE `source` = ?")
+  expect_identical(replaced$executed[[1]]$params, list("bio.acousti.ca"))
+  #The removal and the upload are one transaction, so a failure leaves neither
+  expect_identical(replaced$calls, c("begin", "execute", "execute", "commit"))
+})
+
+test_that("uploadTaxa removes the taxa of every source it is given", {
+  table <- taxonomiseR(rbind(taxonomy(animalia, insecta),
+                             taxonomy(c("1", "Animalia", "Kingdom", "0"), source="xeno-canto")))
+
+  upload <- mockUpload(uploadTaxa, table, replace=TRUE)
+
+  removed <- unlist(lapply(upload$executed[1:2], function(x) x$params))
+  expect_setequal(removed, c("bio.acousti.ca", "xeno-canto"))
+})
+
 test_that("uploadTaxa warns about a rank the taxa table has no column for", {
   table <- taxonomiseR(taxonomy(c("1", "Insecta", "Superorder", "0")))
 
