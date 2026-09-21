@@ -22,3 +22,10 @@ that is its own ancestor, ends the walk rather than looping. Where a rank is
 reached twice, because a source puts a taxon inside another of its rank, the
 nearest one keeps it, so that a taxon always names itself at its own rank.
 }
+\details{
+A rank is titled as the taxa table names its columns, so that a source
+writing species and one writing Species are asking for the same rank rather
+than one of them for a rank the table has no column for, and so that ranks
+can be compared between sources without each comparison having to know that
+they are cased differently.
+}
