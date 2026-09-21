@@ -293,6 +293,21 @@ test_that("iNaturalist harvests page through every taxon with a sliding window",
   expect_match(urls[3], "&taxon_id=50186&", fixed=TRUE)
 })
 
+test_that("every taxon is the taxon_id left out rather than given empty", {
+  urls <- character(0)
+  local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
+    urls <<- c(urls, url)
+    inatResponse(200, inatPage(1001, 1))
+  }))
+
+  harvest <- inaturalistR("", per_page=200, pause=0)
+
+  #Given empty, the API reads the taxon as 0 and refuses the request
+  expect_false(grepl("taxon_id", urls[1], fixed=TRUE))
+  expect_match(urls[1], "?sounds=true&quality_grade=research&", fixed=TRUE)
+  expect_identical(harvest$recordings$id, "10010")
+})
+
 test_that("an observation harvested under two taxa is one recording", {
   local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
     #Orthoptera is within Insecta, so both harvests hold this observation

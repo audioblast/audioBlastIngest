@@ -254,7 +254,9 @@ inaturalistFetch <- function(taxon_id, quality_grade, id_above, per_page, handle
   url <- paste0(
     "https://api.inaturalist.org/v2/observations",
     "?sounds=true",
-    "&taxon_id=", taxon_id,
+    #Every taxon is the parameter left out rather than given empty: given empty
+    #the API reads it as taxon 0 and refuses the request
+    if (taxon_id == "") "" else paste0("&taxon_id=", taxon_id),
     "&quality_grade=", curl_escape(quality_grade),
     "&sound_license=", paste(names(inaturalistLicenses), collapse=","),
     "&order_by=id&order=asc",
