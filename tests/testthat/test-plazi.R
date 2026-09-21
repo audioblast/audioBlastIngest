@@ -328,3 +328,46 @@ test_that("every table a Plazi harvest gives can be uploaded from a stream", {
   expect_true(all(match("references", order) <
                     match(setdiff(plaziTables, "references"), order)))
 })
+
+test_that("a treatment Plazi cannot serve does not stop the harvest", {
+  #Zenodo lists treatments whose XML Plazi now answers 404 for, and a 404 page
+  #is not XML. One of those in twelve thousand is not worth the rest.
+  notXML <- "<!doctype html><html><head><title>HTTP Status 404</title></head></html>"
+  expect_error(plaziRead(notXML, "E8056511FFB6FFBEDEBB197CA0F7454E"),
+               "E8056511FFB6FFBEDEBB197CA0F7454E is not valid XML")
+
+  #The harvest turns that into a warning and carries on
+  expect_warning(
+    skipped <- tryCatch(stop("not valid XML"), error=function(e) {
+      warning("Leaving out Plazi treatment X: ", conditionMessage(e), call.=FALSE)
+      NULL
+    }),
+    "Leaving out Plazi treatment X")
+  expect_null(skipped)
+})
+
+test_that("a harvest takes up where it stopped", {
+  dir <- withr::local_tempdir()
+  expect_identical(plaziAlreadyRead(dir), character())
+  #Without a directory there is nothing to take up
+  expect_identical(plaziAlreadyRead(NULL), character())
+
+  plaziMarkRead(dir, "AAA")
+  plaziMarkRead(dir, "BBB")
+  expect_identical(plaziAlreadyRead(dir), c("AAA", "BBB"))
+
+  #A treatment is marked read whether or not it had anything to say, since one
+  #with nothing acoustic in it is read just as slowly as one that has
+  plaziMarkRead(dir, "AAA")
+  expect_identical(plaziAlreadyRead(dir), c("AAA", "BBB"))
+
+  #And marking does nothing without a directory to mark in
+  expect_null(plaziMarkRead(NULL, "CCC"))
+})
+
+test_that("what a harvest has read does not collide with what it streams", {
+  #uploadStreamed() reads streamUploads, so the file of read treatments is
+  #ignored by it rather than mistaken for a table
+  expect_false(sub("[.].*$", "", plaziReadFile) %in% names(streamUploads))
+  expect_false(endsWith(plaziReadFile, ".csv"))
+})
