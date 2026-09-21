@@ -4,17 +4,13 @@
 \alias{uploadOnomatopoeia}
 \title{Upload onomatopoeia}
 \usage{
-uploadOnomatopoeia(db, table, replace = TRUE)
+uploadOnomatopoeia(db, table)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of onomatopoeia to upload, with the columns of
 getHeaders("onomatopoeia").}
-
-\item{replace}{Whether to remove what each source gave before first. FALSE
-for a chunk of a streamed harvest, whose source has been emptied once
-already (see uploadStreamed()).}
 }
 \description{
 Uploads onomatopoeia and imitations to audioBlast!: the words a human
