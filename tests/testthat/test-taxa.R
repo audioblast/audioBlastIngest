@@ -51,6 +51,24 @@ test_that("a taxon names itself at its own rank, whatever a source nests it in",
   expect_identical(out[out$id == "9", "Genus"], "Gryllus")
 })
 
+test_that("a rank is titled however its source writes it", {
+  #The Catalogue of Life writes its ranks in lower case and bio.acousti.ca
+  #writes them titled, and audioBLAST! held both, so the same rank had to be
+  #asked for twice and a taxon of rank species was not found by rank=Species
+  taxa <- taxonomy(c("1", "Gryllus", "genus", "0"),
+                   c("2", "Gryllus campestris", "SPECIES", "1"),
+                   c("3", "Gryllidae", "Family", "0"))
+
+  out <- taxonomiseR(taxa)
+
+  expect_identical(out$Rank, c("Genus", "Species", "Family"))
+  #A rank written in lower case names the column the taxa table has for it,
+  #rather than asking for one it hasn't got and losing the classification
+  expect_identical(out[out$id == "2", "Species"], "Gryllus campestris")
+  expect_identical(out[out$id == "1", "Genus"], "Gryllus")
+  expect_false(any(c("genus", "species", "SPECIES") %in% names(out)))
+})
+
 test_that("taxa keep the source that gave them", {
   taxa <- rbind(taxonomy(animalia, insecta),
                 taxonomy(c("1", "Animalia", "Kingdom", "0"), source="xeno-canto"))

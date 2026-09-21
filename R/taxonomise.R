@@ -8,15 +8,23 @@
 #' reached twice, because a source puts a taxon inside another of its rank, the
 #' nearest one keeps it, so that a taxon always names itself at its own rank.
 #'
+#' A rank is titled as the taxa table names its columns, so that a source
+#' writing species and one writing Species are asking for the same rank rather
+#' than one of them for a rank the table has no column for, and so that ranks
+#' can be compared between sources without each comparison having to know that
+#' they are cased differently.
+#'
 #' @param input dataframe of taxa to process, with the columns of
 #'   getHeaders("taxa").
 #' @return Data frame of processed data
 #' @export
 #' @importFrom stats setNames
+#' @importFrom stringr str_to_title
 #' @importFrom utils read.csv
 taxonomiseR  <- function(input) {
   input <- as.data.frame(lapply(input, function(x) ifelse(is.na(x), "", as.character(x))),
                          stringsAsFactors=FALSE, check.names=FALSE)
+  input$Rank <- str_to_title(input$Rank)
   ranks <- unique(input$Rank[input$Rank != ""])
   output <- data.frame(matrix(NA_character_, nrow=nrow(input), ncol=5 + length(ranks)),
                        stringsAsFactors=FALSE)

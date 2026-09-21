@@ -38,7 +38,11 @@ col2flat  <- function(data, matches, dataPreprocessed=F) {
     }
     parent_id <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.parentNameUsageID"])
     output[i, "parent_id"] <- parent_id
-    output[i, "Rank"] <- rank
+    #Titled as the column it names is, and as every other source's ranks are:
+    #the Catalogue of Life writes its ranks in lower case, and a taxon of rank
+    #species read in beside one of rank Species would not be found by the same
+    #query as it
+    output[i, "Rank"] <- str_to_title(rank)
     output[i, "valid"] <- as.character(data[data$`dwc.taxonID`==use_id, "dwc.taxonomicStatus"])
     while (length(parent_id) > 0) {
       parent_rank <- as.character(data[data$`dwc.taxonID`==parent_id, "dwc.taxonRank"])
