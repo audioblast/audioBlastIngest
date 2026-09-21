@@ -116,15 +116,19 @@ uploadAnnOmate <- function(db, table) {
 #' @param db database connector
 #' @param table dataframe of descriptions to upload, with the columns of
 #'   getHeaders("descriptions").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadDescriptions <- function(db, table) {
+uploadDescriptions <- function(db, table, replace=TRUE) {
   descriptions <- normaliseDescriptions(table)
   if (nrow(descriptions) == 0) return(invisible(NULL))
 
   columns <- names(getHeaders("descriptions"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(descriptions$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(descriptions$source) else character(0)) {
       dbExecute(db, "DELETE FROM `descriptions` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "descriptions", columns, descriptions[columns], update=columns[-(1:2)],
@@ -254,15 +258,19 @@ uploadDetails <- function(db, table, replace=TRUE) {
 #' @param db database connector
 #' @param table dataframe of vernacular names to upload, with the columns of
 #'   getHeaders("vernacularnames").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadVernacularNames <- function(db, table) {
+uploadVernacularNames <- function(db, table, replace=TRUE) {
   vernacular <- normaliseVernacularNames(table)
   if (nrow(vernacular) == 0) return(invisible(NULL))
 
   columns <- names(getHeaders("vernacularnames"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(vernacular$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(vernacular$source) else character(0)) {
       dbExecute(db, "DELETE FROM `vernacularnames` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "vernacularnames", columns, vernacular[columns], update=columns[-(1:2)],
@@ -295,15 +303,19 @@ uploadVernacularNames <- function(db, table) {
 #' @param db database connector
 #' @param table dataframe of onomatopoeia to upload, with the columns of
 #'   getHeaders("onomatopoeia").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadOnomatopoeia <- function(db, table) {
+uploadOnomatopoeia <- function(db, table, replace=TRUE) {
   onomatopoeia <- normaliseOnomatopoeia(table)
   if (nrow(onomatopoeia) == 0) return(invisible(NULL))
 
   columns <- names(getHeaders("onomatopoeia"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(onomatopoeia$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(onomatopoeia$source) else character(0)) {
       dbExecute(db, "DELETE FROM `onomatopoeia` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "onomatopoeia", columns, onomatopoeia[columns], update=columns[-(1:2)],
@@ -335,15 +347,19 @@ uploadOnomatopoeia <- function(db, table) {
 #' @param db database connector
 #' @param table dataframe of images to upload, with the columns of
 #'   getHeaders("images").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadImages <- function(db, table) {
+uploadImages <- function(db, table, replace=TRUE) {
   images <- normaliseImages(table)
   if (nrow(images) == 0) return(invisible(NULL))
 
   columns <- names(getHeaders("images"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(images$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(images$source) else character(0)) {
       dbExecute(db, "DELETE FROM `images` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "images", columns, images[columns], update=columns[-(1:2)],
@@ -386,14 +402,28 @@ insertSQL <- function(name, columns, update, rows) {
 
 #The upload of each type of table a harvest can stream, in the order they are
 #uploaded in. A type that replaces what its source gave before names the table
-#to empty once, before the first chunk, rather than before each of them. A
-#taxonomy is read whole: a taxon reaches its parent by walking the table it is
-#in, so a chunk holding a species without its genus would lose the walk.
+#to empty once, before the first chunk, rather than before each of them: an
+#upload that emptied its source for every chunk would leave only the last one.
+#A taxonomy is read whole: a taxon reaches its parent by walking the table it
+#is in, so a chunk holding a species without its genus would lose the walk.
+#
+#Every type a harvest can give is here. uploadStreamed() reads this list rather
+#than the directory, so a type left out is not uploaded and nothing says so.
+#References come before the records that cite them.
 streamUploads <- list(
   recordings=list(upload=function(db, table) uploadRecordings(db, table)),
   taxa=list(upload=function(db, table) uploadTaxa(db, taxonomiseR(table)), whole=TRUE),
-  images=list(upload=function(db, table) uploadImages(db, table)),
+  references=list(upload=function(db, table) uploadReferences(db, table)),
+  traits=list(upload=function(db, table) uploadTraits(db, seperatoR(table))),
+  images=list(upload=function(db, table) uploadImages(db, table, replace=FALSE),
+              replaces="images"),
   `ann-o-mate`=list(upload=function(db, table) uploadAnnOmate(db, table)),
+  descriptions=list(upload=function(db, table) uploadDescriptions(db, table, replace=FALSE),
+                    replaces="descriptions"),
+  onomatopoeia=list(upload=function(db, table) uploadOnomatopoeia(db, table, replace=FALSE),
+                    replaces="onomatopoeia"),
+  vernacularnames=list(upload=function(db, table) uploadVernacularNames(db, table, replace=FALSE),
+                       replaces="vernacularnames"),
   details=list(upload=function(db, table) uploadDetails(db, table, replace=FALSE),
                replaces="details"),
   links=list(upload=function(db, table) uploadLinks(db, table, replace=FALSE),

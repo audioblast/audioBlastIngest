@@ -227,8 +227,59 @@ test_that("a harvested treatment normalises into the descriptions table", {
 
 test_that("plaziR checks what it is asked to harvest", {
   expect_error(plaziR(query=""), "query must be")
-  expect_error(plaziR(query=c("a", "b")), "query must be")
   expect_error(plaziR(licenses=character()), "licenses must be")
   expect_error(plaziR(max=0), "max must be")
   expect_error(plaziR(pause=-1), "pause must be")
+})
+
+test_that("only a section that is itself about sound is kept", {
+  data <- plaziSections(plaziRead(plaziTreatmentXML(), treated), treated)
+
+  #A treatment is found because a word appears somewhere in it, which makes
+  #the treatment acoustic rather than every section of it. This one's
+  #distribution section is kept because Plazi ran the calling song into it.
+  expect_identical(nrow(data), 1L)
+  expect_identical(data$topic, "distribution")
+  expect_true(grepl("calling song", data$value, ignore.case=TRUE))
+})
+
+test_that("a section that says nothing about sound is left out", {
+  #A spider's carapace measurements, from a treatment that is acoustic
+  #because it describes a stridulatory organ elsewhere
+  carapace <- paste("DESCRIPTION. Holotype male, PNM-18876: TL 55.48. Prosoma.",
+                    "Carapace, CL 15.95, CW 13.75, CH 7.2, longer than wide, oblong,",
+                    "integument light to dark brown, densely covered with short",
+                    "metallic gray to white scales, and with four pairs of dorsal",
+                    "weak furrows.")
+  expect_false(grepl(plaziAcousticText, carapace, ignore.case=TRUE, perl=TRUE))
+
+  #And the sound-producing organ of the same spider is kept
+  lyra <- paste("a reniform lyra on the prolateral maxilla with a row of large",
+                "club-shaped stridulatory setae (bacillae)")
+  expect_true(grepl(plaziAcousticText, lyra, ignore.case=TRUE, perl=TRUE))
+
+  #A callus is a part of a wing, and a call is a sound
+  expect_false(grepl(plaziAcousticText, "the callus is rounded", ignore.case=TRUE, perl=TRUE))
+  expect_true(grepl(plaziAcousticText, "the call is a sharp note", ignore.case=TRUE, perl=TRUE))
+})
+
+test_that("the terms searched for reach beyond the insects", {
+  #Each term is a search of its own, because together they match more than
+  #Zenodo's 10,000-record window
+  expect_true(length(plaziAcoustic) > 1)
+  expect_true(all(nzchar(plaziAcoustic)))
+  #An anuran's call, a cicada's organ and a bird's voice are named, not only
+  #the orthopteran words
+  expect_true(all(c("advertisement call", "tymbal", "vocalization") %in% plaziAcoustic))
+
+  #A term of more than one word is searched for as a phrase
+  expect_identical(plaziPhrase("advertisement call"), "\"advertisement call\"")
+  expect_identical(plaziPhrase("stridulation"), "stridulation")
+  expect_identical(plaziPhrase("\"already quoted\""), "\"already quoted\"")
+})
+
+test_that("plaziR takes one search or many", {
+  expect_error(plaziR(query=character()), "one or more")
+  expect_error(plaziR(query=c("song", NA)), "one or more")
+  expect_error(plaziR(query=c("song", "")), "one or more")
 })

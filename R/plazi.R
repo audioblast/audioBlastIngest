@@ -23,6 +23,13 @@
 #' Figure captions are dropped too, as a caption describes a figure and is set
 #' inside whichever section the figure falls in, not in the one it belongs to.
 #'
+#' What is left is kept only where the section itself says something about
+#' sound. A treatment is found because a word appears somewhere in it, which
+#' makes the treatment acoustic rather than every section of it: a katydid
+#' revision describes the song and the carapace, and only the song is
+#' audioBlast!'s. Keeping a section on its own text leaves 44% of the sections
+#' a treatment gives.
+#'
 #' Each description is about the taxon the treatment treats and rests on the
 #' treatment that says it, which are links. The treatment is harvested as a
 #' reference of its own: it is deposited as a publication and has its own DOI,
@@ -32,8 +39,11 @@
 #' Plazi's taxa, so a taxon is named by GBIF where Zenodo gives it and by
 #' Plazi's taxon concept otherwise.
 #'
-#' @param query Zenodo search over the treatments, e.g. `"stridulation"`. The
-#'   default finds the treatments that say something about sound.
+#' @param query Character vector of Zenodo searches over the treatments,
+#'   searched in turn, e.g. `c("stridulation", "advertisement call")`. A term
+#'   of more than one word is searched for as a phrase, and a treatment that
+#'   two terms both find is read once. The default finds the treatments that
+#'   say something about sound.
 #' @param licenses Licence ids to accept, as Zenodo gives them. Treatments
 #'   under any other licence are left out with a warning rather than
 #'   republished.
@@ -61,8 +71,8 @@
 #' @export
 plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
                    token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE) {
-  if (!is.character(query) || length(query) != 1 || is.na(query) || !nzchar(query)) {
-    stop("query must be a Zenodo search over the treatments.")
+  if (!is.character(query) || length(query) == 0 || any(is.na(query) | !nzchar(query))) {
+    stop("query must be one or more Zenodo searches over the treatments.")
   }
   if (!is.character(licenses) || length(licenses) == 0 || any(is.na(licenses))) {
     stop("licenses must be one or more licence ids.")
@@ -124,8 +134,38 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
 #treatments and audioBlast! wants the ones that describe a call, a song or the
 #organ that makes it, so the harvest is named by what it is looking for rather
 #than by a taxon: a treatment of any group can describe a sound.
-plaziAcoustic <- paste("acoustic OR song OR stridulation OR stridulatory OR",
-                       "bioacoustics OR spectrogram OR sonogram OR oscillogram")
+#
+#Each term is a search of its own rather than one search of all of them,
+#because Zenodo pages 10,000 records and the terms together match more than
+#that. Every term is inside the window on its own, a term that fails skips
+#that term rather than the harvest, and a treatment two terms both find is
+#read once.
+#
+#The terms are what the literature of each group calls a sound: an
+#advertisement call is an anuran's, a tymbal is a cicada's organ, and a
+#vocalisation is a bird's or a mammal's. Counted against Zenodo, advertisement
+#call brings 388 treatments that none of the other terms reach, so a list that
+#stopped at the orthopteran words would harvest the insects and leave the frogs.
+plaziAcoustic <- c("acoustic", "song", "stridulation", "stridulatory",
+                   "stridulating", "bioacoustics", "spectrogram", "sonogram",
+                   "oscillogram", "advertisement call", "vocalization",
+                   "vocalisation", "tymbal", "chirp", "echeme", "syllable",
+                   "pulse rate")
+
+#What makes a section of a treatment one about sound. A treatment is found by
+#a word appearing anywhere in it, which is the whole treatment's claim to be
+#acoustic and not each section's: a katydid paper describes the song and the
+#carapace, and only the song is audioBlast!'s. So a section is kept on its own
+#text rather than on the treatment's, which leaves 44% of the sections a
+#treatment gives.
+#
+#The words are plaziAcoustic's, as whole words so that a callus is not a call,
+#with the spellings and inflections prose uses that a search term need not.
+plaziAcousticText <- paste0(
+  "acoustic|\\bsongs?\\b|stridulat|bioacoustic|spectrogram|sonogram|",
+  "oscillogram|vocali[sz]|tymbal|\\bchirp|echeme|syllable|phonotax|",
+  "\\bcalls?\\b|calling|pulse rate|pulse train|carrier frequency|",
+  "dominant frequency|peak frequency|\\bkHz\\b|advertisement")
 
 #Licences that let a description be republished. Every treatment sampled from
 #the Biodiversity Literature Repository was CC0, but Plazi deposits under the
@@ -159,47 +199,65 @@ plaziFound <- function(query, licenses, max, token, handle, pacing, verbose) {
   size <- if (is.character(token) && length(token) == 1 && !is.na(token) && nzchar(token)) 100 else 25
   found <- list()
   refused <- 0
-  page <- 1
-  repeat {
-    pacing()
-    url <- paste0("https://zenodo.org/api/records",
-                  "?communities=biosyslit&type=publication&subtype=taxonomictreatment",
-                  "&size=", size, "&page=", page,
-                  "&q=", curl_escape(query))
-    response <- plaziFetch(url, handle, token=token)
-    json <- tryCatch(fromJSON(response), error=function(e) NULL)
-    hits <- json[["hits"]][["hits"]]
-    if (!is.list(json) || !is.list(hits)) stop("Unexpected Zenodo response.")
-    total <- suppressWarnings(as.numeric(json[["hits"]][["total"]]))
-    if (page == 1) {
-      if (length(total) != 1 || !is.finite(total)) stop("Missing Zenodo result count.")
-      if (verbose) message("  Plazi: ", total, " treatments match")
-      if (total > 10000 && is.infinite(max)) {
-        stop("Zenodo pages only 10,000 records and the query matches ", total,
-             ". Narrow the query and harvest in parts.")
+  #A treatment that two terms both find is read once. The terms overlap
+  #heavily: they match 13,497 treatments summed and 12,329 distinct, so a
+  #harvest that read every hit would fetch a thousand treatments twice.
+  seen <- new.env(hash=TRUE, parent=emptyenv())
+  for (term in query) {
+    page <- 1
+    repeat {
+      pacing()
+      url <- paste0("https://zenodo.org/api/records",
+                    "?communities=biosyslit&type=publication&subtype=taxonomictreatment",
+                    "&size=", size, "&page=", page,
+                    "&q=", curl_escape(plaziPhrase(term)))
+      response <- plaziFetch(url, handle, token=token)
+      json <- tryCatch(fromJSON(response), error=function(e) NULL)
+      hits <- json[["hits"]][["hits"]]
+      if (!is.list(json) || !is.list(hits)) stop("Unexpected Zenodo response.")
+      total <- suppressWarnings(as.numeric(json[["hits"]][["total"]]))
+      if (page == 1) {
+        if (length(total) != 1 || !is.finite(total)) stop("Missing Zenodo result count.")
+        if (verbose) message("  Plazi ", term, ": ", total, " treatments match")
+        if (total > 10000 && is.infinite(max)) {
+          stop("Zenodo pages only 10,000 records and '", term, "' matches ", total,
+               ". Narrow that term and harvest in parts.")
+        }
       }
-    }
-    for (hit in hits) {
-      treatment <- plaziTreatment(hit)
-      if (is.null(treatment)) next
-      if (!treatment$license %in% licenses) {
-        refused <- refused + 1
-        next
+      for (hit in hits) {
+        treatment <- plaziTreatment(hit)
+        if (is.null(treatment)) next
+        if (!is.null(seen[[treatment$uuid]])) next
+        assign(treatment$uuid, TRUE, envir=seen)
+        if (!treatment$license %in% licenses) {
+          refused <- refused + 1
+          next
+        }
+        found[[length(found) + 1]] <- treatment
+        if (length(found) >= max) break
       }
-      found[[length(found) + 1]] <- treatment
-      if (length(found) >= max) break
+      #Zenodo pages 10,000 records and refuses the page after them, so a
+      #harvest that has asked for a set number stops there rather than failing
+      if (length(found) >= max || length(hits) < size ||
+          page * size >= total || page * size >= 10000) break
+      page <- page + 1
     }
-    #Zenodo pages 10,000 records and refuses the page after them, so a harvest
-    #that has asked for a set number stops there rather than failing
-    if (length(found) >= max || length(hits) < size ||
-        page * size >= total || page * size >= 10000) break
-    page <- page + 1
+    if (length(found) >= max) break
   }
   if (refused > 0) {
     warning(paste0("Skipping ", refused,
                    " Plazi treatments whose licence does not allow republishing."))
   }
   return(found)
+}
+
+#A term of more than one word is searched for as a phrase, so that
+#advertisement call does not match every treatment saying either
+plaziPhrase <- function(term) {
+  if (grepl("[[:space:]]", term) && !grepl('"', term, fixed=TRUE)) {
+    return(paste0('"', term, '"'))
+  }
+  return(term)
 }
 
 #What a Zenodo record says about a treatment, or NULL where it does not name
@@ -344,8 +402,15 @@ plaziName <- function(document, title) {
 }
 
 #The descriptions a treatment's XML gives, one for each section that holds
-#prose. A section is identified within the treatment, so a treatment that is
-#reprocessed and gains a section does not renumber the others.
+#prose about sound. A section is identified within the treatment, so a
+#treatment that is reprocessed and gains a section does not renumber the
+#others.
+#
+#A treatment is found because a word appears somewhere in it, which makes the
+#treatment acoustic and not every section of it: a katydid revision describes
+#the song and the carapace, and audioBlast! is only importing what is about
+#sound. So each section is kept on its own text, which leaves 44% of the
+#sections a treatment gives.
 #' @importFrom xml2 xml_attr xml_find_all xml_remove xml_text
 plaziSections <- function(document, uuid) {
   sections <- xml_find_all(document, ".//subSubSection")
@@ -365,6 +430,8 @@ plaziSections <- function(document, uuid) {
     #Plazi's text is loosely spaced throughout.
     value <- plaziText(paste(xml_text(xml_find_all(section, ".//text()")), collapse=" "))
     if (nchar(value) < plaziShortest) next
+    #What this section itself says has to be about sound
+    if (!grepl(plaziAcousticText, value, ignore.case=TRUE, perl=TRUE)) next
     descriptions[nrow(descriptions) + 1, ] <- list(
       source="", id=paste0(uuid, "#", id), topic=topic, value=value,
       info_url=paste0("https://treatment.plazi.org/id/", uuid), topic_link="")
