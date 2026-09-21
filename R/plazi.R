@@ -54,23 +54,34 @@
 #'   25 to 100, so a large harvest makes a quarter as many requests. Keep
 #'   tokens out of code and version control.
 #' @param pause Seconds between requests.
+#' @param dir Directory to stream the harvest to, a CSV of each type of table,
+#'   instead of holding it all. The whole harvest is some 12,000 treatments of
+#'   prose and will not fit in memory; streaming it also means a failed upload
+#'   does not throw hours of requests away, as the files are kept. Upload them
+#'   with uploadStreamed().
 #' @param verbose If TRUE reports harvest progress.
 #' @return Named list of the data frames a harvest gives: the descriptions, the
 #'   treatments they were read from as references, and the links. Each has an
-#'   empty source column (see sourceR()).
+#'   empty source column (see sourceR()). With dir, the paths they were
+#'   written to instead.
 #' @examples
 #' \dontrun{
 #' harvest <- plaziR()
 #' uploadReferences(db, sourceR("Plazi", harvest$references))
 #' uploadDescriptions(db, sourceR("Plazi", harvest$descriptions))
 #' uploadLinks(db, sourceR("Plazi", harvest$links))
+#'
+#' #The whole harvest will not fit in memory, so stream it and upload the files
+#' plaziR(dir="plazi-harvest", verbose=TRUE)
+#' uploadStreamed(db, "Plazi", "plazi-harvest", verbose=TRUE)
 #' }
 #' @importFrom curl new_handle curl_escape curl_fetch_memory
 #' @importFrom rjson fromJSON
 #' @importFrom stats setNames
 #' @export
 plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
-                   token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE) {
+                   token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE,
+                   dir=NULL) {
   if (!is.character(query) || length(query) == 0 || any(is.na(query) | !nzchar(query))) {
     stop("query must be one or more Zenodo searches over the treatments.")
   }
@@ -94,40 +105,75 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
 
   found <- plaziFound(query, licenses, max, token, handle, pacing, verbose)
 
-  pages <- list()
-  cited <- list()
-  linked <- list()
+  #Each treatment is converted as it arrives and the document let go of. With
+  #a dir the tables go to files as well and nothing is held from one treatment
+  #to the next, which is what the whole harvest needs: 12,000 treatments of
+  #prose will not fit in memory, and hours of them are lost if it runs out.
+  pages <- lapply(plaziTables, function(type) list())
   for (i in seq_along(found)) {
     treatment <- found[[i]]
     pacing()
     document <- plaziRead(plaziFetch(
       paste0("https://tb.plazi.org/GgServer/xml/", treatment$uuid), handle), treatment$uuid)
-    #A treatment is read once: its sections are the descriptions and its
-    #heading is the reference they cite
-    reference <- plaziReference(document, treatment)
-    sections <- plaziSections(document, treatment$uuid)
-    if (nrow(sections) == 0) next
-    pages[[length(pages) + 1]] <- sections
-    cited[[length(cited) + 1]] <- reference
-    linked[[length(linked) + 1]] <- plaziLinks(sections$id, treatment)
+    tables <- plaziHarvested(document, treatment)
+    #A treatment with nothing to say about sound is not one this harvest
+    #wanted, and its reference would be cited by nothing
+    if (nrow(tables$descriptions) == 0) next
+    for (type in plaziTables) {
+      if (is.null(dir)) {
+        pages[[type]][[length(pages[[type]]) + 1]] <- tables[[type]]
+      } else {
+        streamTable(dir, type, tables[[type]])
+      }
+    }
     if (verbose && i %% 100 == 0) message("  Plazi: ", i, " of ", length(found), " treatments")
   }
 
-  descriptions <- do.call(rbind, c(list(getHeaders("descriptions")), pages))
-  descriptions <- descriptions[!duplicated(descriptions$id), , drop=FALSE]
-  rownames(descriptions) <- NULL
-  references <- do.call(rbind, c(list(getHeaders("references")), cited))
-  references <- references[!duplicated(references$id), , drop=FALSE]
-  rownames(references) <- NULL
-  links <- do.call(rbind, c(list(getHeaders("links")), linked))
-  links <- links[links$subject_id %in% c(descriptions$id, references$id), , drop=FALSE]
-  links <- links[!duplicated(links), , drop=FALSE]
-  rownames(links) <- NULL
-  if (verbose) {
-    message("  Plazi descriptions: ", nrow(descriptions), ", treatments: ",
-            nrow(references), ", links: ", nrow(links))
+  if (!is.null(dir)) {
+    paths <- lapply(plaziTables, function(type) streamPath(dir, type))
+    names(paths) <- plaziTables
+    if (verbose) message("  Plazi harvested to ", dir)
+    return(paths)
   }
-  return(list(descriptions=descriptions, references=references, links=links))
+
+  data <- lapply(plaziTables, function(type) plaziCombine(pages[[type]], type))
+  names(data) <- plaziTables
+  if (verbose) {
+    for (type in plaziTables) message("  Plazi ", type, ": ", nrow(data[[type]]))
+  }
+  return(data)
+}
+
+#The tables a Plazi harvest gives, a reference before the records that cite it
+plaziTables <- c("references", "descriptions", "links")
+
+#What one treatment gives, as one table of each type
+plaziHarvested <- function(document, treatment) {
+  #A treatment is read once: its sections are the descriptions and its heading
+  #is the reference they cite
+  reference <- plaziReference(document, treatment)
+  sections <- plaziSections(document, treatment$uuid)
+  links <- plaziLinks(sections$id, treatment)
+  #A link whose subject this treatment did not give has nothing to join. The
+  #ids are checked against the treatment's own tables rather than the whole
+  #harvest's, which is the same answer, since a link's subject is always a
+  #record of the treatment it came from, and is the one a streamed harvest can
+  #give, having let every other treatment go.
+  held <- c(reference$id, sections$id)
+  links <- links[links$subject_id %in% held, , drop=FALSE]
+  rownames(links) <- NULL
+  return(list(references=reference, descriptions=sections, links=links))
+}
+
+#The tables of every treatment as one, with the repeats left out. Two
+#treatments should not give a record twice, as an id carries the UUID of the
+#treatment it came from, so this is the belt to the braces.
+plaziCombine <- function(tables, type) {
+  data <- do.call(rbind, c(list(getHeaders(type)), tables))
+  keep <- if (type == "links") !duplicated(data) else !duplicated(data$id)
+  data <- data[keep, , drop=FALSE]
+  rownames(data) <- NULL
+  return(data)
 }
 
 #The treatments that say something about sound. Plazi holds over a million
