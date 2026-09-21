@@ -57,7 +57,9 @@
 #'   environment variable. It is not needed; it only raises the page size from
 #'   25 to 100, so a large harvest makes a quarter as many requests. Keep
 #'   tokens out of code and version control.
-#' @param pause Seconds between requests.
+#' @param pause Seconds between requests to Plazi, which advertises no limit
+#'   and answers in about 0.7 seconds. Zenodo is paced separately, by the
+#'   limit it advertises.
 #' @param dir Directory to stream the harvest to, a CSV of each type of table,
 #'   instead of holding it all. The whole harvest is some 12,000 treatments of
 #'   prose and will not fit in memory; streaming it also means a failed upload
@@ -85,7 +87,7 @@
 #' @importFrom stats setNames
 #' @export
 plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
-                   token=Sys.getenv("ZENODO_TOKEN"), pause=1, verbose=FALSE,
+                   token=Sys.getenv("ZENODO_TOKEN"), pause=0.25, verbose=FALSE,
                    dir=NULL) {
   if (!is.character(query) || length(query) == 0 || any(is.na(query) | !nzchar(query))) {
     stop("query must be one or more Zenodo searches over the treatments.")
@@ -102,13 +104,16 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
 
   handle <- new_handle(useragent="audioBlastIngest (https://github.com/audioblast/audioBlastIngest)",
                        connecttimeout=30, timeout=300)
-  first <- TRUE
-  pacing <- function() {
-    if (!first) Sys.sleep(pause)
-    first <<- FALSE
-  }
-
-  found <- plaziFound(query, licenses, max, token, handle, pacing, verbose)
+  #Zenodo and Plazi are paced apart, because they ask for different things.
+  #Zenodo advertises its limit in every response (x-ratelimit-limit: 30 a
+  #minute, unauthenticated), and going over it is answered with 429 and a
+  #minute's retry-after, so discovery runs no faster than that however hard it
+  #is pushed. Plazi advertises no limit and answers in about 0.7 seconds, so
+  #the same wait there is a wait for nothing: it was doubling the time of
+  #every one of twelve thousand treatments.
+  found <- plaziFound(query, licenses, max, token, handle,
+                      plaziPacer(plaziZenodoWait), verbose)
+  pacing <- plaziPacer(pause)
 
   #Each treatment is converted as it arrives and the document let go of. With
   #a dir the tables go to files as well and nothing is held from one treatment
@@ -170,6 +175,29 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   }
   return(data)
 }
+
+#One request every `seconds`, counting the time a request itself takes towards
+#the wait. A limit is on the requests made in a minute, not on the gaps
+#between them, so sleeping a whole second after a request that took half of
+#one asks for half as many again as it looks like asking for.
+plaziPacer <- function(seconds) {
+  last <- NULL
+  function() {
+    if (!is.null(last)) {
+      wait <- seconds - as.numeric(difftime(Sys.time(), last, units="secs"))
+      if (wait > 0) Sys.sleep(wait)
+    }
+    last <<- Sys.time()
+    return(invisible(NULL))
+  }
+}
+
+#Seconds between Zenodo requests. It answers every request with
+#x-ratelimit-limit: 30, a minute, for an unauthenticated caller, and 429 with
+#retry-after: 60 for the ones over it. Two seconds is that limit exactly.
+#A token does not change it, but it raises the page size from 25 to 100, so a
+#harvest with one makes a quarter as many requests to stay inside it.
+plaziZenodoWait <- 2
 
 #The tables a Plazi harvest gives, a reference before the records that cite it
 plaziTables <- c("references", "descriptions", "links")

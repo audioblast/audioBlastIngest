@@ -9,7 +9,7 @@ plaziR(
   licenses = plaziLicenses,
   max = Inf,
   token = Sys.getenv("ZENODO_TOKEN"),
-  pause = 1,
+  pause = 0.25,
   verbose = FALSE,
   dir = NULL
 )
@@ -33,7 +33,9 @@ environment variable. It is not needed; it only raises the page size from
 25 to 100, so a large harvest makes a quarter as many requests. Keep
 tokens out of code and version control.}
 
-\item{pause}{Seconds between requests.}
+\item{pause}{Seconds between requests to Plazi, which advertises no limit
+and answers in about 0.7 seconds. Zenodo is paced separately, by the
+limit it advertises.}
 
 \item{verbose}{If TRUE reports harvest progress.}
 

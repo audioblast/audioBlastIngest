@@ -371,3 +371,40 @@ test_that("what a harvest has read does not collide with what it streams", {
   expect_false(sub("[.].*$", "", plaziReadFile) %in% names(streamUploads))
   expect_false(endsWith(plaziReadFile, ".csv"))
 })
+
+test_that("a pacer counts a request's own time towards its wait", {
+  #A limit is on the requests made in a minute, not on the gaps between them
+  pace <- plaziPacer(0.3)
+  pace()                       #the first is not waited for
+  Sys.sleep(0.3)               #a request that took as long as the interval
+  before <- Sys.time()
+  pace()                       #so there is nothing left to wait
+  expect_lt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.15)
+
+  #And one that took no time at all waits the whole interval
+  pace <- plaziPacer(0.3)
+  pace()
+  before <- Sys.time()
+  pace()
+  expect_gt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.2)
+})
+
+test_that("a pacer of no wait does not wait", {
+  pace <- plaziPacer(0)
+  pace()
+  before <- Sys.time()
+  for (i in 1:5) pace()
+  expect_lt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.2)
+})
+
+test_that("Zenodo is paced by the limit it advertises, Plazi by its own", {
+  #Zenodo answers every request with x-ratelimit-limit: 30 a minute, and 429
+  #with retry-after: 60 for the ones over it
+  expect_identical(plaziZenodoWait, 2)
+  expect_identical(60 / plaziZenodoWait, 30)
+
+  #Plazi advertises no limit and answers in about 0.7 seconds, so the default
+  #is a courtesy rather than a requirement, and it is the one a caller can set
+  expect_identical(formals(plaziR)$pause, 0.25)
+  expect_true(is.null(formals(plaziR)$zenodoPause))
+})
