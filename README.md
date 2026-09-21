@@ -32,10 +32,13 @@ Harvest recordings from [Orthoptera Species File](https://orthoptera.speciesfile
 using its public TaxonWorks API (no personal API key required):
 
 ```R
-recordings <- sourceR("orthoptera-speciesfile", orthopteraSpeciesFileR())
-uploadRecordings(db, recordings)
+harvest <- orthopteraSpeciesFileR()
+uploadRecordings(db, sourceR("orthoptera-speciesfile", harvest$recordings))
+uploadTaxa(db, taxonomiseR(sourceR("orthoptera-speciesfile", harvest$taxa)))
+uploadLinks(db, sourceR("orthoptera-speciesfile", harvest$links))
 ```
 
+A harvest gives recordings, the taxa they are of, and the links between them.
 A sound is conveyed on a taxon (an OTU), a specimen, a field observation or a
 collecting event. Specimens and field observations are read as Darwin Core
 records, which give both the taxon of the accepted determination and where and
@@ -53,15 +56,24 @@ the rights holder and the licence separately. Time of day, recording device and
 number of channels are not in the API, and `info_url` is empty because the
 Orthoptera Species File has no page for a sound.
 
+A taxon is read as its OTU, and its classification comes with it: one request
+gives the OTU's name and an OTU for each rank above it, so the taxa are had for
+what their names alone used to cost. Each is a row of the taxa table, with the
+OTU of the taxon name above it as its parent, which `taxonomiseR()` walks into
+a column for each rank. TaxonWorks roots a project's names at a rankless Root,
+which is no taxon, so the walk ends at the kingdom. A rank the taxa table has
+no column for, such as cohort or nanorder, is still kept, so that the ranks
+below it are reached through it.
+
+Each recording is about the taxa it was identified as, which it says as a link.
 Where an indirect link gives no taxon, a binomial that is the whole title or
 precedes a numbered recording label is matched to a unique accepted OSF taxon.
 The Orthoptera Species File does not identify those recordings, so the name is
-**not** put in `taxon`, which holds the scientific name the source gives. It is
-given as a link saying the identification was read from the title, qualified
-`identificationBasis#RecordingTitle`, so that a reader can tell it from the
-identifications OSF makes. A recording of more than one taxon is given links
-too, as a scientific name is one name. The links are `attr(x, "links")`, which
-`ingestR()` uploads as the harvesting source's own.
+**not** put in `taxon`, which holds the scientific name the source gives. Its
+link is qualified `identificationBasis#RecordingTitle` instead, so that a reader
+can tell it from the identifications OSF makes. A recording of more than one
+taxon has no `taxon` either, as a scientific name is one name, but keeps a link
+to each.
 
 The default project token is the Orthoptera Species File's. It is not a
 credential: <https://sfg.taxonworks.org/api/v1/> needs no authentication and
@@ -75,7 +87,11 @@ must supply a recordings module such as:
 {"type":"recordings","orthoptera":{"per_page":100,"pause":1},"process":["sourceR"]}
 ```
 
+`ingestR()` ingests each table the harvest gives as though it had been a source
+of its own, so the one entry uploads the recordings, the taxa and the links.
+
 Network and server failures are retried; a failed harvest warns and skips this
 source without uploading partial results. Offline tests use public API
-responses recorded on 2026-09-20: a page of sounds, and the sounds conveyed on
-a specimen, on field observations and on collecting events.
+responses recorded on 2026-09-20 and 2026-09-21: a page of sounds, and the
+sounds conveyed on a specimen, on field observations and on collecting events,
+with the Darwin Core records, OTUs and classifications they lead to.

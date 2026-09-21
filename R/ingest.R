@@ -97,13 +97,13 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (is.null(tables)) next
     } else if (is.element("orthoptera", names(source))) {
       #A failed harvest skips this source rather than every source
-      data <- tryCatch(
+      tables <- tryCatch(
         do.call(orthopteraSpeciesFileR, c(source$orthoptera, list(verbose=verbose))),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL
         })
-      if (is.null(data)) next
+      if (is.null(tables)) next
     } else if (source$type == "references") {
       #References are BibTeX (.bib) or else CSV. One that cannot be read skips
       #this source rather than every source.

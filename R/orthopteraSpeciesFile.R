@@ -10,14 +10,18 @@
 #' Darwin Core records of its occurrences, which say what was recorded only
 #' where they all agree.
 #'
+#' A taxon is read as its OTU, whose classification comes with it: one request
+#' gives an OTU's name and an OTU for each rank above it, so the taxa are had
+#' for what their names alone used to cost. Each recording is about the taxa it
+#' was identified as, which it says as a link.
+#'
 #' Where an indirect link gives no taxon, a binomial that is the whole title or
 #' precedes a numbered recording label is matched to a unique accepted OSF
 #' taxon. The Orthoptera Species File does not identify those recordings, so
 #' the name is not put in taxon, which holds the scientific name the source
-#' gives: it is given as a link saying the identification was read from the
-#' title. A recording of more than one taxon is given links too, as a
-#' scientific name is one name. The links are `attr(x, "links")`, which
-#' ingestR() uploads.
+#' gives: its link says instead that the identification was read from the
+#' title. A recording of more than one taxon has no taxon either, as a
+#' scientific name is one name, but keeps a link to each.
 #'
 #' The MIME type and size of each recording are read with one HEAD request for
 #' its audio; audio is never downloaded. The API gives no time of day,
@@ -31,12 +35,15 @@
 #' @param per_page Number of sounds per request, from 1 to 1000.
 #' @param pause Seconds between requests.
 #' @param verbose If TRUE reports harvest progress.
-#' @return Data frame in the recordings format, with an empty source column
-#'   (see sourceR()), and the links it gives in `attr(x, "links")`.
+#' @return Named list of the recordings, taxa and links the harvest found,
+#'   each a data frame of that type with an empty source column (see
+#'   sourceR()), as ingestR() ingests them.
 #' @examples
 #' \dontrun{
-#' recordings <- sourceR("orthoptera-speciesfile", orthopteraSpeciesFileR())
-#' uploadRecordings(db, recordings)
+#' harvest <- orthopteraSpeciesFileR()
+#' uploadRecordings(db, sourceR("orthoptera-speciesfile", harvest$recordings))
+#' uploadTaxa(db, taxonomiseR(sourceR("orthoptera-speciesfile", harvest$taxa)))
+#' uploadLinks(db, sourceR("orthoptera-speciesfile", harvest$links))
 #' }
 #' @importFrom curl new_handle curl_escape curl_fetch_memory
 #' @importFrom rjson fromJSON
@@ -75,17 +82,8 @@ orthopteraSpeciesFileR <- function(token="3oerVKf82_196cIECvHYNg", per_page=100,
     orthopteraFile(url, files)
   }
 
-  taxa <- new.env(parent=emptyenv())
-  lookup <- function(id) {
-    if (!exists(id, envir=taxa, inherits=FALSE)) {
-      otu <- fetch(paste0("otus/", id, "?extend[]=taxon_name"))$data
-      if (!is.list(otu) || orthopteraValue(otu$id) != id) stop("Unexpected Orthoptera OTU response.")
-      name <- orthopteraValue(otu$taxon_name$cached)
-      if (name == "") name <- orthopteraValue(otu$name)
-      assign(id, name, envir=taxa)
-    }
-    get(id, envir=taxa, inherits=FALSE)
-  }
+  taxonomy <- orthopteraTaxonomy(fetch)
+  lookup <- taxonomy$name
   occurrences <- orthopteraOccurrences(fetch, lookup)
 
   pages <- list()
@@ -118,10 +116,70 @@ orthopteraSpeciesFileR <- function(token="3oerVKf82_196cIECvHYNg", per_page=100,
   links <- links[links$subject_id %in% data$id, , drop=FALSE]
   links <- links[!duplicated(links), , drop=FALSE]
   rownames(links) <- NULL
-  attr(data, "links") <- links
+  taxa <- taxonomy$taxa()
   if (verbose) message("  Orthoptera Species File recordings: ", nrow(data),
-                       ", links: ", nrow(links))
-  return(data)
+                       ", taxa: ", nrow(taxa), ", links: ", nrow(links))
+  return(list(recordings=data, taxa=taxa, links=links))
+}
+
+#Reads the OTUs that recordings are of, and the taxonomy above them. One
+#request gives an OTU's name and its whole classification, each rank an OTU of
+#its own, so the taxa a harvest gives cost no more than their names did. Each
+#OTU is read once however many recordings are of it.
+#' @importFrom stringr str_to_title
+orthopteraTaxonomy <- function(fetch) {
+  read <- new.env(parent=emptyenv())
+  rows <- new.env(parent=emptyenv())
+
+  remember <- function(otu, parents) {
+    id <- orthopteraValue(otu$id)
+    name <- orthopteraTaxonName(otu)
+    rank <- orthopteraValue(otu$taxon_name$rank)
+    if (id == "" || name == "" || rank == "") return(invisible(NULL))
+    parent <- unname(parents[orthopteraValue(otu$taxon_name$parent_id)])
+    assign(id, c(id=id, taxon=name, Rank=str_to_title(rank),
+                 parent_id=if (is.na(parent)) "" else parent), envir=rows)
+  }
+
+  list(
+    name=function(id) {
+      if (!exists(id, envir=read, inherits=FALSE)) {
+        otu <- fetch(paste0("otus/", id, "?extend[]=parents&extend[]=taxon_name"))$data
+        if (!is.list(otu) || orthopteraValue(otu$id) != id) stop("Unexpected Orthoptera OTU response.")
+        #parents holds an OTU for each rank above this one, keyed by its name.
+        #Their parents are given as taxon names, which the OTUs of the same
+        #chain say which OTU each is. TaxonWorks roots a project's names at a
+        #rankless Root, which is no taxon, so the walk ends at the kingdom.
+        chain <- c(unlist(unname(otu$parents), recursive=FALSE), list(otu))
+        chain <- Filter(function(each) {
+          !identical(orthopteraValue(each$taxon_name$rank), "nomenclatural rank")
+        }, chain)
+        parents <- vapply(chain, function(each) orthopteraValue(each$id), character(1))
+        names(parents) <- vapply(chain, function(each) orthopteraValue(each$taxon_name$id),
+                                 character(1))
+        for (each in chain) remember(each, parents)
+        assign(id, orthopteraTaxonName(otu), envir=read)
+      }
+      get(id, envir=read, inherits=FALSE)
+    },
+    taxa=function() {
+      found <- mget(ls(rows), envir=rows)
+      if (length(found) == 0) return(getHeaders("taxa"))
+      taxa <- do.call(rbind, unname(found))
+      return(data.frame(
+        source="", id=taxa[, "id"], taxon=taxa[, "taxon"],
+        `Unit name 1`="", `Unit name 2`="", `Unit name 3`="", `Unit name 4`="",
+        Rank=taxa[, "Rank"], parent_id=taxa[, "parent_id"], parent_taxon="",
+        stringsAsFactors=FALSE, check.names=FALSE, row.names=NULL))
+    })
+}
+
+#The name of an OTU, which is its taxon name where it has one and its own name
+#where it is an OTU of something the nomenclature does not cover
+orthopteraTaxonName <- function(otu) {
+  name <- orthopteraValue(otu$taxon_name$cached)
+  if (name == "") name <- orthopteraValue(otu$name)
+  return(name)
 }
 
 #The backoff of the package's other harvesters (see xenocantoFetch()): a failed
@@ -240,16 +298,15 @@ orthopteraRecordings <- function(sounds, lookup,
     if (data$author[i] == "") data$author[i] <- orthopteraAgreed(found$records, "recordedBy")
 
     otus <- unique(c(orthopteraConveyed(sound, "Otu"), found$taxa))
-    taxonNames <- unique(vapply(otus, lookup, character(1), USE.NAMES=FALSE))
-    taxonNames <- taxonNames[taxonNames != ""]
-    if (length(taxonNames) == 1) {
-      data$taxon[i] <- taxonNames
-    } else if (length(taxonNames) > 1) {
-      #taxon holds one dwc:scientificName, so a recording of several taxa says
-      #what it is about as a relationship to each of them
-      links <- rbind(links, orthopteraTaxonLinks(id, otus))
-    }
-    if (found$inferred != "") {
+    taxonNames <- vapply(otus, lookup, character(1), USE.NAMES=FALSE)
+    #A taxon that can't be named isn't given, so nothing is linked to it
+    otus <- otus[taxonNames != ""]
+    taxonNames <- unique(taxonNames[taxonNames != ""])
+    #taxon holds one dwc:scientificName, so a recording of several taxa has
+    #none; either way it says what it is about as a link to each of them
+    if (length(taxonNames) == 1) data$taxon[i] <- taxonNames
+    if (length(otus) > 0) links <- rbind(links, orthopteraTaxonLinks(id, otus))
+    if (found$inferred != "" && lookup(found$inferred) != "") {
       links <- rbind(links, orthopteraTaxonLinks(
         id, found$inferred,
         qualifier="https://vocab.audioblast.org/cv/identificationBasis#RecordingTitle",
@@ -274,16 +331,16 @@ orthopteraConveyed <- function(sound, type) {
   return(unique(ids[grepl("^[0-9]+$", ids)]))
 }
 
-#The links saying that a recording is about a taxon, which the taxon column
-#cannot hold. The taxon is named by the Orthoptera Species File's page for the
-#OTU, as audioBlast! does not hold its taxa. is about, rather than an
-#identification, is what a recording of an animal supports.
+#The links saying that a recording is about a taxon, which are the taxa the
+#harvest gives, by their OTU id. A recording is about a taxon; it does not
+#identify one, which is what Darwin Core's toTaxon says and what a specimen
+#uses. A qualifier says where an identification the source does not make came
+#from.
 orthopteraTaxonLinks <- function(id, otus, qualifier="", remarks="") {
   return(data.frame(
     source="", subject_type="recordings", subject_source="", subject_id=id,
     predicate="http://purl.obolibrary.org/obo/IAO_0000136",
-    object_type="iri", object_source="",
-    object_id=paste0("https://orthoptera.speciesfile.org/otus/", otus),
+    object_type="taxa", object_source="", object_id=otus,
     qualifier=qualifier, remarks=remarks, reference="", stringsAsFactors=FALSE))
 }
 

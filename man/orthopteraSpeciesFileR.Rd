@@ -24,8 +24,9 @@ project. Override it if the site's token changes.}
 \item{verbose}{If TRUE reports harvest progress.}
 }
 \value{
-Data frame in the recordings format, with an empty source column
-(see sourceR()), and the links it gives in \code{attr(x, "links")}.
+Named list of the recordings, taxa and links the harvest found,
+each a data frame of that type with an empty source column (see
+sourceR()), as ingestR() ingests them.
 }
 \description{
 Harvests recording metadata from the Orthoptera Species File's public
@@ -39,14 +40,18 @@ and when the recording was made. A collecting event is read through the
 Darwin Core records of its occurrences, which say what was recorded only
 where they all agree.
 
+A taxon is read as its OTU, whose classification comes with it: one request
+gives an OTU's name and an OTU for each rank above it, so the taxa are had
+for what their names alone used to cost. Each recording is about the taxa it
+was identified as, which it says as a link.
+
 Where an indirect link gives no taxon, a binomial that is the whole title or
 precedes a numbered recording label is matched to a unique accepted OSF
 taxon. The Orthoptera Species File does not identify those recordings, so
 the name is not put in taxon, which holds the scientific name the source
-gives: it is given as a link saying the identification was read from the
-title. A recording of more than one taxon is given links too, as a
-scientific name is one name. The links are \code{attr(x, "links")}, which
-ingestR() uploads.
+gives: its link says instead that the identification was read from the
+title. A recording of more than one taxon has no taxon either, as a
+scientific name is one name, but keeps a link to each.
 
 The MIME type and size of each recording are read with one HEAD request for
 its audio; audio is never downloaded. The API gives no time of day,
@@ -55,7 +60,9 @@ info_url: the Orthoptera Species File has no page for a sound.
 }
 \examples{
 \dontrun{
-recordings <- sourceR("orthoptera-speciesfile", orthopteraSpeciesFileR())
-uploadRecordings(db, recordings)
+harvest <- orthopteraSpeciesFileR()
+uploadRecordings(db, sourceR("orthoptera-speciesfile", harvest$recordings))
+uploadTaxa(db, taxonomiseR(sourceR("orthoptera-speciesfile", harvest$taxa)))
+uploadLinks(db, sourceR("orthoptera-speciesfile", harvest$links))
 }
 }

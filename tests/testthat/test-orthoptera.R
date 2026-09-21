@@ -24,8 +24,13 @@ osfReplay <- function(fixture) {
   list(fetch=fetch, paths=function() paths, forget=function() paths <<- character())
 }
 
-osfLookup <- function(fetch) {
-  function(id) orthopteraValue(fetch(paste0("otus/", id, "?extend[]=taxon_name"))$data$taxon_name$cached)
+#A harvest of the fixture, as orthopteraSpeciesFileR() runs one
+osfHarvest <- function(fixture, replay) {
+  taxonomy <- orthopteraTaxonomy(replay$fetch)
+  data <- orthopteraRecordings(fixture$sounds, taxonomy$name,
+                               orthopteraOccurrences(replay$fetch, taxonomy$name),
+                               osfFileInfo(fixture))
+  return(list(recordings=data, taxa=taxonomy$taxa(), links=attr(data, "links")))
 }
 
 osfFileInfo <- function(fixture) {
@@ -40,11 +45,7 @@ osfFileInfo <- function(fixture) {
 
 test_that("linked records give a recording its taxon, place and date", {
   fixture <- osfLinked()
-  replay <- osfReplay(fixture)
-  lookup <- osfLookup(replay$fetch)
-  data <- orthopteraRecordings(fixture$sounds, lookup,
-                               orthopteraOccurrences(replay$fetch, lookup),
-                               osfFileInfo(fixture))
+  data <- osfHarvest(fixture, osfReplay(fixture))$recordings
 
   expect_identical(data$id, c("55", "125", "126", "199", "208"))
   #The specimen, the two field observations and the one event whose
@@ -72,37 +73,83 @@ test_that("linked records give a recording its taxon, place and date", {
   expect_true(all(data$info_url == ""))
 })
 
-test_that("a name read from a title is a qualified link, not the recording's taxon", {
+test_that("each recording says which taxa it is about", {
   fixture <- osfLinked()
-  replay <- osfReplay(fixture)
-  lookup <- osfLookup(replay$fetch)
-  data <- orthopteraRecordings(fixture$sounds, lookup,
-                               orthopteraOccurrences(replay$fetch, lookup),
-                               osfFileInfo(fixture))
-  links <- attr(data, "links")
+  links <- osfHarvest(fixture, osfReplay(fixture))$links
+
+  expect_identical(names(links), names(getHeaders("links")))
+  #One for each of the five recordings, the last of them the inferred name
+  expect_identical(links$subject_id, c("55", "125", "126", "199", "208"))
+  expect_true(all(links$subject_type == "recordings"))
+  expect_true(all(links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136"))
+  #The taxon is one the harvest gives, by its OTU id
+  expect_true(all(links$object_type == "taxa"))
+  expect_identical(links$object_id, c("809995", "812603", "812603", "812775", "842419"))
+  #uploadLinks() must accept them, with the source filled in as ingestR() does
+  links$source <- "orthoptera-speciesfile"
+  expect_equal(nrow(normaliseLinks(links)), 5)
+})
+
+test_that("a name read from a title is qualified, and is not the recording's taxon", {
+  fixture <- osfLinked()
+  harvest <- osfHarvest(fixture, osfReplay(fixture))
+  recordings <- harvest$recordings
+  inferred <- harvest$links[harvest$links$subject_id == "208", ]
 
   #The collecting event of sound 208 has no occurrences at all, so the source
   #identifies nothing: only its title names Parasubria vittipes
-  expect_identical(data$taxon[data$id == "208"], "")
-  expect_identical(names(links), names(getHeaders("links")))
-  expect_equal(nrow(links), 1)
-  expect_identical(links$subject_type, "recordings")
-  expect_identical(links$subject_id, "208")
-  expect_identical(links$predicate, "http://purl.obolibrary.org/obo/IAO_0000136")
-  expect_identical(links$object_type, "iri")
-  expect_identical(links$object_id, "https://orthoptera.speciesfile.org/otus/842419")
-  expect_identical(links$qualifier,
+  expect_identical(recordings$taxon[recordings$id == "208"], "")
+  expect_equal(nrow(inferred), 1)
+  expect_identical(inferred$object_id, "842419")
+  expect_identical(inferred$qualifier,
                    "https://vocab.audioblast.org/cv/identificationBasis#RecordingTitle")
-  expect_match(links$remarks, "does not identify this recording", fixed=TRUE)
-  #uploadLinks() must accept it, with the source filled in as ingestR() does
-  links$source <- "orthoptera-speciesfile"
-  expect_equal(nrow(normaliseLinks(links)), 1)
+  expect_match(inferred$remarks, "does not identify this recording", fixed=TRUE)
+  #The taxa the source does identify are linked without a qualifier
+  expect_true(all(harvest$links$qualifier[harvest$links$subject_id != "208"] == ""))
+  #The taxon it names is still given, so the link does not dangle
+  expect_true("842419" %in% harvest$taxa$id)
+})
+
+test_that("a taxon is given with the whole classification above it", {
+  fixture <- osfLinked()
+  replay <- osfReplay(fixture)
+  taxa <- osfHarvest(fixture, replay)$taxa
+
+  expect_identical(names(taxa), names(getHeaders("taxa")))
+  #Four OTUs are read, and every rank above each of them comes with it
+  expect_equal(sum(startsWith(replay$paths(), "otus/")), 4)
+  above <- taxa[order(as.integer(taxa$id)), ]
+  expect_identical(taxa$taxon[taxa$id == "842419"], "Parasubria vittipes")
+  expect_identical(taxa$Rank[taxa$id == "842419"], "Species")
+  #A taxon's parent is the OTU of the taxon name above it
+  expect_identical(taxa$parent_id[taxa$id == "842419"], "842418")
+  expect_identical(taxa$taxon[taxa$id == "842418"], "Parasubria")
+  expect_identical(taxa$Rank[taxa$id == "842418"], "Genus")
+  #The two Chorthippus taxa share everything above their genus
+  expect_true(all(c("805980", "805967") %in% taxa$id))
+  expect_identical(taxa$Rank[taxa$id == "805980"], "Order")
+  expect_identical(taxa$taxon[taxa$id == "805980"], "Orthoptera")
+  #TaxonWorks roots its names at a rankless Root, which is not a taxon, so the
+  #walk ends at the kingdom
+  expect_false("Root" %in% taxa$taxon)
+  expect_identical(taxa$parent_id[taxa$id == "805967"], "")
+
+  #taxonomiseR() walks the parents into a column for each rank
+  walked <- taxonomiseR(sourceR("orthoptera-speciesfile", taxa))
+  species <- walked[walked$id == "842419", ]
+  expect_identical(species$Species, "Parasubria vittipes")
+  expect_identical(species$Genus, "Parasubria")
+  expect_identical(species$Family, "Tettigoniidae")
+  expect_identical(species$Order, "Orthoptera")
+  expect_identical(species$Kingdom, "Animalia")
+  #A rank the taxa table has no column for is still walked through
+  expect_identical(walked$Family[walked$id == "809995"], "Acrididae")
 })
 
 test_that("Darwin Core records and OTUs are each read once", {
   fixture <- osfLinked()
   replay <- osfReplay(fixture)
-  occurrences <- orthopteraOccurrences(replay$fetch, osfLookup(replay$fetch))
+  occurrences <- orthopteraOccurrences(replay$fetch, orthopteraTaxonomy(replay$fetch)$name)
   invisible(lapply(fixture$sounds, occurrences))
   replay$forget()
   invisible(lapply(fixture$sounds, occurrences))
@@ -187,7 +234,8 @@ test_that("OSF maps live sound fields without inventing recording metadata", {
   #The API gives no time, place, licence or device for a sound of a taxon
   expect_true(all(data[c("Date", "Time", "lat", "lon", "country", "locality",
                          "license", "device", "channels", "info_url")] == ""))
-  expect_equal(nrow(attr(data, "links")), 0)
+  #Each is still about the taxon it is conveyed on
+  expect_identical(attr(data, "links")$object_id, c("804734", "810653"))
 })
 
 test_that("empty, unavailable and multiply linked sounds are handled", {
@@ -209,33 +257,47 @@ test_that("empty, unavailable and multiply linked sounds are handled", {
   data <- orthopteraRecordings(sound, function(id) paste("Taxon", id))
   expect_identical(data$taxon, "")
   links <- attr(data, "links")
-  expect_identical(links$object_id, c("https://orthoptera.speciesfile.org/otus/804734",
-                                      "https://orthoptera.speciesfile.org/otus/123"))
+  expect_identical(links$object_id, c("804734", "123"))
   expect_true(all(links$qualifier == ""))
+
+  #A taxon that can't be named is not given, so nothing is linked to it
+  expect_equal(nrow(attr(orthopteraRecordings(sound, function(id) ""), "links")), 0)
 
   sound[[1]]$conveyances <- NULL
   expect_identical(orthopteraRecordings(sound, function(id) stop("lookup"))$taxon, "")
 })
 
-test_that("paging deduplicates sounds, caches OTUs and keeps the links", {
+test_that("a harvest gives recordings, taxa and links, and pages once each", {
   paths <- character()
   local_mocked_bindings(
     orthopteraFile=function(url, ...) list(type="audio/mpeg", size="1234"),
     orthopteraFetch=function(path, ...) {
       paths <<- c(paths, path)
-      if (startsWith(path, "otus/")) return(list(data=list(id=804734, taxon_name=list(cached="Aglaothorax segnis"))))
+      if (startsWith(path, "otus/")) {
+        return(list(data=list(id=804734, taxon_name=list(id=1, cached="Aglaothorax segnis",
+                                                         rank="species", parent_id=2))))
+      }
       sound <- osfFixture()[1]
       if (grepl("page=2", path)) sound <- c(sound, sound)
       list(data=sound, total_pages="2")
     })
-  data <- orthopteraSpeciesFileR(pause=0)
-  expect_identical(data$id, "44")
-  expect_identical(data$type, "audio/mpeg")
-  expect_identical(data$size_raw, "1234")
-  expect_equal(nrow(attr(data, "links")), 0)
+  harvest <- orthopteraSpeciesFileR(pause=0)
+
+  expect_identical(names(harvest), c("recordings", "taxa", "links"))
+  #Results that change while paging can repeat a sound on two pages
+  expect_identical(harvest$recordings$id, "44")
+  expect_identical(harvest$recordings$type, "audio/mpeg")
+  expect_identical(harvest$recordings$size_raw, "1234")
+  expect_identical(harvest$taxa$id, "804734")
+  expect_identical(harvest$taxa$Rank, "Species")
+  #Its parent is a taxon name no OTU of this chain gives, so the walk ends here
+  expect_identical(harvest$taxa$parent_id, "")
+  expect_identical(harvest$links$subject_id, "44")
+  expect_identical(harvest$links$object_id, "804734")
   expect_length(paths, 3)
   expect_equal(sum(startsWith(paths, "otus/")), 1)
   expect_match(paths[3], "page=2", fixed=TRUE)
+  expect_match(paths[2], "extend[]=parents", fixed=TRUE)
 })
 
 test_that("OSF rejects invalid arguments and incomplete pagination", {
@@ -258,7 +320,10 @@ test_that("specimen recordings use the accepted determination of their record", 
     orthopteraFile=function(url, ...) list(type="", size=""),
     orthopteraFetch=function(path, ...) {
       paths <<- c(paths, path)
-      if (startsWith(path, "otus/")) return(list(data=list(id=123, taxon_name=list(cached="Accepted taxon"))))
+      if (startsWith(path, "otus/")) {
+        return(list(data=list(id=123, taxon_name=list(id=9, cached="Accepted taxon",
+                                                      rank="species"))))
+      }
       if (startsWith(path, "collection_objects/")) {
         return(list(data=list(otu_id=123, eventDate="1994-07-22", country="Mongolia")))
       }
@@ -267,10 +332,12 @@ test_that("specimen recordings use the accepted determination of their record", 
                                           conveyance_object_id=456))
       list(data=c(sound, sound), total_pages="1")
     })
-  data <- orthopteraSpeciesFileR(pause=0)
+  harvest <- orthopteraSpeciesFileR(pause=0)
+  data <- harvest$recordings
   expect_identical(data$taxon, "Accepted taxon")
   expect_identical(data$Date, "1994-07-22")
   expect_identical(data$country, "Mongolia")
+  expect_identical(harvest$taxa$taxon, "Accepted taxon")
   #One Darwin Core request gives the determination and the occurrence together
   expect_length(paths, 3)
   expect_true(any(grepl("collection_objects/456/dwc", paths, fixed=TRUE)))
@@ -353,34 +420,39 @@ test_that("country names and whole-year dates are read", {
   expect_identical(orthopteraDate(""), "")
 })
 
-test_that("ingestR uploads an OSF harvest with its links, and skips a failed one", {
+test_that("ingestR uploads an OSF harvest's recordings, taxa and links", {
   recordings <- NULL
+  taxa <- NULL
   links <- NULL
   local_mocked_bindings(
     getSources=function() list(list(name="orthoptera-speciesfile", type="recordings",
                                     orthoptera=list(pause=0), process="sourceR")),
     orthopteraSpeciesFileR=function(...) {
       fixture <- osfLinked()
-      replay <- osfReplay(fixture)
-      lookup <- osfLookup(replay$fetch)
-      orthopteraRecordings(fixture$sounds, lookup,
-                           orthopteraOccurrences(replay$fetch, lookup), osfFileInfo(fixture))
+      osfHarvest(fixture, osfReplay(fixture))
     },
     uploadTraits=function(...) NULL,
     uploadLinks=function(db, table) links <<- table,
+    uploadTaxa=function(db, table) taxa <<- table,
     uploadRecordings=function(db, table) recordings <<- table)
   ingestR(db="db")
 
+  #Each table the harvest gives is ingested as though it were a source of its own
   expect_identical(recordings$source, rep("orthoptera-speciesfile", 5))
-  #The harvest's links are uploaded as the harvesting source's own
-  expect_equal(nrow(links), 1)
-  expect_identical(links$source, "orthoptera-speciesfile")
-  expect_identical(links$subject_id, "208")
+  expect_true(all(taxa$source == "orthoptera-speciesfile"))
+  expect_true(all(links$source == "orthoptera-speciesfile"))
+  expect_identical(links$subject_id, c("55", "125", "126", "199", "208"))
+  #taxonomiseR() has run, so the taxa carry a column for each rank
+  expect_identical(taxa$Species[taxa$id == "842419"], "Parasubria vittipes")
+  #Every taxon a link names is one of the taxa uploaded, so none dangles
+  expect_true(all(links$object_id %in% taxa$id))
 
   recordings <- NULL
+  taxa <- NULL
   links <- NULL
   local_mocked_bindings(orthopteraSpeciesFileR=function(...) stop("harvest failed"))
   expect_warning(ingestR(db="db"), "Skipping source orthoptera-speciesfile - harvest failed")
   expect_null(recordings)
+  expect_null(taxa)
   expect_null(links)
 })
