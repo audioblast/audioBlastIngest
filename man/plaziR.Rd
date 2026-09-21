@@ -14,8 +14,11 @@ plaziR(
 )
 }
 \arguments{
-\item{query}{Zenodo search over the treatments, e.g. \code{"stridulation"}. The
-default finds the treatments that say something about sound.}
+\item{query}{Character vector of Zenodo searches over the treatments,
+searched in turn, e.g. \code{c("stridulation", "advertisement call")}. A term
+of more than one word is searched for as a phrase, and a treatment that
+two terms both find is read once. The default finds the treatments that
+say something about sound.}
 
 \item{licenses}{Licence ids to accept, as Zenodo gives them. Treatments
 under any other licence are left out with a warning rather than
@@ -62,6 +65,13 @@ material examined, the reference group and the type taxon belong to the
 specimens, references and taxa a treatment gives, not to what it says.
 Figure captions are dropped too, as a caption describes a figure and is set
 inside whichever section the figure falls in, not in the one it belongs to.
+
+What is left is kept only where the section itself says something about
+sound. A treatment is found because a word appears somewhere in it, which
+makes the treatment acoustic rather than every section of it: a katydid
+revision describes the song and the carapace, and only the song is
+audioBlast!'s. Keeping a section on its own text leaves 44\% of the sections
+a treatment gives.
 
 Each description is about the taxon the treatment treats and rests on the
 treatment that says it, which are links. The treatment is harvested as a
