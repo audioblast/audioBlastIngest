@@ -9,7 +9,7 @@ plaziR(
   licenses = plaziLicenses,
   max = Inf,
   token = Sys.getenv("ZENODO_TOKEN"),
-  pause = 1,
+  pause = 0.25,
   verbose = FALSE,
   dir = NULL
 )
@@ -33,7 +33,9 @@ environment variable. It is not needed; it only raises the page size from
 25 to 100, so a large harvest makes a quarter as many requests. Keep
 tokens out of code and version control.}
 
-\item{pause}{Seconds between requests.}
+\item{pause}{Seconds between requests to Plazi, which advertises no limit
+and answers in about 0.7 seconds. Zenodo is paced separately, by the
+limit it advertises.}
 
 \item{verbose}{If TRUE reports harvest progress.}
 
@@ -41,7 +43,8 @@ tokens out of code and version control.}
 instead of holding it all. The whole harvest is some 12,000 treatments of
 prose and will not fit in memory; streaming it also means a failed upload
 does not throw hours of requests away, as the files are kept. Upload them
-with uploadStreamed().}
+with uploadStreamed(). Giving the same directory again takes the harvest
+up where it stopped, reading only the treatments it had not reached.}
 }
 \value{
 Named list of the data frames a harvest gives: the descriptions, the
@@ -61,6 +64,10 @@ what licence each treatment carries, and names the treatment at Plazi, so a
 harvest is discovered there and read from Plazi. Its result window is
 10,000 records, so a query that matches more than that is refused rather
 than silently truncated: narrow it and harvest in parts.
+
+A treatment Plazi cannot serve is left out with a warning rather than
+stopping the harvest: Zenodo lists treatments whose XML Plazi now answers
+404 for, and one of those in twelve thousand is not worth the rest.
 
 A treatment's prose is only in its XML. The JSON gives metadata and
 citations with no text at all, and the RDF flattens every section to an

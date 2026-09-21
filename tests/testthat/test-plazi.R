@@ -328,3 +328,83 @@ test_that("every table a Plazi harvest gives can be uploaded from a stream", {
   expect_true(all(match("references", order) <
                     match(setdiff(plaziTables, "references"), order)))
 })
+
+test_that("a treatment Plazi cannot serve does not stop the harvest", {
+  #Zenodo lists treatments whose XML Plazi now answers 404 for, and a 404 page
+  #is not XML. One of those in twelve thousand is not worth the rest.
+  notXML <- "<!doctype html><html><head><title>HTTP Status 404</title></head></html>"
+  expect_error(plaziRead(notXML, "E8056511FFB6FFBEDEBB197CA0F7454E"),
+               "E8056511FFB6FFBEDEBB197CA0F7454E is not valid XML")
+
+  #The harvest turns that into a warning and carries on
+  expect_warning(
+    skipped <- tryCatch(stop("not valid XML"), error=function(e) {
+      warning("Leaving out Plazi treatment X: ", conditionMessage(e), call.=FALSE)
+      NULL
+    }),
+    "Leaving out Plazi treatment X")
+  expect_null(skipped)
+})
+
+test_that("a harvest takes up where it stopped", {
+  dir <- withr::local_tempdir()
+  expect_identical(plaziAlreadyRead(dir), character())
+  #Without a directory there is nothing to take up
+  expect_identical(plaziAlreadyRead(NULL), character())
+
+  plaziMarkRead(dir, "AAA")
+  plaziMarkRead(dir, "BBB")
+  expect_identical(plaziAlreadyRead(dir), c("AAA", "BBB"))
+
+  #A treatment is marked read whether or not it had anything to say, since one
+  #with nothing acoustic in it is read just as slowly as one that has
+  plaziMarkRead(dir, "AAA")
+  expect_identical(plaziAlreadyRead(dir), c("AAA", "BBB"))
+
+  #And marking does nothing without a directory to mark in
+  expect_null(plaziMarkRead(NULL, "CCC"))
+})
+
+test_that("what a harvest has read does not collide with what it streams", {
+  #uploadStreamed() reads streamUploads, so the file of read treatments is
+  #ignored by it rather than mistaken for a table
+  expect_false(sub("[.].*$", "", plaziReadFile) %in% names(streamUploads))
+  expect_false(endsWith(plaziReadFile, ".csv"))
+})
+
+test_that("a pacer counts a request's own time towards its wait", {
+  #A limit is on the requests made in a minute, not on the gaps between them
+  pace <- plaziPacer(0.3)
+  pace()                       #the first is not waited for
+  Sys.sleep(0.3)               #a request that took as long as the interval
+  before <- Sys.time()
+  pace()                       #so there is nothing left to wait
+  expect_lt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.15)
+
+  #And one that took no time at all waits the whole interval
+  pace <- plaziPacer(0.3)
+  pace()
+  before <- Sys.time()
+  pace()
+  expect_gt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.2)
+})
+
+test_that("a pacer of no wait does not wait", {
+  pace <- plaziPacer(0)
+  pace()
+  before <- Sys.time()
+  for (i in 1:5) pace()
+  expect_lt(as.numeric(difftime(Sys.time(), before, units="secs")), 0.2)
+})
+
+test_that("Zenodo is paced by the limit it advertises, Plazi by its own", {
+  #Zenodo answers every request with x-ratelimit-limit: 30 a minute, and 429
+  #with retry-after: 60 for the ones over it
+  expect_identical(plaziZenodoWait, 2)
+  expect_identical(60 / plaziZenodoWait, 30)
+
+  #Plazi advertises no limit and answers in about 0.7 seconds, so the default
+  #is a courtesy rather than a requirement, and it is the one a caller can set
+  expect_identical(formals(plaziR)$pause, 0.25)
+  expect_true(is.null(formals(plaziR)$zenodoPause))
+})
