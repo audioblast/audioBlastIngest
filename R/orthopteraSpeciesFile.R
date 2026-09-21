@@ -231,7 +231,9 @@ orthopteraRecordings <- function(sounds, lookup,
     data$Date[i] <- orthopteraDate(orthopteraAgreed(found$records, "eventDate"))
     data$lat[i] <- orthopteraAgreed(found$records, "decimalLatitude")
     data$lon[i] <- orthopteraAgreed(found$records, "decimalLongitude")
-    data$country[i] <- orthopteraValue(countryName2Code(orthopteraAgreed(found$records, "country")))
+    #Darwin Core names a country rather than coding it, which countryCode()
+    #reads, as it does the dates and coordinates above
+    data$country[i] <- orthopteraAgreed(found$records, "country")
     data$locality[i] <- orthopteraAgreed(found$records, "verbatimLocality")
     #Attribution says who created the sound; a Darwin Core record says who
     #recorded the animal, which is the author where there is no attribution

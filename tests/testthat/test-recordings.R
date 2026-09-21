@@ -110,20 +110,22 @@ test_that("the sound, rights and place of a recording are normalised", {
   table <- recordingsTable(
     id=as.character(1:4),
     rights_holder=c("Natural History Museum, London", "", " Klaus-Gerhard Heller ", ""),
-    country=c("GB", "gy", "Guyana", ""),
+    country=c("GB", "gy", "Guyana", "Atlantis"),
     locality=c("Mill Site", "", " Kabocalli ", ""),
     sample_rate=c("44100", "44100.0", "0", ""),
     channels=c("stereo", "Joint Stereo", "2", "5.1"))
 
   expect_warning(
     normalised <- normaliseRecordings(table),
-    '1 recordings have a country that could not be read, so it is left out, e.g. "Guyana"',
+    '1 recordings have a country that could not be read, so it is left out, e.g. "Atlantis"',
     fixed=TRUE)
 
   expect_identical(normaliseRecordings(normalised), normalised)
   expect_identical(normalised$rights_holder,
                    c("Natural History Museum, London", NA, "Klaus-Gerhard Heller", NA))
-  expect_identical(normalised$country, c("GB", "GY", NA, NA))
+  #A country is read whether the source codes it or names it; a place that is
+  #no country's name is left out
+  expect_identical(normalised$country, c("GB", "GY", "GY", NA))
   expect_identical(normalised$locality, c("Mill Site", NA, "Kabocalli", NA))
   expect_identical(normalised$sample_rate, c("44100", "44100", NA, NA))
   #A recording given as stereo has 2 channels

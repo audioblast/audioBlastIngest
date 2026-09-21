@@ -21,7 +21,8 @@ test_that("locations are normalised", {
   #What a source calls a continent or an island is left as it is
   expect_identical(normalised$continent, rep("Europe", 3))
   expect_identical(normalised$island, c(NA, "Corsica", NA))
-  #A country that is named rather than coded can't be read
+  #A country is read whether it is coded or named, but a place that is no
+  #country, such as the city this one gives, can't be
   expect_identical(normalised$countryCode, c("GB", "FR", NA))
   expect_identical(normalised$decimalLatitude, c("50.60165359291455", "42.12814780545614", NA))
   expect_identical(normalised$coordinateUncertaintyInMeters, c(NA, "1000", NA))

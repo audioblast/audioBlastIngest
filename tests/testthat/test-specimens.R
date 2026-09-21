@@ -30,7 +30,8 @@ test_that("specimens are normalised", {
   expect_identical(normalised$eventDate, c("1962-08-18", "1958-08-03", NA))
   expect_identical(normalised$dateIdentified, c(NA, "1958", NA))
   expect_identical(normalised$individualCount, c("1", "2", NA))
-  expect_identical(normalised$countryCode, c("GB", "ES", NA))
+  #A country is read whether the source codes it or names it
+  expect_identical(normalised$countryCode, c("GB", "ES", "ES"))
   expect_identical(normalised$decimalLatitude, c("50.6016535929146", NA, NA))
   expect_identical(normalised$decimalLongitude, c("-1.95290565490723", NA, NA))
   #Remarks are HTML at bio.acousti.ca
@@ -77,7 +78,9 @@ test_that("counts and country codes are normalised", {
   expect_identical(
     wholeNumber(c("1", "12", "2.0", "1e3", "0", "-1", "1.5", "", "many", NA)),
     c("1", "12", "2", "1000", NA, NA, NA, NA, NA, NA))
+  #Codes in whatever case, and the names sources give countries; an alpha-3
+  #code is neither, so it is left out rather than guessed at
   expect_identical(
     countryCode(c("GB", "es", " za ", "GBR", "Spain", "", NA)),
-    c("GB", "ES", "ZA", NA, NA, NA, NA))
+    c("GB", "ES", "ZA", NA, "ES", NA, NA))
 })

@@ -1,7 +1,9 @@
 #Reads the names sources give countries as ISO 3166-1 alpha-2 codes, which is
-#what the countryCode and country columns hold (see normaliseRecordings() and
-#normaliseSpecimens()). Darwin Core's country is a name, not a code, so a
-#source that gives Darwin Core needs its names read before upload.
+#what the countryCode and country columns hold. Darwin Core's country is a
+#name, not a code, so a source that gives Darwin Core needs its names read
+#before upload. countryCode() reads both, and normaliseRecordings(),
+#normaliseSpecimens() and normaliseLocations() all go through it, so a source
+#gives its countries however it holds them and needn't read its own.
 #
 #Names are matched without case, accents or repeated spaces, so Cote d'Ivoire
 #and Cote d'Ivoire are one name. A name that isn't a country's is NA, which is
@@ -106,14 +108,13 @@ countryOtherNames <- c(
 
 #ISO 3166-1 alpha-2 codes of the names of countries, whether they are written
 #with accents or not and in whatever case; NA for anything that isn't a
-#country's name. A code that is already a code is left as it is.
+#country's name. countryCode() reads codes as well, and is what normalising
+#calls: this reads names alone, so that it can.
 #' @importFrom stringi stri_trans_general
 countryName2Code <- function(x) {
   named <- c(countryNames, countryOtherNames)
   codes <- stats::setNames(names(named), countryKey(unname(named)))
-  out <- unname(codes[countryKey(x)])
-  #A source that gives a code rather than a name already has one
-  return(ifelse(is.na(out), countryCode(x), out))
+  return(unname(codes[countryKey(x)]))
 }
 
 #The form country names are matched in: without case, accents or repeated

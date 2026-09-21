@@ -54,7 +54,11 @@ test_that("linked records give a recording its taxon, place and date", {
                                  "Chorthippus (Glyptobothrus) eisentrauti",
                                  "Chorthippus (Altichorthippus) intermedius", ""))
   expect_identical(data$Date, c("1994-07-22", "1991-09-03", "1991-09-04", "1997-06-17", ""))
-  expect_identical(data$country, c("TZ", "IT", "IT", "MN", ""))
+  #Darwin Core names a country rather than coding it; countryCode() reads it,
+  #as it does for every source
+  expect_identical(data$country,
+                   c("United Republic of Tanzania", "Italy", "Italy", "Mongolia", ""))
+  expect_identical(normaliseRecordings(data)$country, c("TZ", "IT", "IT", "MN", NA))
   expect_identical(data$lat[1], "-5.100342")
   expect_identical(data$locality[1], "East Usambara Mountains, Amani")
   expect_identical(data$locality[4], "T\u00f6v Aimag, Ulan Baatar, hill at Zaisan monument")
@@ -266,7 +270,7 @@ test_that("specimen recordings use the accepted determination of their record", 
   data <- orthopteraSpeciesFileR(pause=0)
   expect_identical(data$taxon, "Accepted taxon")
   expect_identical(data$Date, "1994-07-22")
-  expect_identical(data$country, "MN")
+  expect_identical(data$country, "Mongolia")
   #One Darwin Core request gives the determination and the occurrence together
   expect_length(paths, 3)
   expect_true(any(grepl("collection_objects/456/dwc", paths, fixed=TRUE)))
@@ -336,8 +340,10 @@ test_that("country names and whole-year dates are read", {
   expect_identical(countryName2Code(c("Mongolia", "United Republic of Tanzania",
                                       "United States", "C\u00f4te d'Ivoire", "Namibia")),
                    c("MN", "TZ", "US", "CI", "NA"))
-  #A code is already a code, and anything that is neither is left out
-  expect_identical(countryName2Code(c("de", "Atlantis", "")), c("DE", NA, NA))
+  #countryName2Code() reads names alone; countryCode(), which normalising
+  #calls, reads codes too and is what a source's countries go through
+  expect_identical(countryName2Code(c("de", "Atlantis", "")), rep(NA_character_, 3))
+  expect_identical(countryCode(c("de", "Mongolia", "Atlantis", "")), c("DE", "MN", NA, NA))
 
   #TaxonWorks writes a year-only date as the whole of that year
   expect_identical(orthopteraDate("1971-01-01/1971-12-31"), "1971")

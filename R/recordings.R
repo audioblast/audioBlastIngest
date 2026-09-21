@@ -188,10 +188,18 @@ channelCount <- function(x) {
   return(out)
 }
 
-#ISO 3166-1 alpha-2 country codes, in upper case; NA for anything else
+#ISO 3166-1 alpha-2 country codes, in upper case, of codes and of the names
+#sources give countries (see countryName2Code()), as Darwin Core's country is
+#a name rather than a code; NA for anything else. Every source's countries are
+#read here, so a source needn't read its own.
 countryCode <- function(x) {
-  x <- toupper(trimws(as.character(x)))
-  return(ifelse(!is.na(x) & grepl("^[A-Z]{2}$", x), x, NA_character_))
+  code <- toupper(trimws(as.character(x)))
+  code <- ifelse(!is.na(code) & grepl("^[A-Z]{2}$", code), code, NA_character_)
+  #No country's name is two letters, so a code is never also a name. Only what
+  #isn't already a code is looked up, as most sources give codes.
+  named <- is.na(code)
+  if (any(named)) code[named] <- countryName2Code(x[named])
+  return(code)
 }
 
 #Decimal degrees no further than limit from 0 (90 for latitudes, 180 for
