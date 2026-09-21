@@ -11,6 +11,10 @@
 #' 10,000 records, so a query that matches more than that is refused rather
 #' than silently truncated: narrow it and harvest in parts.
 #'
+#' A treatment Plazi cannot serve is left out with a warning rather than
+#' stopping the harvest: Zenodo lists treatments whose XML Plazi now answers
+#' 404 for, and one of those in twelve thousand is not worth the rest.
+#'
 #' A treatment's prose is only in its XML. The JSON gives metadata and
 #' citations with no text at all, and the RDF flattens every section to an
 #' untyped `spm:InfoItem`, losing what each one is of. The XML keeps that as
@@ -58,7 +62,8 @@
 #'   instead of holding it all. The whole harvest is some 12,000 treatments of
 #'   prose and will not fit in memory; streaming it also means a failed upload
 #'   does not throw hours of requests away, as the files are kept. Upload them
-#'   with uploadStreamed().
+#'   with uploadStreamed(). Giving the same directory again takes the harvest
+#'   up where it stopped, reading only the treatments it had not reached.
 #' @param verbose If TRUE reports harvest progress.
 #' @return Named list of the data frames a harvest gives: the descriptions, the
 #'   treatments they were read from as references, and the links. Each has an
@@ -109,16 +114,38 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   #a dir the tables go to files as well and nothing is held from one treatment
   #to the next, which is what the whole harvest needs: 12,000 treatments of
   #prose will not fit in memory, and hours of them are lost if it runs out.
+  #A harvest that has already run into this directory takes up where it
+  #stopped, so that hours of reading are not done twice. Every treatment it
+  #read is named in the file, whether or not it had anything to say, since a
+  #treatment with nothing acoustic in it is read just as slowly as one that has.
+  done <- plaziAlreadyRead(dir)
+  if (verbose && length(done) > 0) {
+    message("  Plazi: ", length(done), " treatments already read, taking up where it stopped")
+  }
+
   pages <- lapply(plaziTables, function(type) list())
   for (i in seq_along(found)) {
     treatment <- found[[i]]
+    if (treatment$uuid %in% done) next
     pacing()
-    document <- plaziRead(plaziFetch(
-      paste0("https://tb.plazi.org/GgServer/xml/", treatment$uuid), handle), treatment$uuid)
-    tables <- plaziHarvested(document, treatment)
+    #One treatment Plazi cannot serve is not worth a harvest of thousands.
+    #Zenodo lists treatments whose XML Plazi now answers 404 for, and a 404
+    #page is not XML, so it is left out with a warning and the rest are read.
+    tables <- tryCatch({
+      document <- plaziRead(plaziFetch(
+        paste0("https://tb.plazi.org/GgServer/xml/", treatment$uuid), handle), treatment$uuid)
+      plaziHarvested(document, treatment)
+    }, error=function(e) {
+      warning("Leaving out Plazi treatment ", treatment$uuid, ": ",
+              conditionMessage(e), call.=FALSE)
+      NULL
+    })
+    #A treatment that could not be read is marked read all the same, so that
+    #taking the harvest up again does not stop at it a second time
+    plaziMarkRead(dir, treatment$uuid)
     #A treatment with nothing to say about sound is not one this harvest
     #wanted, and its reference would be cited by nothing
-    if (nrow(tables$descriptions) == 0) next
+    if (is.null(tables) || nrow(tables$descriptions) == 0) next
     for (type in plaziTables) {
       if (is.null(dir)) {
         pages[[type]][[length(pages[[type]]) + 1]] <- tables[[type]]
@@ -146,6 +173,28 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
 
 #The tables a Plazi harvest gives, a reference before the records that cite it
 plaziTables <- c("references", "descriptions", "links")
+
+#The treatments a streamed harvest has already read, so that one taken up
+#again does not read them twice. It is a file of its own rather than the ids
+#in references.csv, because a treatment with nothing acoustic to say writes no
+#reference and is read just as slowly as one that does: on the corpus, three
+#treatments in five say nothing, so resuming from the references alone would
+#read most of them again.
+plaziReadFile <- "treatments.txt"
+
+plaziAlreadyRead <- function(dir) {
+  if (is.null(dir)) return(character())
+  path <- file.path(dir, plaziReadFile)
+  if (!file.exists(path)) return(character())
+  return(unique(trimws(readLines(path, warn=FALSE))))
+}
+
+plaziMarkRead <- function(dir, uuid) {
+  if (is.null(dir)) return(invisible(NULL))
+  dir.create(dir, showWarnings=FALSE, recursive=TRUE)
+  cat(uuid, "\n", sep="", file=file.path(dir, plaziReadFile), append=TRUE)
+  return(invisible(NULL))
+}
 
 #What one treatment gives, as one table of each type
 plaziHarvested <- function(document, treatment) {
