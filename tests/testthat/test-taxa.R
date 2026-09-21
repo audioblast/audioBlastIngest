@@ -78,12 +78,52 @@ test_that("taxa keep the source that gave them", {
   expect_identical(out$source, c("bio.acousti.ca", "bio.acousti.ca", "xeno-canto"))
 })
 
+test_that("a taxon inside nothing is given no parent", {
+  #bio.acousti.ca cannot leave its parent column empty, so it writes 0 for a
+  #taxon inside nothing and has no taxon 0. Read as an id, that is a parent
+  #gone missing: every bio.acousti.ca classification stopped one taxon short of
+  #its root, and a client could not tell the root from the loss.
+  taxa <- taxonomy(animalia, insecta, orthoptera)
+
+  out <- taxonomiseR(taxa)
+
+  expect_identical(out[out$id == "1", "parent_id"], "")
+  expect_identical(out[out$id == "2", "parent_id"], "1")
+  #Nothing has gone missing, so nothing is reported
+  expect_silent(taxonomiseR(taxa))
+  #and the ranks above each taxon are read as they were
+  expect_identical(out[out$id == "3", "Kingdom"], "Animalia")
+})
+
+test_that("a taxon 0 a source really has is kept", {
+  taxa <- taxonomy(c("0", "Animalia", "Kingdom", ""),
+                   c("1", "Insecta", "Class", "0"))
+
+  out <- taxonomiseR(taxa)
+
+  #0 means "inside nothing" only where the taxonomy has no taxon of that id
+  expect_identical(out[out$id == "1", "parent_id"], "0")
+  expect_identical(out[out$id == "1", "Kingdom"], "Animalia")
+})
+
+test_that("a parent the taxonomy has lost is kept, and reported", {
+  #Terms deleted from bio.acousti.ca are still pointed at by taxa it holds. A
+  #taxon whose parent has gone is not a taxon at the top of a tree, so the id
+  #it names stays and the loss is said out loud.
+  taxa <- taxonomy(animalia, c("2", "Insecta", "Class", "404"))
+
+  expect_warning(out <- taxonomiseR(taxa),
+                 "1 taxa are inside a taxon the taxonomy does not hold")
+  expect_identical(out[out$id == "2", "parent_id"], "404")
+  expect_identical(out[out$id == "2", "Kingdom"], NA_character_)
+})
+
 test_that("a missing parent or a taxon that is its own ancestor ends the walk", {
   taxa <- taxonomy(c("1", "Gryllus campestris", "Species", "404"),
                    c("2", "Gryllus", "Genus", "3"),
                    c("3", "Gryllidae", "Family", "2"))
 
-  out <- taxonomiseR(taxa)
+  expect_warning(out <- taxonomiseR(taxa), "does not hold")
 
   expect_equal(nrow(out), 3)
   expect_identical(out[out$id == "1", "Species"], "Gryllus campestris")

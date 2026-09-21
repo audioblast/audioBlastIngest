@@ -28,4 +28,12 @@ writing species and one writing Species are asking for the same rank rather
 than one of them for a rank the table has no column for, and so that ranks
 can be compared between sources without each comparison having to know that
 they are cased differently.
+
+A taxon inside nothing is given no parent, as the Catalogue of Life and
+iNaturalist give their roots. A source whose parent column cannot be empty
+has to write something else for it, and bio.acousti.ca writes 0; that id
+names no taxon, so it is cleared, and the row then says what its source
+means by it. An id that does name a taxon is never cleared. A parent the
+taxonomy does not hold is a taxon that has gone missing rather than a tree
+that has ended, so it is kept as the source gives it, and reported.
 }
