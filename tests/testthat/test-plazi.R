@@ -298,7 +298,7 @@ test_that("a treatment gives one table of each kind the harvest names", {
 
   #A link is checked against the ids of its own treatment, which is the same
   #answer as the whole harvest's and the one a streamed harvest can give
-  held <- c(tables$references$id, tables$descriptions$id)
+  held <- c(tables$taxa$id, tables$references$id, tables$descriptions$id)
   expect_true(all(tables$links$subject_id %in% held))
   expect_true(nrow(tables$links) > 0)
 })
@@ -323,10 +323,13 @@ test_that("every table a Plazi harvest gives can be uploaded from a stream", {
   #uploadStreamed() reads streamUploads rather than the directory, so a type
   #the harvest gives that is not registered would be silently dropped
   expect_true(all(plaziTables %in% names(streamUploads)))
-  #And a reference is uploaded before the records that cite it
+  #And a record is uploaded before whatever points at it: the descriptions
+  #cite a reference, and the links reach both a reference and a taxon. Taxa
+  #cite nothing, so they may come before references or after.
   order <- names(streamUploads)
-  expect_true(all(match("references", order) <
-                    match(setdiff(plaziTables, "references"), order)))
+  expect_lt(match("references", order), match("descriptions", order))
+  expect_lt(match("references", order), match("links", order))
+  expect_lt(match("taxa", order), match("links", order))
 })
 
 test_that("a treatment Plazi cannot serve does not stop the harvest", {

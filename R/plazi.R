@@ -39,9 +39,15 @@
 #' reference of its own: it is deposited as a publication and has its own DOI,
 #' and an article holds many treatments (61 in one of the papers sampled), so
 #' citing the article instead would not say which treatment spoke. The
-#' article is in turn what the treatment rests on. audioBlast! does not hold
-#' Plazi's taxa, so a taxon is named by GBIF where Zenodo gives it and by
-#' Plazi's taxon concept otherwise.
+#' article is in turn what the treatment rests on.
+#'
+#' The taxon is harvested too, with the classification Plazi puts it in, as
+#' rows of Plazi's own: audioBlast! holds a taxon once for every source that
+#' knows it and reconciles them by linking each row to the Catalogue of Life
+#' (see colR()). Plazi is a corpus of papers rather than a taxonomy and its
+#' treatments disagree with each other, so a name keeps the first
+#' classification given and the harvest reports how many it had to choose
+#' between. Where Zenodo matched the taxon to GBIF, the row says so.
 #'
 #' @param query Character vector of Zenodo searches over the treatments,
 #'   searched in turn, e.g. `c("stridulation", "advertisement call")`. A term
@@ -67,8 +73,9 @@
 #'   with uploadStreamed(). Giving the same directory again takes the harvest
 #'   up where it stopped, reading only the treatments it had not reached.
 #' @param verbose If TRUE reports harvest progress.
-#' @return Named list of the data frames a harvest gives: the descriptions, the
-#'   treatments they were read from as references, and the links. Each has an
+#' @return Named list of the data frames a harvest gives: the taxa they are
+#'   about, the descriptions, the treatments they were read from as
+#'   references, and the links. Each has an
 #'   empty source column (see sourceR()). With dir, the paths they were
 #'   written to instead.
 #' @examples
@@ -123,6 +130,8 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
   #stopped, so that hours of reading are not done twice. Every treatment it
   #read is named in the file, whether or not it had anything to say, since a
   #treatment with nothing acoustic in it is read just as slowly as one that has.
+  #A name is written once however many treatments name it, in both paths
+  seen <- new.env(hash=TRUE, parent=emptyenv())
   done <- plaziAlreadyRead(dir)
   if (verbose && length(done) > 0) {
     message("  Plazi: ", length(done), " treatments already read, taking up where it stopped")
@@ -151,6 +160,7 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
     #A treatment with nothing to say about sound is not one this harvest
     #wanted, and its reference would be cited by nothing
     if (is.null(tables) || nrow(tables$descriptions) == 0) next
+    tables$taxa <- plaziFreshTaxa(tables$taxa, seen)
     for (type in plaziTables) {
       if (is.null(dir)) {
         pages[[type]][[length(pages[[type]]) + 1]] <- tables[[type]]
@@ -159,6 +169,12 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
       }
     }
     if (verbose && i %% 100 == 0) message("  Plazi: ", i, " of ", length(found), " treatments")
+  }
+
+  disagreed <- plaziDisagreed(seen)
+  if (disagreed > 0) {
+    warning(disagreed, " Plazi names are put in two different parents by ",
+            "different treatments, and keep the first given", call.=FALSE)
   }
 
   if (!is.null(dir)) {
@@ -200,7 +216,7 @@ plaziPacer <- function(seconds) {
 plaziZenodoWait <- 2
 
 #The tables a Plazi harvest gives, a reference before the records that cite it
-plaziTables <- c("references", "descriptions", "links")
+plaziTables <- c("taxa", "references", "descriptions", "links")
 
 #The treatments a streamed harvest has already read, so that one taken up
 #again does not read them twice. It is a file of its own rather than the ids
@@ -226,20 +242,22 @@ plaziMarkRead <- function(dir, uuid) {
 
 #What one treatment gives, as one table of each type
 plaziHarvested <- function(document, treatment) {
-  #A treatment is read once: its sections are the descriptions and its heading
-  #is the reference they cite
+  #A treatment is read once: its sections are the descriptions, its heading is
+  #the reference they cite, and the name it treats is the taxon they are about,
+  #with the classification Plazi puts it in
   reference <- plaziReference(document, treatment)
+  taxa <- plaziTaxa(document, treatment)
   sections <- plaziSections(document, treatment$uuid)
-  links <- plaziLinks(sections$id, treatment)
+  links <- plaziLinks(sections$id, treatment, taxa)
   #A link whose subject this treatment did not give has nothing to join. The
   #ids are checked against the treatment's own tables rather than the whole
   #harvest's, which is the same answer, since a link's subject is always a
   #record of the treatment it came from, and is the one a streamed harvest can
   #give, having let every other treatment go.
-  held <- c(reference$id, sections$id)
+  held <- c(reference$id, sections$id, taxa$id)
   links <- links[links$subject_id %in% held, , drop=FALSE]
   rownames(links) <- NULL
-  return(list(references=reference, descriptions=sections, links=links))
+  return(list(taxa=taxa, references=reference, descriptions=sections, links=links))
 }
 
 #The tables of every treatment as one, with the repeats left out. Two
@@ -591,18 +609,36 @@ plaziText <- function(x) {
 #treatment treats and rests on the article it was published in. The taxon is
 #named by GBIF or by Plazi, as audioBlast! does not hold Plazi's taxa, and is
 #about is what a description of a taxon supports.
-plaziLinks <- function(ids, treatment) {
+plaziLinks <- function(ids, treatment, taxa=getHeaders("taxa")) {
   links <- getHeaders("links")
   if (length(ids) == 0) return(links)
+  #The taxon a treatment treats is the last of the classification it gives
+  treated <- if (nrow(taxa) > 0) taxa$id[nrow(taxa)] else ""
+
   link <- function(subject_type, subject_id, predicate, object_type, object_id) {
     data.frame(source="", subject_type=subject_type, subject_source="",
                subject_id=subject_id, predicate=predicate, object_type=object_type,
                object_source="", object_id=object_id, qualifier="", remarks="",
                reference="", stringsAsFactors=FALSE)
   }
-  links <- rbind(links, link("descriptions", ids,
-                             "http://purl.obolibrary.org/obo/IAO_0000136",
-                             "iri", treatment$taxon))
+  #A description is about the taxon the treatment treats, which audioBlast!
+  #now holds as a row of Plazi's own. Where Plazi named no taxon at all the
+  #IRI is still the only thing to point at.
+  links <- rbind(links, if (treated != "") {
+    link("descriptions", ids, "http://purl.obolibrary.org/obo/IAO_0000136",
+         "taxa", treated)
+  } else {
+    link("descriptions", ids, "http://purl.obolibrary.org/obo/IAO_0000136",
+         "iri", treatment$taxon)
+  })
+  #And GBIF says which taxon that row is, where Zenodo matched one. It is the
+  #same fact the is-about link used to carry, said of the taxon rather than of
+  #the description, which is what it was always about.
+  if (treated != "" && grepl("gbif.org/species/", treatment$taxon, fixed=TRUE)) {
+    links <- rbind(links, link("taxa", treated,
+                               "http://www.w3.org/2004/02/skos/core#exactMatch",
+                               "iri", treatment$taxon))
+  }
   #A description rests on the treatment that says it, which audioBlast! holds
   #as a reference of its own, so the citation reaches a record rather than a
   #bare IRI: the links table's reference column is resolved to a references
