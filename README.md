@@ -33,9 +33,9 @@ using its public TaxonWorks API (no personal API key required):
 
 ```R
 harvest <- orthopteraSpeciesFileR()
-uploadRecordings(db, sourceR("orthoptera-speciesfile", harvest$recordings))
-uploadTaxa(db, taxonomiseR(sourceR("orthoptera-speciesfile", harvest$taxa)))
-uploadLinks(db, sourceR("orthoptera-speciesfile", harvest$links))
+uploadRecordings(db, sourceR("osf", harvest$recordings))
+uploadTaxa(db, taxonomiseR(sourceR("osf", harvest$taxa)))
+uploadLinks(db, sourceR("osf", harvest$links))
 ```
 
 A harvest gives recordings, the taxa they are of, and the links between them.

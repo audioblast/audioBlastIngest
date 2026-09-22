@@ -86,7 +86,7 @@ test_that("each recording says which taxa it is about", {
   expect_true(all(links$object_type == "taxa"))
   expect_identical(links$object_id, c("809995", "812603", "812603", "812775", "842419"))
   #uploadLinks() must accept them, with the source filled in as ingestR() does
-  links$source <- "orthoptera-speciesfile"
+  links$source <- "osf"
   expect_equal(nrow(normaliseLinks(links)), 5)
 })
 
@@ -135,7 +135,7 @@ test_that("a taxon is given with the whole classification above it", {
   expect_identical(taxa$parent_id[taxa$id == "805967"], "")
 
   #taxonomiseR() walks the parents into a column for each rank
-  walked <- taxonomiseR(sourceR("orthoptera-speciesfile", taxa))
+  walked <- taxonomiseR(sourceR("osf", taxa))
   species <- walked[walked$id == "842419", ]
   expect_identical(species$Species, "Parasubria vittipes")
   expect_identical(species$Genus, "Parasubria")
@@ -425,7 +425,7 @@ test_that("ingestR uploads an OSF harvest's recordings, taxa and links", {
   taxa <- NULL
   links <- NULL
   local_mocked_bindings(
-    getSources=function() list(list(name="orthoptera-speciesfile", type="recordings",
+    getSources=function() list(list(name="osf", type="recordings",
                                     orthoptera=list(pause=0), process="sourceR")),
     orthopteraSpeciesFileR=function(...) {
       fixture <- osfLinked()
@@ -438,9 +438,9 @@ test_that("ingestR uploads an OSF harvest's recordings, taxa and links", {
   ingestR(db="db")
 
   #Each table the harvest gives is ingested as though it were a source of its own
-  expect_identical(recordings$source, rep("orthoptera-speciesfile", 5))
-  expect_true(all(taxa$source == "orthoptera-speciesfile"))
-  expect_true(all(links$source == "orthoptera-speciesfile"))
+  expect_identical(recordings$source, rep("osf", 5))
+  expect_true(all(taxa$source == "osf"))
+  expect_true(all(links$source == "osf"))
   expect_identical(links$subject_id, c("55", "125", "126", "199", "208"))
   #taxonomiseR() has run, so the taxa carry a column for each rank
   expect_identical(taxa$Species[taxa$id == "842419"], "Parasubria vittipes")
@@ -451,7 +451,7 @@ test_that("ingestR uploads an OSF harvest's recordings, taxa and links", {
   taxa <- NULL
   links <- NULL
   local_mocked_bindings(orthopteraSpeciesFileR=function(...) stop("harvest failed"))
-  expect_warning(ingestR(db="db"), "Skipping source orthoptera-speciesfile - harvest failed")
+  expect_warning(ingestR(db="db"), "Skipping source osf - harvest failed")
   expect_null(recordings)
   expect_null(taxa)
   expect_null(links)

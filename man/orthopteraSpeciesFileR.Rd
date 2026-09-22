@@ -61,8 +61,8 @@ info_url: the Orthoptera Species File has no page for a sound.
 \examples{
 \dontrun{
 harvest <- orthopteraSpeciesFileR()
-uploadRecordings(db, sourceR("orthoptera-speciesfile", harvest$recordings))
-uploadTaxa(db, taxonomiseR(sourceR("orthoptera-speciesfile", harvest$taxa)))
-uploadLinks(db, sourceR("orthoptera-speciesfile", harvest$links))
+uploadRecordings(db, sourceR("osf", harvest$recordings))
+uploadTaxa(db, taxonomiseR(sourceR("osf", harvest$taxa)))
+uploadLinks(db, sourceR("osf", harvest$links))
 }
 }
