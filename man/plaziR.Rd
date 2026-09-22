@@ -47,8 +47,9 @@ with uploadStreamed(). Giving the same directory again takes the harvest
 up where it stopped, reading only the treatments it had not reached.}
 }
 \value{
-Named list of the data frames a harvest gives: the descriptions, the
-treatments they were read from as references, and the links. Each has an
+Named list of the data frames a harvest gives: the taxa they are
+about, the descriptions, the treatments they were read from as
+references, and the links. Each has an
 empty source column (see sourceR()). With dir, the paths they were
 written to instead.
 }
@@ -93,9 +94,15 @@ treatment that says it, which are links. The treatment is harvested as a
 reference of its own: it is deposited as a publication and has its own DOI,
 and an article holds many treatments (61 in one of the papers sampled), so
 citing the article instead would not say which treatment spoke. The
-article is in turn what the treatment rests on. audioBlast! does not hold
-Plazi's taxa, so a taxon is named by GBIF where Zenodo gives it and by
-Plazi's taxon concept otherwise.
+article is in turn what the treatment rests on.
+
+The taxon is harvested too, with the classification Plazi puts it in, as
+rows of Plazi's own: audioBlast! holds a taxon once for every source that
+knows it and reconciles them by linking each row to the Catalogue of Life
+(see colR()). Plazi is a corpus of papers rather than a taxonomy and its
+treatments disagree with each other, so a name keeps the first
+classification given and the harvest reports how many it had to choose
+between. Where Zenodo matched the taxon to GBIF, the row says so.
 }
 \examples{
 \dontrun{
