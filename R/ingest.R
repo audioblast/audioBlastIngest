@@ -25,6 +25,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   onomatopoeia <- getHeaders("onomatopoeia")
   images <- getHeaders("images")
 
+  #The harvests that will not fit in memory as tables: xeno-canto's groups are
+  #over a million recordings, and the Tierstimmenarchiv is some 47,000 with
+  #about ten details each. They are streamed to files and uploaded from them a
+  #chunk at a time, where the other harvests are held as tables.
+  streamed <- list(xenocanto=xenocantoR, tierstimmenarchiv=tierstimmenarchivR)
+
   for (i in 1:length(sources)) {
     source <- sources[[i]]
 
@@ -42,18 +48,19 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     #a harvest gives a named table of each type it found (see xenocantoR()),
     #and each is ingested as though it had been a source of its own.
     tables <- NULL
-    if (is.element("xenocanto", names(source))) {
-      #xeno-canto's groups are over a million recordings, which will not fit in
-      #memory as tables, so the harvest is written to files as it arrives and
-      #uploaded from them a chunk at a time. A source uploaded on its own is
-      #uploaded as it would have been among the others: recordings and taxa are
-      #updated by their id, and details and links replace what this source gave
-      #before, which is its own to replace.
+    harvester <- intersect(names(streamed), names(source))
+    if (length(harvester) == 1) {
+      #A streamed harvest is written to files as it arrives and uploaded from
+      #them a chunk at a time (see streamed above). A source uploaded on its
+      #own is uploaded as it would have been among the others: recordings and
+      #taxa are updated by their id, and details and links replace what this
+      #source gave before, which is its own to replace.
       dir <- file.path(tempdir(), paste0("harvest-", gsub("[^A-Za-z0-9]+", "-", source$name)))
       unlink(dir, recursive=TRUE)
       #A failed harvest skips this source rather than every source
       harvested <- tryCatch({
-        xenocantoR(source$xenocanto$query, verbose=verbose, dir=dir)
+        do.call(streamed[[harvester]],
+                c(source[[harvester]], list(verbose=verbose, dir=dir)))
         TRUE
       }, error=function(e) {
         warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
