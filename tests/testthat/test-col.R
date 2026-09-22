@@ -202,6 +202,35 @@ test_that("every row is linked to the taxon it is and every taxon to the catalog
   expect_true(all(grepl("COL26.9$", links$remarks)))
 })
 
+test_that("a second import leaves the rows the first one wrote alone", {
+  fixture <- colFixture()
+  #On every import after the first, the taxa read back from audioBLAST! include
+  #the rows this import wrote last time. They are the taxonomy itself: looking
+  #them up would match each to itself, write a link saying a taxon is the same
+  #taxon as itself, and spend a request apiece finding that out.
+  taxa <- colTaxaFrame(fixture)
+  spine <- taxa[1, ]
+  spine$source <- "CoL"; spine$id <- "PQQ"; spine$taxon <- "Aepyceros"
+
+  first <- colReplay(fixture)
+  without <- colHarvest(taxa, first$fetch)
+  again <- colReplay(fixture)
+  with <- colHarvest(rbind(taxa, spine), again$fetch)
+
+  #The spine row is not looked up, not matched and not linked
+  expect_false(is.element("CoL", attr(with$links, "outcomes")$source))
+  inside <- with$links[with$links$object_type == "taxa", ]
+  #No link whose subject is a row of this import, which is what a link from a
+  #taxon to itself would be. A row of another source that kept the taxonomy's
+  #id does have subject_id == object_id, and is a different record for all that
+  expect_false(any(inside$subject_source == "CoL"))
+  expect_true(any(inside$subject_source == "taxonBot" & inside$subject_id == inside$object_id))
+  #and it costs nothing: the same requests, and the same import, either way
+  expect_identical(again$asked(), first$asked())
+  expect_identical(with$taxa, without$taxa)
+  expect_identical(with$links, without$links)
+})
+
 test_that("the taxa and the links are what the uploaders take", {
   harvest <- colRun()
 

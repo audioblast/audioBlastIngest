@@ -109,6 +109,9 @@ COL_HINTS <- c("family", "order", "class", "kingdom")
 #' @param taxa Data frame of the taxa audioBLAST! holds, as `/data/taxa/` gives
 #'   them, with source, id, taxon, rank and the classification columns. The
 #'   default reads them from the API.
+#' @param source The source this import is uploaded under. Rows of it are the
+#'   taxonomy itself and are left alone, so that a second import does not match
+#'   the rows the first one wrote to themselves.
 #' @param dataset Dataset key of the taxonomy at ChecklistBank. The default is
 #'   the Catalogue of Life's latest release, so a run always matches against the
 #'   current one; each link says in its remarks which release that was.
@@ -133,10 +136,13 @@ COL_HINTS <- c("family", "order", "class", "kingdom")
 #' @importFrom curl new_handle curl_escape curl_fetch_memory
 #' @importFrom rjson fromJSON
 #' @export
-colR <- function(taxa=audioblastTaxa(), dataset="3LR", colids=c("taxonBot"),
+colR <- function(taxa=audioblastTaxa(), source="CoL", dataset="3LR", colids=c("taxonBot"),
                  pause=0.1, verbose=FALSE) {
   if (!is.character(dataset) || length(dataset) != 1 || is.na(dataset) || !nzchar(dataset)) {
     stop("dataset must be a ChecklistBank dataset key.")
+  }
+  if (!is.character(source) || length(source) != 1 || is.na(source) || !nzchar(source)) {
+    stop("source must be the source this import is uploaded under.")
   }
   if (!is.character(colids) || any(is.na(colids))) {
     stop("colids must be the sources whose ids are Catalogue of Life ids.")
@@ -153,7 +159,7 @@ colR <- function(taxa=audioblastTaxa(), dataset="3LR", colids=c("taxonBot"),
     first <<- FALSE
     colFetch(path, dataset, handle)
   }
-  return(colHarvest(taxa, fetch, colids=colids, verbose=verbose))
+  return(colHarvest(taxa, fetch, source=source, colids=colids, verbose=verbose))
 }
 
 #' The taxa audioBLAST! holds
@@ -169,6 +175,42 @@ colR <- function(taxa=audioblastTaxa(), dataset="3LR", colids=c("taxonBot"),
 #' @importFrom rjson fromJSON
 #' @export
 audioblastTaxa <- function(url="https://api.audioblast.org/data/taxa/", page_size=1000) {
+  return(audioblastRows(url, page_size=page_size))
+}
+
+#' The links a source gives
+#'
+#' Reads back the links audioBLAST! holds from one source, a page at a time, in
+#' the shape uploadLinks() takes. An import that adds to what it wrote before,
+#' rather than replacing all of it, needs to know what it wrote: uploadLinks()
+#' replaces a source whole, so links left out of an upload are links removed.
+#'
+#' @param source The source whose links to read.
+#' @param url Address of the links endpoint.
+#' @param page_size Links per request.
+#' @return Data frame of links, with the columns of getHeaders("links"). The id
+#'   each link had is left out, as uploadLinks() makes it afresh from what the
+#'   link says.
+#' @importFrom curl curl_escape
+#' @export
+audioblastLinks <- function(source, url="https://api.audioblast.org/data/links/",
+                            page_size=1000) {
+  if (!is.character(source) || length(source) != 1 || is.na(source) || !nzchar(source)) {
+    stop("source must be the source whose links to read.")
+  }
+  rows <- audioblastRows(url, paste0("&source=", curl_escape(source)), page_size)
+  links <- getHeaders("links")
+  if (nrow(rows) == 0) return(links)
+  for (column in names(links)) {
+    if (!is.element(column, names(rows))) rows[[column]] <- rep_len("", nrow(rows))
+  }
+  rows$source <- source
+  return(rows[names(links)])
+}
+
+#Rows of an endpoint, a page at a time, as character columns with what a row
+#does not say read as empty rather than missing
+audioblastRows <- function(url, query="", page_size=1000) {
   handle <- new_handle(
     useragent="audioBlastIngest (https://github.com/audioblast/audioBlastIngest)",
     connecttimeout=30, timeout=300)
@@ -176,7 +218,7 @@ audioblastTaxa <- function(url="https://api.audioblast.org/data/taxa/", page_siz
   page <- 1
   repeat {
     body <- rawToChar(curl_fetch_memory(
-      paste0(url, "?page=", page, "&page_size=", page_size), handle=handle)$content)
+      paste0(url, "?page=", page, "&page_size=", page_size, query), handle=handle)$content)
     Encoding(body) <- "UTF-8"
     answer <- fromJSON(body)
     rows <- c(rows, answer$data)
@@ -184,13 +226,13 @@ audioblastTaxa <- function(url="https://api.audioblast.org/data/taxa/", page_siz
     page <- page + 1
   }
   columns <- unique(unlist(lapply(rows, names)))
-  taxa <- as.data.frame(lapply(setNames(columns, columns), function(column) {
+  if (length(columns) == 0) return(data.frame())
+  return(as.data.frame(lapply(setNames(columns, columns), function(column) {
     vapply(rows, function(row) {
       value <- row[[column]]
       if (is.null(value)) "" else as.character(value)
     }, character(1))
-  }), stringsAsFactors=FALSE, check.names=FALSE)
-  return(taxa)
+  }), stringsAsFactors=FALSE, check.names=FALSE))
 }
 
 #What a source did not say, where something has to stand in for it
@@ -429,8 +471,15 @@ colByID <- function(id, name, fetch) {
 #Imports the taxa and writes the links, given something that answers for a path
 #of the taxonomy. The fetching is a parameter so that this can be run over
 #recorded answers as well as over the taxonomy itself.
-colHarvest <- function(taxa, fetch, colids=c("taxonBot"), verbose=FALSE) {
+colHarvest <- function(taxa, fetch, source="CoL", colids=c("taxonBot"), verbose=FALSE) {
   release <- colRelease(fetch)
+  #The rows this import wrote last time are the taxonomy itself, and are left
+  #alone: looking them up would match each to itself and write a link saying a
+  #taxon is the same taxon as itself, which says nothing and is a request
+  #apiece to find out. Every import after the first reads them back with the
+  #rest, so this is the difference between a second run and a first.
+  taxa <- taxa[as.character(taxa$source) != source, , drop=FALSE]
+  rownames(taxa) <- NULL
   if (verbose) message("Matching ", nrow(taxa), " taxa against ", release)
 
   #Every taxon reached, and every taxon above one, by its id. A taxon reached

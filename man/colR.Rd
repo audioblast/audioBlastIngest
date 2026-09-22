@@ -6,6 +6,7 @@
 \usage{
 colR(
   taxa = audioblastTaxa(),
+  source = "CoL",
   dataset = "3LR",
   colids = c("taxonBot"),
   pause = 0.1,
@@ -16,6 +17,10 @@ colR(
 \item{taxa}{Data frame of the taxa audioBLAST! holds, as \verb{/data/taxa/} gives
 them, with source, id, taxon, rank and the classification columns. The
 default reads them from the API.}
+
+\item{source}{The source this import is uploaded under. Rows of it are the
+taxonomy itself and are left alone, so that a second import does not match
+the rows the first one wrote to themselves.}
 
 \item{dataset}{Dataset key of the taxonomy at ChecklistBank. The default is
 the Catalogue of Life's latest release, so a run always matches against the
