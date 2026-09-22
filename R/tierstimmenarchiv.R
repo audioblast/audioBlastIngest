@@ -44,11 +44,11 @@
 #' @examples
 #' \dontrun{
 #' harvest <- tierstimmenarchivR("species=Pipistrellus")
-#' uploadRecordings(db, sourceR("Tierstimmenarchiv", harvest$recordings))
-#' uploadDetails(db, sourceR("Tierstimmenarchiv", harvest$details))
-#' uploadTaxa(db, taxonomiseR(sourceR("Tierstimmenarchiv", harvest$taxa)))
-#' uploadReferences(db, sourceR("Tierstimmenarchiv", harvest$references))
-#' uploadLinks(db, sourceR("Tierstimmenarchiv", harvest$links))
+#' uploadRecordings(db, sourceR("TSA", harvest$recordings))
+#' uploadDetails(db, sourceR("TSA", harvest$details))
+#' uploadTaxa(db, taxonomiseR(sourceR("TSA", harvest$taxa)))
+#' uploadReferences(db, sourceR("TSA", harvest$references))
+#' uploadLinks(db, sourceR("TSA", harvest$links))
 #' }
 #' @importFrom curl new_handle
 #' @export

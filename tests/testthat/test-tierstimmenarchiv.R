@@ -329,7 +329,7 @@ test_that("a Tierstimmenarchiv harvest streams each of its tables to a file", {
 })
 
 tsaSource <- function() {
-  list(list(name="Tierstimmenarchiv", type="recordings",
+  list(list(name="TSA", type="recordings",
             tierstimmenarchiv=list(query="unique_identifier=:"), process="sourceR"))
 }
 
@@ -355,7 +355,7 @@ test_that("ingestR streams a Tierstimmenarchiv harvest and uploads it from the f
   #The module's query reaches the harvester, and what it streamed is what was
   #uploaded, under the source's own name
   expect_identical(harvest$query, "unique_identifier=:")
-  expect_identical(harvest$source, "Tierstimmenarchiv")
+  expect_identical(harvest$source, "TSA")
   expect_identical(harvest$rows, 11L)
   #The files are cleared away once they have been uploaded
   expect_false(dir.exists(harvest$dir))
@@ -371,6 +371,6 @@ test_that("ingestR carries on when the Tierstimmenarchiv harvest fails", {
     uploadStreamed=function(db, source, dir, verbose=FALSE) uploaded <<- TRUE,
     uploadTraits=function(db, table) NULL)
 
-  expect_warning(ingestR(db="db"), "Skipping source Tierstimmenarchiv")
+  expect_warning(ingestR(db="db"), "Skipping source TSA")
   expect_false(uploaded)
 })
