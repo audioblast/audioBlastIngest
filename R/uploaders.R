@@ -370,15 +370,19 @@ uploadOnomatopoeia <- function(db, table, replace=TRUE) {
 #' @param db database connector
 #' @param table dataframe of images to upload, with the columns of
 #'   getHeaders("images").
+#' @param replace Whether to remove what each source gave before first. FALSE
+#'   for a chunk of a streamed harvest, whose source has been emptied once
+#'   already (see uploadStreamed()).
 #' @export
 #' @importFrom DBI dbExecute
-uploadImages <- function(db, table) {
+uploadImages <- function(db, table, replace=TRUE) {
   images <- normaliseImages(table)
   if (nrow(images) == 0) return(invisible(NULL))
 
   columns <- names(getHeaders("images"))
   DBI::dbWithTransaction(db, {
-    for (source in unique(images$source)) {
+    #A chunk must not remove the chunks uploaded before it
+    for (source in if (replace) unique(images$source) else character(0)) {
       dbExecute(db, "DELETE FROM `images` WHERE `source` = ?", params=list(source))
     }
     uploadRows(db, "images", columns, images[columns], update=columns[-(1:2)],
@@ -434,7 +438,8 @@ streamUploads <- list(
   taxa=list(upload=function(db, table) uploadTaxa(db, taxonomiseR(table)), whole=TRUE),
   references=list(upload=function(db, table) uploadReferences(db, table)),
   traits=list(upload=function(db, table) uploadTraits(db, seperatoR(table))),
-  images=list(upload=function(db, table) uploadImages(db, table)),
+  images=list(upload=function(db, table) uploadImages(db, table, replace=FALSE),
+              replaces="images"),
   `ann-o-mate`=list(upload=function(db, table) uploadAnnOmate(db, table)),
   descriptions=list(upload=function(db, table) uploadDescriptions(db, table, replace=FALSE),
                     replaces="descriptions"),

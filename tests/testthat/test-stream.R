@@ -163,7 +163,7 @@ test_that("a table a source replaces is emptied once, however many chunks it tak
   #A chunked upload that emptied its source for each chunk would keep only the
   #last one, so a type that replaces what its source gave names the table to
   #empty once, before the first chunk.
-  replaced <- c("descriptions", "onomatopoeia", "vernacularnames",
+  replaced <- c("images", "descriptions", "onomatopoeia", "vernacularnames",
                 "details", "links")
   for (type in replaced) {
     dir <- withr::local_tempdir()
@@ -185,6 +185,29 @@ test_that("a table a source replaces is emptied once, however many chunks it tak
     inserted <- sum(vapply(upload$executed[grepl(paste0("INTO `", type, "`"), sql, fixed=TRUE)],
                            function(e) length(boundRows(e)), integer(1)))
     expect_identical(inserted, 6L, info=type)
+  }
+})
+
+test_that("no type empties its source once a chunk", {
+  #The test above names the types that replace what their source gave, so one
+  #whose uploader empties the table but was left off the list passed it while
+  #keeping only its last chunk. This asks every type instead, so that an
+  #uploader that deletes cannot be forgotten.
+  for (type in names(streamUploads)) {
+    if (isTRUE(streamUploads[[type]]$whole)) next
+    dir <- withr::local_tempdir()
+    for (chunk in 1:3) {
+      table <- getHeaders(type)
+      table[1:2, ] <- ""
+      table$source <- ""
+      table$id <- as.character(c(chunk * 2 - 1, chunk * 2))
+      streamTable(dir, type, streamFixture(type, table))
+    }
+
+    upload <- mockUpload(function(db) uploadStreamed(db, "a-source", dir, each=2))
+    sql <- vapply(upload$executed, `[[`, character(1), "sql")
+
+    expect_lte(length(grep("^DELETE FROM", sql)), 1L, label=type)
   }
 })
 

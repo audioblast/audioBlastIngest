@@ -567,8 +567,10 @@ test_that("ingestR uploads xeno-canto recordings with other recordings sources",
 test_that("ingestR empties what a streamed source gave before, once for each table", {
   deleted <- ingestWithSources(xcHarvest)$deleted
 
-  #Details and links replace what the source gave; the rest are updated by id
-  expect_length(deleted, 2)
+  #Images, details and links replace what the source gave, so that one it no
+  #longer gives goes; the rest are updated by id
+  expect_length(deleted, 3)
+  expect_true(any(grepl("DELETE FROM `images`", deleted, fixed=TRUE)))
   expect_true(any(grepl("DELETE FROM `details`", deleted, fixed=TRUE)))
   expect_true(any(grepl("DELETE FROM `links`", deleted, fixed=TRUE)))
   expect_false(any(grepl("`recordings`", deleted, fixed=TRUE)))
