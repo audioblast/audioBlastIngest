@@ -4,12 +4,17 @@
 \alias{uploadRecordings}
 \title{Upload Recordings}
 \usage{
-uploadRecordings(db, table)
+uploadRecordings(db, table, replace = FALSE)
 }
 \arguments{
 \item{db}{database connector}
 
 \item{table}{dataframe of recordings to upload.}
+
+\item{replace}{Whether to remove the recordings each source in the table gave
+before and gives no longer. They are removed before the upload, which is
+in batches as ever, so an upload that fails part way leaves a source with
+what it no longer gives removed and only some of what it gives updated.}
 }
 \description{
 Adds recordings from a data frame to the database recordings table, updating
@@ -18,4 +23,19 @@ holds one form of value whichever source a recording came from: dates are
 ISO 8601 dates, times are 24-hour clock times, and a time that isn't a clock
 time, such as "morning", is kept as the time of day. Values that can't be read
 are uploaded as NULL.
+}
+\details{
+By default a recording a source no longer gives is left where it is, because
+a harvest can stop short without failing, and would otherwise take every
+recording it didn't reach out of audioBLAST!. A source that gives its
+recordings whole every time, as a file does, should replace them instead: a
+recording it no longer gives has been withdrawn, whether it has gone from the
+source or is one the source may no longer share. Only those are removed, so
+the recordings it still gives keep their rows. What has been made of a
+withdrawn recording elsewhere in audioBLAST!, such as its analyses, is left
+to whatever made it.
+
+A source that would lose more than half of its recordings loses none of
+them, with a warning, as that is more like a file cut short than recordings
+withdrawn. Withdrawing that many is done by hand.
 }

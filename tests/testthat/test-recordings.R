@@ -164,3 +164,91 @@ test_that("durations, MIME types and URLs are normalised", {
               "http://example.org/a b", "ftp://example.org", "creativecommons.org", "https://", "", NA)),
     c("https://xeno-canto.org/1", "https://creativecommons.org/licenses/by/4.0/", rep(NA, 6)))
 })
+
+#Mocks the database's recordings of each source, as withdrawRecordings() asks
+#for them, given as a list of ids named by source. Gives the sources asked for.
+local_recordingsHeld <- function(held, env=parent.frame()) {
+  asked <- new.env()
+  asked$sources <- character(0)
+  local_mocked_bindings(
+    dbGetQuery=function(conn, statement, params=NULL, ...) {
+      asked$sources <- c(asked$sources, params[[1]])
+      ids <- held[[params[[1]]]]
+      data.frame(id=if (is.null(ids)) character(0) else ids)
+    }, .env=env)
+  return(asked)
+}
+
+#The statements of an upload that remove something
+deletes <- function(upload) {
+  Filter(function(x) startsWith(x$sql, "DELETE"), upload$executed)
+}
+
+test_that("uploadRecordings leaves what a source no longer gives unless asked to replace it", {
+  local_recordingsHeld(list(bio.acousti.ca=c("1", "2", "3")))
+  table <- recordingsTable(source="bio.acousti.ca", id=c("1", "2"))
+  columns <- names(getHeaders("recordings"))
+
+  #A harvest that stopped short must not take the recordings it didn't reach
+  #out of audioBLAST!, so nothing is removed by default
+  kept <- mockUpload(uploadRecordings, table)
+  expect_length(deletes(kept), 0)
+
+  #A source that gives its recordings whole has withdrawn the one it no longer
+  #gives, and only that one is removed
+  expect_message(replaced <- mockUpload(uploadRecordings, table, replace=TRUE),
+                 "1 recordings withdrawn from bio.acousti.ca")
+  expect_identical(replaced$executed[[1]]$sql,
+                   "DELETE FROM `recordings` WHERE `source` = ? AND `id` IN (?)")
+  expect_identical(replaced$executed[[1]]$params, list("bio.acousti.ca", "3"))
+  expect_identical(replaced$executed[[2]]$sql, insertSQL("recordings", columns, columns[-(1:2)], 2))
+  #Withdrawn before the upload, which is in its own transactions as ever
+  expect_identical(replaced$calls, c("execute", "begin", "execute", "commit"))
+})
+
+test_that("uploadRecordings withdraws from each source only what it no longer gives", {
+  asked <- local_recordingsHeld(list(a=c("1", "2", "3"), b=c("x", "y"), c=c("9")))
+  table <- recordingsTable(source=c("a", "a", "b"), id=c("1", "2", "x"))
+
+  messages <- capture_messages(upload <- mockUpload(uploadRecordings, table, replace=TRUE))
+
+  expect_identical(messages, c("1 recordings withdrawn from a\n", "1 recordings withdrawn from b\n"))
+
+  expect_identical(lapply(deletes(upload), function(x) x$params), list(list("a", "3"), list("b", "y")))
+  #A source that is not in the table is not touched
+  expect_identical(asked$sources, c("a", "b"))
+})
+
+test_that("uploadRecordings withdraws nothing from a source that would lose more than half", {
+  local_recordingsHeld(list(unp=as.character(1:5)))
+  table <- recordingsTable(source="unp", id="1")
+
+  expect_warning(upload <- mockUpload(uploadRecordings, table, replace=TRUE),
+                 "unp no longer gives 4 of its 5 recordings", fixed=TRUE)
+
+  expect_length(deletes(upload), 0)
+  #What it does give is still uploaded
+  expect_identical(upload$calls, c("begin", "execute", "commit"))
+})
+
+test_that("uploadRecordings withdraws recordings a batch at a time", {
+  local_recordingsHeld(list(s=as.character(1:2500)))
+  table <- recordingsTable(source="s", id=as.character(1:1250))
+
+  expect_message(upload <- mockUpload(uploadRecordings, table, replace=TRUE),
+                 "1250 recordings withdrawn from s")
+
+  removed <- lapply(deletes(upload), function(x) unlist(x$params[-1]))
+  expect_identical(lengths(removed), c(1000L, 250L))
+  expect_identical(unlist(removed), as.character(1251:2500))
+})
+
+test_that("uploadRecordings replacing an empty table does nothing", {
+  asked <- local_recordingsHeld(list(s=c("1")))
+  table <- recordingsTable(source="s", id="1")[0, , drop=FALSE]
+
+  upload <- mockUpload(uploadRecordings, table, replace=TRUE)
+
+  expect_length(upload$executed, 0)
+  expect_length(asked$sources, 0)
+})

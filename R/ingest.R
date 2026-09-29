@@ -31,8 +31,18 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   #chunk at a time, where the other harvests are held as tables.
   streamed <- list(xenocanto=xenocantoR, tierstimmenarchiv=tierstimmenarchivR)
 
+  #The sources whose recordings were read whole from a file, and those that are
+  #harvested, even in part. A file gives every recording its source has, so
+  #one it no longer gives has been withdrawn, where a harvest can stop short
+  #without failing: only the first have what they no longer give removed (see
+  #uploadRecordings()).
+  whole <- character(0)
+  harvests <- character(0)
+
   for (i in 1:length(sources)) {
     source <- sources[[i]]
+    harvest <- any(c(names(streamed), "plazi", "inaturalist", "orthoptera") %in% names(source))
+    if (harvest) harvests <- c(harvests, source$name)
 
     if (verbose) print(paste("Source:", source$name))
     if (is.element("git", names(source))) {
@@ -190,6 +200,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       if (type == "recordings") {
         if (verbose) print(paste("  type: recordings"))
         recordings <- rbind(recordings, data)
+        if (!harvest) whole <- c(whole, unique(data$source))
       }
       if (type == "traits") {
         if (verbose) print(paste("  type: traits"))
@@ -255,7 +266,13 @@ ingestR <- function(db=NULL, verbose=FALSE) {
     uploadTraits(db, seperatoR(traits))
     if (nrow(recordings) > 0) {
       recordings <- recordings[recordings$id != "",]
-      uploadRecordings(db, recordings)
+      replaced <- recordings$source %in% setdiff(whole, harvests)
+      if (any(replaced)) {
+        uploadRecordings(db, recordings[replaced, , drop=FALSE], replace=TRUE)
+      }
+      if (!all(replaced)) {
+        uploadRecordings(db, recordings[!replaced, , drop=FALSE])
+      }
     }
     if (nrow(taxa) > 0) {
       uploadTaxa(db, taxonomiseR(taxa))

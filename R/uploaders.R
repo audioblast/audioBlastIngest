@@ -95,13 +95,66 @@ normaliseTraits <- function(table) {
 #' time, such as "morning", is kept as the time of day. Values that can't be read
 #' are uploaded as NULL.
 #'
+#' By default a recording a source no longer gives is left where it is, because
+#' a harvest can stop short without failing, and would otherwise take every
+#' recording it didn't reach out of audioBLAST!. A source that gives its
+#' recordings whole every time, as a file does, should replace them instead: a
+#' recording it no longer gives has been withdrawn, whether it has gone from the
+#' source or is one the source may no longer share. Only those are removed, so
+#' the recordings it still gives keep their rows. What has been made of a
+#' withdrawn recording elsewhere in audioBLAST!, such as its analyses, is left
+#' to whatever made it.
+#'
+#' A source that would lose more than half of its recordings loses none of
+#' them, with a warning, as that is more like a file cut short than recordings
+#' withdrawn. Withdrawing that many is done by hand.
+#'
 #' @param db database connector
 #' @param table dataframe of recordings to upload.
+#' @param replace Whether to remove the recordings each source in the table gave
+#'   before and gives no longer. They are removed before the upload, which is
+#'   in batches as ever, so an upload that fails part way leaves a source with
+#'   what it no longer gives removed and only some of what it gives updated.
 #' @export
-#' @importFrom DBI dbQuoteString dbExecute dbBind dbClearResult dbSendQuery
-uploadRecordings <- function(db, table) {
+#' @importFrom DBI dbQuoteString dbExecute dbBind dbClearResult dbSendQuery dbGetQuery
+uploadRecordings <- function(db, table, replace=FALSE) {
   columns <- names(getHeaders("recordings"))
+  if (!replace) {
+    return(uploadRows(db, "recordings", columns, normaliseRecordings(table), update=columns[-(1:2)]))
+  }
+  if (nrow(table) == 0) return(invisible(NULL))
+  #Withdrawn before the upload, so that a recording whose id the database
+  #matches without it being the same string (ids are compared without regard to
+  #case) is replaced rather than removed. Not one transaction with the upload,
+  #which for a source of hundreds of thousands of recordings would be too big
+  #to hold: each batch of either stands on its own.
+  for (source in unique(as.character(table$source))) {
+    withdrawRecordings(db, source, as.character(table$id[table$source == source]))
+  }
   uploadRows(db, "recordings", columns, normaliseRecordings(table), update=columns[-(1:2)])
+}
+
+#Removes the recordings of a source whose ids are not among those given, a
+#batch at a time, unless they are more than half of its recordings (see
+#uploadRecordings()). Gives how many were removed.
+withdrawRecordings <- function(db, source, ids, batch=1000) {
+  held <- as.character(dbGetQuery(db, "SELECT `id` FROM `recordings` WHERE `source` = ?",
+                                  params=list(source))$id)
+  gone <- setdiff(held, ids)
+  if (length(gone) == 0) return(invisible(0L))
+  if (length(gone) > length(held) / 2) {
+    warning(source, " no longer gives ", length(gone), " of its ", length(held),
+            " recordings, which is more like a file cut short than recordings withdrawn, ",
+            "so none of them are removed", call.=FALSE)
+    return(invisible(0L))
+  }
+  for (i in split(gone, ceiling(seq_along(gone) / batch))) {
+    dbExecute(db, paste0("DELETE FROM `recordings` WHERE `source` = ? AND `id` IN (",
+                         paste(rep("?", length(i)), collapse=", "), ")"),
+              params=c(list(source), as.list(i)))
+  }
+  message(length(gone), " recordings withdrawn from ", source)
+  return(invisible(length(gone)))
 }
 
 #' Upload Deployments
