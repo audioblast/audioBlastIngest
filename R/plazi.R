@@ -74,8 +74,9 @@
 #'   up where it stopped, reading only the treatments it had not reached.
 #' @param verbose If TRUE reports harvest progress.
 #' @return Named list of the data frames a harvest gives: the taxa they are
-#'   about, the descriptions, the treatments they were read from as
-#'   references, and the links. Each has an
+#'   about, the descriptions, the acoustic parameters the same treatments
+#'   measure as traits, the words they render a call with as onomatopoeia, the
+#'   treatments they were read from as references, and the links. Each has an
 #'   empty source column (see sourceR()). With dir, the paths they were
 #'   written to instead.
 #' @examples
@@ -157,9 +158,12 @@ plaziR <- function(query=plaziAcoustic, licenses=plaziLicenses, max=Inf,
     #A treatment that could not be read is marked read all the same, so that
     #taking the harvest up again does not stop at it a second time
     plaziMarkRead(dir, treatment$uuid)
-    #A treatment with nothing to say about sound is not one this harvest
-    #wanted, and its reference would be cited by nothing
-    if (is.null(tables) || nrow(tables$descriptions) == 0) next
+    #A treatment that says nothing, measures nothing and renders nothing about
+    #sound is not one this harvest wanted, and its reference would be cited by
+    #nothing. Its taxa are not counted, as every treatment names one.
+    if (is.null(tables) ||
+        all(vapply(tables[setdiff(plaziTables, c("taxa", "references", "links"))],
+                   nrow, integer(1)) == 0)) next
     tables$taxa <- plaziFreshTaxa(tables$taxa, seen)
     for (type in plaziTables) {
       if (is.null(dir)) {
@@ -215,8 +219,10 @@ plaziPacer <- function(seconds) {
 #harvest with one makes a quarter as many requests to stay inside it.
 plaziZenodoWait <- 2
 
-#The tables a Plazi harvest gives, a reference before the records that cite it
-plaziTables <- c("taxa", "references", "descriptions", "links")
+#The tables a Plazi harvest gives, in the order a reference is needed before
+#the records that cite it. Naming them once is what lets a table be added
+#without the harvest, the streaming or the combining being told about it.
+plaziTables <- c("taxa", "references", "descriptions", "traits", "onomatopoeia", "links")
 
 #The treatments a streamed harvest has already read, so that one taken up
 #again does not read them twice. It is a file of its own rather than the ids
@@ -244,20 +250,43 @@ plaziMarkRead <- function(dir, uuid) {
 plaziHarvested <- function(document, treatment) {
   #A treatment is read once: its sections are the descriptions, its heading is
   #the reference they cite, and the name it treats is the taxon they are about,
-  #with the classification Plazi puts it in
+  #with the classification Plazi puts it in. The measured parameters and the
+  #renderings are read before the sections, because plaziSections() takes the
+  #captions out of the document as it goes.
   reference <- plaziReference(document, treatment)
   taxa <- plaziTaxa(document, treatment)
+  measured <- plaziTraits(document, treatment, taxa)
+  renderings <- plaziOnomatopoeia(document, treatment, taxa)
   sections <- plaziSections(document, treatment$uuid)
-  links <- plaziLinks(sections$id, treatment, taxa)
+  tables <- list(
+    taxa=taxa,
+    references=reference,
+    descriptions=sections,
+    traits=measured$traits,
+    onomatopoeia=renderings$onomatopoeia,
+    #A treatment that measures or renders a call but describes nothing still
+    #says which GBIF taxon it treats and which article it is part of, which
+    #plaziLinks() says only alongside a description
+    links=rbind(plaziLinks(sections$id, treatment, taxa), measured$links,
+                renderings$links, plaziTreatmentLinks(treatment, taxa)))
   #A link whose subject this treatment did not give has nothing to join. The
   #ids are checked against the treatment's own tables rather than the whole
   #harvest's, which is the same answer, since a link's subject is always a
   #record of the treatment it came from, and is the one a streamed harvest can
   #give, having let every other treatment go.
-  held <- c(reference$id, sections$id, taxa$id)
-  links <- links[links$subject_id %in% held, , drop=FALSE]
+  held <- unlist(lapply(setdiff(plaziTables, "links"),
+                        function(type) plaziIds(tables[[type]], type)), use.names=FALSE)
+  links <- tables$links[tables$links$subject_id %in% held, , drop=FALSE]
+  links <- links[!duplicated(links), , drop=FALSE]
   rownames(links) <- NULL
-  return(list(taxa=taxa, references=reference, descriptions=sections, links=links))
+  tables$links <- links
+  return(tables[plaziTables])
+}
+
+#The ids of a table, which traits call traitID
+plaziIds <- function(table, type) {
+  if (type == "traits") return(table$traitID)
+  return(table$id)
 }
 
 #The tables of every treatment as one, with the repeats left out. Two
@@ -265,7 +294,7 @@ plaziHarvested <- function(document, treatment) {
 #treatment it came from, so this is the belt to the braces.
 plaziCombine <- function(tables, type) {
   data <- do.call(rbind, c(list(getHeaders(type)), tables))
-  keep <- if (type == "links") !duplicated(data) else !duplicated(data$id)
+  keep <- if (type == "links") !duplicated(data) else !duplicated(plaziIds(data, type))
   data <- data[keep, , drop=FALSE]
   rownames(data) <- NULL
   return(data)
@@ -652,6 +681,58 @@ plaziLinks <- function(ids, treatment, taxa=getHeaders("taxa")) {
     links <- rbind(links, link("references", treatment$uuid,
                                "http://purl.org/dc/terms/source",
                                "iri", treatment$article))
+  }
+  rownames(links) <- NULL
+  return(links)
+}
+
+#The links a record of a treatment gives: it stands in some relation to the
+#taxon the treatment treats -- a measurement and a rendering are about it, a
+#name denotes it -- and it came from the treatment, which is a reference of
+#its own. The taxon is the row of Plazi's own that the treatment's
+#classification ends in, as a description's is (see plaziLinks()), and its IRI
+#only where Plazi named no taxon.
+plaziAboutLinks <- function(type, ids, treatment, taxa=getHeaders("taxa"),
+                            predicate="http://purl.obolibrary.org/obo/IAO_0000136") {
+  links <- getHeaders("links")
+  if (length(ids) == 0) return(links)
+  treated <- if (nrow(taxa) > 0) taxa$id[nrow(taxa)] else ""
+  links <- rbind(links, data.frame(
+    source="", subject_type=type, subject_source="", subject_id=ids,
+    predicate=predicate,
+    object_type=if (treated != "") "taxa" else "iri", object_source="",
+    object_id=if (treated != "") treated else treatment$taxon,
+    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
+  links <- rbind(links, data.frame(
+    source="", subject_type=type, subject_source="", subject_id=ids,
+    predicate="http://purl.org/dc/terms/source",
+    object_type="references", object_source="", object_id=treatment$uuid,
+    qualifier="", remarks="", reference="", stringsAsFactors=FALSE))
+  rownames(links) <- NULL
+  return(links)
+}
+
+#The links a treatment gives once, whatever records it gives: GBIF's taxon for
+#the row of Plazi's own it treats, where Zenodo matched one, and the article
+#the treatment is part of. plaziLinks() gives the same alongside a description;
+#these are for a treatment that measures or renders a call and describes
+#nothing.
+plaziTreatmentLinks <- function(treatment, taxa=getHeaders("taxa")) {
+  links <- getHeaders("links")
+  treated <- if (nrow(taxa) > 0) taxa$id[nrow(taxa)] else ""
+  link <- function(subject_type, subject_id, predicate, object_id) {
+    data.frame(source="", subject_type=subject_type, subject_source="",
+               subject_id=subject_id, predicate=predicate, object_type="iri",
+               object_source="", object_id=object_id, qualifier="", remarks="",
+               reference="", stringsAsFactors=FALSE)
+  }
+  if (treated != "" && grepl("gbif.org/species/", treatment$taxon, fixed=TRUE)) {
+    links <- rbind(links, link("taxa", treated, "http://www.w3.org/2004/02/skos/core#exactMatch",
+                               treatment$taxon))
+  }
+  if (treatment$article != "") {
+    links <- rbind(links, link("references", treatment$uuid, "http://purl.org/dc/terms/source",
+                               treatment$article))
   }
   rownames(links) <- NULL
   return(links)

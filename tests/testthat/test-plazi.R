@@ -297,10 +297,40 @@ test_that("a treatment gives one table of each kind the harvest names", {
   expect_identical(nrow(tables$descriptions), 1L)
 
   #A link is checked against the ids of its own treatment, which is the same
-  #answer as the whole harvest's and the one a streamed harvest can give
-  held <- c(tables$taxa$id, tables$references$id, tables$descriptions$id)
+  #answer as the whole harvest's and the one a streamed harvest can give. A
+  #trait's id is its traitID.
+  held <- unlist(lapply(setdiff(plaziTables, "links"),
+                        function(type) plaziIds(tables[[type]], type)), use.names=FALSE)
   expect_true(all(tables$links$subject_id %in% held))
   expect_true(nrow(tables$links) > 0)
+  expect_false(anyDuplicated(tables$links) > 0)
+})
+
+test_that("a treatment's traits and renderings are about its taxon's own row", {
+  treatment <- list(uuid="U", taxon="https://www.gbif.org/species/1", article="urn:article",
+                    doi="")
+  taxa <- data.frame(source="", id=c("U#genus", "U#species"), stringsAsFactors=FALSE)
+
+  links <- plaziAboutLinks("traits", c("U#1#1", "U#1#2"), treatment, taxa)
+  about <- links[links$predicate == "http://purl.obolibrary.org/obo/IAO_0000136", ]
+  #The last of the classification is the taxon treated, as for a description
+  expect_identical(about$object_type, c("taxa", "taxa"))
+  expect_identical(about$object_id, c("U#species", "U#species"))
+  expect_identical(links$object_id[links$predicate == "http://purl.org/dc/terms/source"],
+                   c("U", "U"))
+  #Without a classification the treatment's IRI for the taxon is all there is
+  bare <- plaziAboutLinks("traits", "U#1#1", treatment)
+  expect_identical(bare$object_type[1], "iri")
+  expect_identical(bare$object_id[1], "https://www.gbif.org/species/1")
+
+  #A treatment that describes nothing still says which GBIF taxon its row is
+  #and which article it is part of
+  once <- plaziTreatmentLinks(treatment, taxa)
+  expect_identical(once$subject_id, c("U#species", "U"))
+  expect_identical(once$predicate, c("http://www.w3.org/2004/02/skos/core#exactMatch",
+                                     "http://purl.org/dc/terms/source"))
+  expect_identical(once$object_id, c("https://www.gbif.org/species/1", "urn:article"))
+  expect_identical(nrow(plaziTreatmentLinks(list(uuid="U", taxon="urn:x", article=""))), 0L)
 })
 
 test_that("a harvest streams its tables instead of holding them", {
@@ -410,4 +440,52 @@ test_that("Zenodo is paced by the limit it advertises, Plazi by its own", {
   #is a courtesy rather than a requirement, and it is the one a caller can set
   expect_identical(formals(plaziR)$pause, 0.25)
   expect_true(is.null(formals(plaziR)$zenodoPause))
+})
+
+plaziSource <- function() {
+  list(list(name="Plazi", type="descriptions", plazi=list(query="stridulation", max=1),
+            process="sourceR"))
+}
+
+test_that("ingestR streams a Plazi harvest and uploads it from the files", {
+  harvest <- list()
+  local_mocked_bindings(
+    getSources=plaziSource,
+    plaziR=function(..., verbose=FALSE, dir=NULL) {
+      harvest$args <<- list(...)
+      harvest$dir <<- dir
+      treatment <- plaziTreatment(plaziZenodoPage()$hits$hits[[1]])
+      tables <- plaziHarvested(plaziRead(plaziTreatmentXML(), treated), treatment)
+      for (type in plaziTables) streamTable(dir, type, tables[[type]])
+      return(lapply(setNames(plaziTables, plaziTables), function(type) streamPath(dir, type)))
+    },
+    uploadStreamed=function(db, source, dir, verbose=FALSE) {
+      harvest$source <<- source
+      harvest$rows <<- readStream(streamPath(dir, "descriptions"), 100, function(chunk) NULL)
+    },
+    uploadTraits=function(db, table) NULL)
+
+  ingestR(db="db")
+
+  #The module's arguments reach the harvester, which is given a directory to
+  #stream to rather than holding some hours of treatments, and what it
+  #streamed is what was uploaded, under the source's own name
+  expect_identical(harvest$args, list(query="stridulation", max=1))
+  expect_false(is.null(harvest$dir))
+  expect_identical(harvest$source, "Plazi")
+  expect_identical(harvest$rows, 1L)
+  #The files are cleared away once they have been uploaded
+  expect_false(dir.exists(harvest$dir))
+})
+
+test_that("ingestR carries on when the Plazi harvest fails", {
+  uploaded <- FALSE
+  local_mocked_bindings(
+    getSources=plaziSource,
+    plaziR=function(..., verbose=FALSE, dir=NULL) stop("Zenodo request failed"),
+    uploadStreamed=function(db, source, dir, verbose=FALSE) uploaded <<- TRUE,
+    uploadTraits=function(db, table) NULL)
+
+  expect_warning(ingestR(db="db"), "Skipping source Plazi")
+  expect_false(uploaded)
 })

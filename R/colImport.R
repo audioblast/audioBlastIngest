@@ -577,7 +577,10 @@ colTaxa <- function(found) {
     u1="", u2="", u3="", u4="",
     Rank=str_to_title(vapply(nodes, function(node) node$rank, character(1))),
     parent_id=vapply(nodes, function(node) node$parent, character(1)),
-    parent_taxon="", stringsAsFactors=FALSE)
+    parent_taxon="",
+    #No status is read from the catalogue for a name here, so the columns that
+    #say whether it is the one in use are left empty
+    s1="", s2="", s3="", s4="", stringsAsFactors=FALSE)
   names(rows) <- names(taxa)
   rows <- rows[order(rows$id), , drop=FALSE]
   rownames(rows) <- NULL

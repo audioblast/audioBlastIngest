@@ -239,13 +239,21 @@ tsaParameters <- function(query) {
 
 #A field of a record as text, as the archive gives a number as a number (a
 #coordinate, a sample rate, whether the animal was seen) and leaves out what it
-#has no value for as null
+#has no value for as null.
+#
+#Some records write "/N" instead in the fields they have no value for, which
+#looks like MySQL's \N for null, mangled on its way out. That is no value
+#either, so it is dropped here, where every field passes, rather than field by
+#field. In October 2026 it was in 30 records, all from Reinald Skiba's bat tapes
+#(Ski), but nothing says it is kept to those fields or those tapes.
 tsaText <- function(value) {
   if (length(value) != 1 || is.na(value)) return("")
   if (is.numeric(value)) value <- format(value, scientific=FALSE, digits=15, trim=TRUE)
   value <- as.character(value)
   Encoding(value) <- "UTF-8"
-  return(trimws(value))
+  value <- trimws(value)
+  if (value == "/N") return("")
+  return(value)
 }
 
 #A field of every record of a page
@@ -289,8 +297,8 @@ tsaRecordings <- function(records) {
     deployment=empty,
     lat=tsaCoordinate(field("latitude"), 90),
     lon=tsaCoordinate(field("longitude"), 180),
-    #Times are clock times, so none of them describe a time of day in words
-    time_of_day=empty,
+    #A time that is not a clock time, e.g. "morning", is kept in words
+    time_of_day=tsaTimeOfDay(field("recording_time")),
     license=tsaLicense(field("usage_permission")),
     info_url=tsaRecordURL(id),
     device=field("recording_equipment"),
@@ -430,8 +438,9 @@ tsaTaxa <- function(records) {
                       tsaEither(words > 1, sub(" [^ ]+$", "", taxa), ""))
   rank <- tsaEither(form, "Form", c("Genus", "Species", "Subspecies")[words])
   empty <- rep_len("", length(taxa))
+  #The archive says nothing of whether a name is the one in use
   data <- data.frame(empty, taxa, taxa, empty, empty, empty, empty,
-                     rank, parent, parent,
+                     rank, parent, parent, empty, empty, empty, empty,
                      stringsAsFactors=FALSE)
   names(data) <- names(getHeaders("taxa"))
   return(data)
@@ -510,13 +519,13 @@ tsaLink <- function(subjectType, subject, predicate, objectType, object, qualifi
 }
 
 #Scientific names as the archive writes them: a capitalised genus and one or
-#two lower case epithets, or a form (see tsaForm()). A name left open at the
-#species, e.g. "Acrocephalus spec.", is the genus, which is as far as the
-#recordist identified the animal; anything else that is not a name, such as the
-#"div." of a recording of several species, names no taxon here, so it is left
-#out rather than made one.
+#two lower case epithets, or a form (see tsaForm()), with any umlaut written out
+#(see tsaUmlaut()). A name left open at the species, e.g. "Acrocephalus spec.",
+#is the genus, which is as far as the recordist identified the animal; anything
+#else that is not a name, such as the "div." of a recording of several species,
+#names no taxon here, so it is left out rather than made one.
 tsaName <- function(x) {
-  x <- trimws(as.character(x))
+  x <- tsaUmlaut(trimws(as.character(x)))
   x[is.na(x)] <- ""
   open <- grepl("^[A-Z][a-z]+ (spec|sp)\\.?$", x)
   x[open] <- sub(" .*$", "", x[open])
@@ -533,15 +542,30 @@ tsaForm <- function(x) {
   return(grepl("^[A-Z][a-z]+ [a-z-]+ f\\. [a-z-]+( [a-z-]+)?$", x))
 }
 
+#Names with each umlaut written out as the vowel and an e, as the Code writes a
+#name made from a German word (ICZN Art. 32.5.2.1), since a scientific name has
+#no diacritics (Art. 27). The archive writes "Mülleripicus", and its own ids
+#Muelleripicus. A name with any other letter that is not in the Latin alphabet,
+#such as ß or é, is still no name.
+tsaUmlaut <- function(x) {
+  umlaut <- c("\u00e4", "\u00f6", "\u00fc", "\u00c4", "\u00d6", "\u00dc")
+  written <- c("ae", "oe", "ue", "Ae", "Oe", "Ue")
+  for (i in seq_along(umlaut)) {
+    x <- gsub(umlaut[i], written[i], x, fixed=TRUE)
+  }
+  return(x)
+}
+
 #The name of the taxon each recording is of. A subspecies is given as a bare
 #epithet, so it is added to the species it belongs to. Given after a form, it
 #is the second word of the form's own epithet, as the hallstromi of "Canis
 #lupus f. dingo hallstromi" is.
 tsaTaxon <- function(species, subspecies) {
   taxon <- tsaName(species)
+  subspecies <- tsaUmlaut(trimws(subspecies))
   trinomial <- taxon != "" & grepl(" ", taxon, fixed=TRUE) &
-    grepl("^[a-z]+(-[a-z]+)?$", trimws(subspecies))
-  taxon[trinomial] <- paste(taxon[trinomial], trimws(subspecies[trinomial]))
+    grepl("^[a-z]+(-[a-z]+)?$", subspecies)
+  taxon[trinomial] <- paste(taxon[trinomial], subspecies[trinomial])
   return(taxon)
 }
 
@@ -608,9 +632,21 @@ tsaDate <- function(x) {
   return(tsaEither(is.na(date), "", date))
 }
 
+#Times, which the archive gives as clock times, but a few hundred records give
+#in words (see tsaTimeOfDay()); empty where there is no clock time
 tsaTime <- function(x) {
   time <- clockTime(x)
   return(tsaEither(is.na(time), "", time))
+}
+
+#The times that are not clock times, as the archive writes them. Most are words
+#(morning, afternoon, noon, evening, night), and noon is kept as one rather than
+#read as 12:00. A few are clock times mistyped, e.g. "10.:00", or cut short, as
+#"12:5" is, which could be 12:05 or 12:50; these are kept as written rather than
+#guessed at. The placeholders unknownTime() knows are left out, and "/N", which
+#says there is no time, never gets here (see tsaText()).
+tsaTimeOfDay <- function(x) {
+  return(tsaEither(is.na(clockTime(x)) & !unknownTime(x), x, ""))
 }
 
 #Coordinates, which the archive gives as decimal degrees

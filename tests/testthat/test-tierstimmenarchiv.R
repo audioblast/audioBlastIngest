@@ -123,6 +123,51 @@ test_that("Tierstimmenarchiv records with no audio are harvested only when asked
   expect_identical(card$taxon, "Carduelis cannabina")
 })
 
+test_that("a Tierstimmenarchiv time that is not a clock time is kept in words", {
+  #The archive's own values: clock times, written in several ways, and the
+  #words and mistyped clock times that a few hundred records give instead
+  times <- c("11:23", "9:30", "14.20", "morning", "afternoon", "noon", "evening",
+             "night", "10.:00", "12:5", "")
+  expect_identical(tsaTime(times),
+                   c("11:23", "09:30", "14:20", "", "", "", "", "", "", "", ""))
+  #noon is a word rather than 12:00, and a mistyped clock time is kept as
+  #written rather than guessed at
+  expect_identical(tsaTimeOfDay(times),
+                   c("", "", "", "morning", "afternoon", "noon", "evening",
+                     "night", "10.:00", "12:5", ""))
+  #The archive gives no ranges or approximate times yet, but they would be
+  #kept as written too, and a placeholder would not
+  expect_identical(tsaTimeOfDay(c("7-8 h", "ca. 7:00", "?")), c("7-8 h", "ca. 7:00", ""))
+
+  records <- tsaHarvested()
+  ids <- tsaField(records, "unique_identifier")
+  given <- c("TSA:Crex_crex_DIG0208_23"="morning",
+             "TSA:Rana_temporaria_DIG0204_21"=" 10.:00 ",
+             "TSA:Coturnix_coturnix_DIG0210_16"="/N")
+  for (id in names(given)) records[[which(ids == id)]]$recording_time <- given[[id]]
+  data <- tsaRecordings(records)
+
+  crake <- tsaRecord(data, "TSA:Crex_crex_DIG0208_23")
+  expect_identical(crake$Time, "")
+  expect_identical(crake$time_of_day, "morning")
+  #A clock time stays a clock time, and gives no time of day in words
+  woodpecker <- tsaRecord(data, "TSA:Dryocopus_martius_DIG0210_08")
+  expect_identical(woodpecker$Time, "08:00")
+  expect_identical(woodpecker$time_of_day, "")
+  frog <- tsaRecord(data, "TSA:Rana_temporaria_DIG0204_21")
+  expect_identical(frog$Time, "")
+  expect_identical(frog$time_of_day, "10.:00")
+  #"/N" is how some records say they have no value, so it is no time at all
+  quail <- tsaRecord(data, "TSA:Coturnix_coturnix_DIG0210_16")
+  expect_identical(quail$Time, "")
+  expect_identical(quail$time_of_day, "")
+
+  #Kept in words, the time survives the normalising that uploading does
+  normalised <- normaliseRecordings(crake)
+  expect_identical(normalised$Time, NA_character_)
+  expect_identical(normalised$time_of_day, "morning")
+})
+
 test_that("a Tierstimmenarchiv record is harvested once", {
   seen <- new.env(hash=TRUE, parent=emptyenv())
   expect_length(tsaFresh(tsaFixture(), seen), 12)
@@ -154,6 +199,39 @@ test_that("what a Tierstimmenarchiv record holds besides is kept as details", {
   warbler <- data[data$id == "TSA:Acrocephalus_palustris_V_1837_2_1", ]
   expect_identical(warbler$value[warbler$name == "sound_type"],
                    c("song", "call", "call sequence", "twittering"))
+})
+
+test_that("the archive's /N for no value is no value, whichever field it is in", {
+  expect_identical(tsaText("/N"), "")
+  expect_identical(tsaText(" /N "), "")
+
+  #Part of one of the records that write it, from Reinald Skiba's bat tapes
+  bat <- list(
+    unique_identifier="TSA:Barbastella_barbastellus_Ski0109_S1_From0663731ms_To0682090ms",
+    filename="Barbastella_barbastellus_Ski0109_S1_From0663731ms_To0682090ms",
+    species="Barbastella barbastellus", sound_type="echolocation call",
+    author="Skiba, Reinald", country="DE", locality="Selbitz",
+    scenic_area="/N", habitat="/N", sex="/N", age="/N", specimen="/N",
+    background_species="/N", weather="/N")
+
+  details <- tsaDetails(list(bat))
+  expect_false("/N" %in% details$value)
+  expect_identical(sort(details$name), c("filename", "sound_type"))
+
+  #Nothing says which fields it can be in, so it is dropped from all of them,
+  #the recordings table's columns included
+  bat$author <- "/N"
+  bat$locality <- "/N"
+  recording <- tsaRecordings(list(bat))
+  expect_identical(recording$author, "")
+  expect_identical(recording$rights_holder, "")
+  expect_identical(recording$locality, "")
+  expect_identical(recording$country, "DE")
+
+  #"/N" in background_species names no taxon behind the bat
+  links <- tsaLinks(list(bat))
+  expect_identical(links$object_id, "Barbastella barbastellus")
+  expect_identical(links$qualifier, "")
 })
 
 test_that("the paper a Tierstimmenarchiv recording was used in becomes a reference", {
@@ -263,6 +341,28 @@ test_that("a Tierstimmenarchiv name is read as a taxon, or as none", {
              c("somalicus", "", "hallstromi", "", "")),
     c("Trachyphonus margaritatus somalicus", "Bos taurus f. taurus",
       "Canis lupus f. dingo hallstromi", "Myotis", ""))
+})
+
+test_that("a Tierstimmenarchiv name with an umlaut has it written out", {
+  expect_identical(tsaUmlaut("\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc"), "aeoeueAeOeUe")
+  expect_identical(tsaName(c("M\u00fclleripicus pulverulentus",
+                             "M\u00fclleripicus pulverulentus harterti")),
+                   c("Muelleripicus pulverulentus", "Muelleripicus pulverulentus harterti"))
+  expect_identical(tsaTaxon("Crex crex", "m\u00fclleri"), "Crex crex muelleri")
+  #A name with any other letter outside the Latin alphabet is still no name
+  expect_identical(tsaName(c("M\u00e9lleripicus pulverulentus", "Mu\u00dfleripicus pulverulentus")),
+                   c("", ""))
+
+  #The title keeps the name as the archive wrote it
+  records <- list(list(unique_identifier="TSA:Muelleripicus_pulverulentus_Lue_74_1_1",
+                       filename="1", species="M\u00fclleripicus pulverulentus",
+                       subspecies="harterti", sound_type="call"))
+  data <- tsaRecordings(records)
+  expect_identical(data$taxon, "Muelleripicus pulverulentus harterti")
+  expect_identical(data$Title, "M\u00fclleripicus pulverulentus harterti - call")
+  expect_identical(sort(tsaTaxa(records)$id),
+                   c("Muelleripicus", "Muelleripicus pulverulentus",
+                     "Muelleripicus pulverulentus harterti"))
 })
 
 test_that("a Tierstimmenarchiv form is a taxon of its own inside its species", {

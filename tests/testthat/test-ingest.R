@@ -32,13 +32,22 @@ test_that("ingestR harvests nothing while a streamed source shares its name", {
   #A streamed source is uploaded as it is harvested, and a file's links at the
   #end, which would replace what the harvest of the same name gave
   harvested <- FALSE
+  sources <- list(
+    list(name="xeno-canto", type="links", url="links.csv", process=list("sourceR")),
+    list(name="xeno-canto", type="recordings", xenocanto=list(query="grp:birds"),
+         process=list("sourceR")))
   local_mocked_bindings(
-    getSources=function() list(
-      list(name="xeno-canto", type="links", url="links.csv", process=list("sourceR")),
-      list(name="xeno-canto", type="recordings", xenocanto=list(query="grp:birds"),
-           process=list("sourceR"))),
-    xenocantoR=function(...) harvested <<- TRUE)
+    getSources=function() sources,
+    xenocantoR=function(...) harvested <<- TRUE,
+    plaziR=function(...) harvested <<- TRUE)
 
   expect_error(ingestR(db="db"), "named 'xeno-canto', which is streamed")
+  expect_false(harvested)
+
+  #Plazi is streamed by a branch of its own rather than as one of the others
+  sources <- list(
+    list(name="Plazi", type="links", url="links.csv", process=list("sourceR")),
+    list(name="Plazi", type="recordings", plazi=list(), process=list("sourceR")))
+  expect_error(ingestR(db="db"), "named 'Plazi', which is streamed")
   expect_false(harvested)
 })

@@ -21,7 +21,7 @@ turn. An element can name several taxa at once, separated by commas, and
 
 \item{quality_grade}{Quality grades of the observations to harvest, as a
 comma separated list. "research" is those whose identification the
-community has agreed.}
+community has agreed. Each recording's grade is one of its details.}
 
 \item{per_page}{Number of observations per API request, from 1 to 200.}
 
@@ -44,9 +44,9 @@ place.}
 }
 \value{
 Named list of the data frames a harvest gives: the recordings, the
-taxa they are of and the links saying which recording is about which
-taxon. Each has an empty source column (see sourceR()). With dir, the
-paths they were streamed to instead.
+details of them, the taxa they are of and the links saying which
+recording is about which taxon. Each has an empty source column (see
+sourceR()). With dir, the paths they were streamed to instead.
 }
 \description{
 Harvests recording metadata from the iNaturalist API (version 2) and
@@ -63,6 +63,12 @@ observation's. Sounds that have been taken down are left out. Sounds that
 are All Rights Reserved, which iNaturalist gives no licence, are harvested
 with no licence (see inaturalistLicenses).
 
+What iNaturalist says of a recording's observation that the recordings
+table has no column for is given as details of the recording: whether its
+location is obscured, and why, how far its coordinates can be trusted, and
+its quality grade. A harvest takes research grade observations unless it is
+asked for others, and the grade on each recording says so.
+
 iNaturalist caps a search at 10000 results however it is paged, so pages are
 taken as a sliding window of ids rather than by number. Reading needs no API
 key; iNaturalist asks that requests identify themselves with a user agent
@@ -74,6 +80,7 @@ iNaturalist says is one too many is made again after a wait.
 \dontrun{
 harvest <- inaturalistR(c("47651", "50186"))
 uploadRecordings(db, sourceR("iNaturalist", harvest$recordings))
+uploadDetails(db, sourceR("iNaturalist", harvest$details))
 uploadTaxa(db, taxonomiseR(sourceR("iNaturalist", harvest$taxa)))
 uploadLinks(db, sourceR("iNaturalist", harvest$links))
 

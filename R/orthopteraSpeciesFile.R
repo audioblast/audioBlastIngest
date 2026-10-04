@@ -170,6 +170,8 @@ orthopteraTaxonomy <- function(fetch) {
         source="", id=taxa[, "id"], taxon=taxa[, "taxon"],
         `Unit name 1`="", `Unit name 2`="", `Unit name 3`="", `Unit name 4`="",
         Rank=taxa[, "Rank"], parent_id=taxa[, "parent_id"], parent_taxon="",
+        taxonomicStatus="", nomenclaturalStatus="", acceptedNameUsageID="",
+        acceptedNameUsage="",
         stringsAsFactors=FALSE, check.names=FALSE, row.names=NULL))
     })
 }

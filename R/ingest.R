@@ -33,14 +33,16 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   streamed <- list(xenocanto=xenocantoR, inaturalist=inaturalistR,
                    tierstimmenarchiv=tierstimmenarchivR)
 
-  #A streamed source is uploaded as soon as it is harvested, and its upload
-  #first removes the links, details and other tables its name gave before (see
-  #uploadStreamed()). Another source of the same name would remove what the
-  #harvest gave, or have what it gave removed by it: two iNaturalist sources,
-  #one for each taxon group, would each take the other's links. Nothing is
-  #harvested until the sources are put right.
+  #A streamed source, these and Plazi, is uploaded as soon as it is harvested,
+  #and its upload first removes the links, details and other tables its name
+  #gave before (see uploadStreamed()). Another source of the same name would
+  #remove what the harvest gave, or have what it gave removed by it: two
+  #iNaturalist sources, one for each taxon group, would each take the other's
+  #links. Nothing is harvested until the sources are put right.
   named <- vapply(sources, function(source) source$name, character(1))
-  streaming <- vapply(sources, function(source) any(names(streamed) %in% names(source)), logical(1))
+  streaming <- vapply(sources, function(source) {
+    any(c(names(streamed), "plazi") %in% names(source))
+  }, logical(1))
   shared <- unique(named[streaming & named %in% named[duplicated(named)]])
   if (length(shared) > 0) {
     stop(paste0("More than one source in list_sources is named ",
@@ -109,17 +111,35 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       }
       next
     } else if (is.element("plazi", names(source))) {
-      #A failed harvest skips this source rather than every source. Everything
-      #Plazi gives comes from one harvest: the uploads delete a source's rows
-      #before inserting, so two harvests under one source name would wipe each
-      #other's links.
-      tables <- tryCatch(
-        do.call(plaziR, c(source$plazi, list(verbose=verbose))),
-        error=function(e) {
-          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
-          NULL
-        })
-      if (is.null(tables)) next
+      #Everything Plazi gives comes from one harvest: the uploads delete a
+      #source's rows before inserting, so two harvests under one source name
+      #would wipe each other's links. Reading every acoustic treatment is a
+      #request each and some hours of them, so the harvest is written to files
+      #as it arrives and uploaded from them a chunk at a time, and a failed
+      #upload does not throw those hours away.
+      dir <- file.path(tempdir(), paste0("harvest-", gsub("[^A-Za-z0-9]+", "-", source$name)))
+      unlink(dir, recursive=TRUE)
+      #A failed harvest skips this source rather than every source
+      harvested <- tryCatch({
+        do.call(plaziR, c(source$plazi, list(verbose=verbose, dir=dir)))
+        TRUE
+      }, error=function(e) {
+        warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
+        FALSE
+      })
+      if (!harvested) {
+        unlink(dir, recursive=TRUE)
+        next
+      }
+      #Files are kept if the upload fails, so that a harvest of some hours is
+      #not thrown away with it
+      if (!is.null(db)) {
+        uploadStreamed(db, source$name, dir, verbose=verbose)
+        unlink(dir, recursive=TRUE)
+      } else if (verbose) {
+        print(paste("  harvested to", dir))
+      }
+      next
     } else if (is.element("orthoptera", names(source))) {
       #A failed harvest skips this source rather than every source
       tables <- tryCatch(
@@ -190,9 +210,10 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #Sources that don't give the columns at the end of their table are given
       #them empty: recordings lat and lon, then time_of_day, license, info_url
       #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
-      #and max; descriptions topic_link; onomatopoeia kind_link; links reference.
+      #and max; descriptions topic_link; onomatopoeia kind_link; links reference;
+      #taxa the four columns that say whether a name is the one in use.
       headers <- names(getHeaders(type))
-      if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links") &&
+      if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa") &&
           ncol(data) < length(headers)) {
         for (column in headers[-seq_len(ncol(data))]) {
           data[[column]] <- rep_len("", nrow(data))
@@ -343,7 +364,12 @@ getSources <- function() {
 
 getHeaders <- function(type) {
   if (type == "taxa") {
-    heads <-   col_names <- c("source", "id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon")
+    #taxonomicStatus says whether a name is the one in use, nomenclaturalStatus
+    #why it is not in its source's own words, and acceptedNameUsageID and
+    #acceptedNameUsage the name that replaced it. They belong to the name
+    #rather than to the classification, so taxonomiseR() carries them through
+    #rather than walking them.
+    heads <-   col_names <- c("source", "id","taxon","Unit name 1","Unit name 2","Unit name 3","Unit name 4","Rank","parent_id","parent_taxon","taxonomicStatus","nomenclaturalStatus","acceptedNameUsageID","acceptedNameUsage")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
