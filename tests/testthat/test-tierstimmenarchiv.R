@@ -120,6 +120,51 @@ test_that("Tierstimmenarchiv records with no audio are harvested only when asked
   expect_identical(card$taxon, "Carduelis cannabina")
 })
 
+test_that("a Tierstimmenarchiv time that is not a clock time is kept in words", {
+  #The archive's own values: clock times, written in several ways, and the
+  #words and mistyped clock times that a few hundred records give instead
+  times <- c("11:23", "9:30", "14.20", "morning", "afternoon", "noon", "evening",
+             "night", "10.:00", "12:5", "/N", "")
+  expect_identical(tsaTime(times),
+                   c("11:23", "09:30", "14:20", "", "", "", "", "", "", "", "", ""))
+  #noon is a word rather than 12:00, and a mistyped clock time is kept as
+  #written rather than guessed at. "/N" is how some records say they have no
+  #value, so it is no time at all.
+  expect_identical(tsaTimeOfDay(times),
+                   c("", "", "", "morning", "afternoon", "noon", "evening",
+                     "night", "10.:00", "12:5", "", ""))
+  #The archive gives no ranges or approximate times yet, but they would be
+  #kept as written too, and a placeholder would not
+  expect_identical(tsaTimeOfDay(c("7-8 h", "ca. 7:00", "?")), c("7-8 h", "ca. 7:00", ""))
+
+  records <- tsaHarvested()
+  ids <- tsaField(records, "unique_identifier")
+  given <- c("TSA:Crex_crex_DIG0208_23"="morning",
+             "TSA:Rana_temporaria_DIG0204_21"=" 10.:00 ",
+             "TSA:Coturnix_coturnix_DIG0210_16"="/N")
+  for (id in names(given)) records[[which(ids == id)]]$recording_time <- given[[id]]
+  data <- tsaRecordings(records)
+
+  crake <- tsaRecord(data, "TSA:Crex_crex_DIG0208_23")
+  expect_identical(crake$Time, "")
+  expect_identical(crake$time_of_day, "morning")
+  #A clock time stays a clock time, and gives no time of day in words
+  woodpecker <- tsaRecord(data, "TSA:Dryocopus_martius_DIG0210_08")
+  expect_identical(woodpecker$Time, "08:00")
+  expect_identical(woodpecker$time_of_day, "")
+  frog <- tsaRecord(data, "TSA:Rana_temporaria_DIG0204_21")
+  expect_identical(frog$Time, "")
+  expect_identical(frog$time_of_day, "10.:00")
+  quail <- tsaRecord(data, "TSA:Coturnix_coturnix_DIG0210_16")
+  expect_identical(quail$Time, "")
+  expect_identical(quail$time_of_day, "")
+
+  #Kept in words, the time survives the normalising that uploading does
+  normalised <- normaliseRecordings(crake)
+  expect_identical(normalised$Time, NA_character_)
+  expect_identical(normalised$time_of_day, "morning")
+})
+
 test_that("a Tierstimmenarchiv record is harvested once", {
   seen <- new.env(hash=TRUE, parent=emptyenv())
   expect_length(tsaFresh(tsaFixture(), seen), 12)

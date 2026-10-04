@@ -289,8 +289,8 @@ tsaRecordings <- function(records) {
     deployment=empty,
     lat=tsaCoordinate(field("latitude"), 90),
     lon=tsaCoordinate(field("longitude"), 180),
-    #Times are clock times, so none of them describe a time of day in words
-    time_of_day=empty,
+    #A time that is not a clock time, e.g. "morning", is kept in words
+    time_of_day=tsaTimeOfDay(field("recording_time")),
     license=tsaLicense(field("usage_permission")),
     info_url=tsaRecordURL(id),
     device=field("recording_equipment"),
@@ -584,9 +584,21 @@ tsaDate <- function(x) {
   return(tsaEither(is.na(date), "", date))
 }
 
+#Times, which the archive gives as clock times, but a few hundred records give
+#in words (see tsaTimeOfDay()); empty where there is no clock time
 tsaTime <- function(x) {
   time <- clockTime(x)
   return(tsaEither(is.na(time), "", time))
+}
+
+#The times that are not clock times, as the archive writes them. Most are words
+#(morning, afternoon, noon, evening, night), and noon is kept as one rather than
+#read as 12:00. A few are clock times mistyped, e.g. "10.:00", or cut short, as
+#"12:5" is, which could be 12:05 or 12:50; these are kept as written rather than
+#guessed at. "/N" is not a time: some records write it in every field they have
+#no value for, so it is left out, as are the placeholders unknownTime() knows.
+tsaTimeOfDay <- function(x) {
+  return(tsaEither(is.na(clockTime(x)) & !unknownTime(x) & x != "/N", x, ""))
 }
 
 #Coordinates, which the archive gives as decimal degrees
