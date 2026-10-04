@@ -245,7 +245,7 @@ test_that("the taxa and the links are what the uploaders take", {
   expect_identical(cricket$parent_id, "8NKFS")
   #A rank with no column is reported rather than quietly dropped
   expect_warning(mockUpload(uploadTaxa, taxa),
-                 "The taxa table has no column for the rank", fixed=TRUE)
+                 "The taxa table has no column for Subclass", fixed=TRUE)
 
   #normaliseLinks keeps every link: the predicate and both types are ones it
   #knows, and the empty object source is filled in with the uploading source

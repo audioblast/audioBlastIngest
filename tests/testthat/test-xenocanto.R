@@ -322,7 +322,9 @@ test_that("the taxa a recording names are records of their own", {
   expect_identical(gull$Subspecies, "Larus fuscus fuscus")
   #xeno-canto gives nothing above the genus, so there is no rank above it to
   #have a column at all; uploadTaxa() fills the ones the table has as NULL
-  expect_identical(names(out)[-(1:5)], c("Genus", "Species", "Subspecies"))
+  named <- c("source", "id", "taxon", "parent_id", "Rank", "taxonomicStatus",
+             "nomenclaturalStatus", "acceptedNameUsageID", "acceptedNameUsage")
+  expect_identical(setdiff(names(out), named), c("Genus", "Species", "Subspecies"))
   expect_null(gull$Family)
 })
 

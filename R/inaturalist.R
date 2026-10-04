@@ -529,6 +529,12 @@ inaturalistTaxa <- function(taxa) {
     Rank=inaturalistRank(inaturalistValue(taxa, "rank")),
     parent_id=inaturalistValue(taxa, "parent_id"),
     parent_taxon=empty,
+    #No status is asked of the API for a taxon, so the columns that say
+    #whether a name is the one in use are left empty
+    taxonomicStatus=empty,
+    nomenclaturalStatus=empty,
+    acceptedNameUsageID=empty,
+    acceptedNameUsage=empty,
     stringsAsFactors=FALSE, check.names=FALSE)
   data <- data[data$id != "" & data$taxon != "", ]
   data <- data[!duplicated(data$id), ]

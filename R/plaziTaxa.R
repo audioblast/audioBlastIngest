@@ -87,7 +87,9 @@ plaziTaxon <- function(rank, parts, parent) {
     `Unit name 1`=units[1], `Unit name 2`=units[2],
     `Unit name 3`=units[3], `Unit name 4`=units[4],
     Rank=str_to_title(rank), parent_id=parent,
-    parent_taxon=parent, stringsAsFactors=FALSE, check.names=FALSE))
+    parent_taxon=parent, taxonomicStatus="", nomenclaturalStatus="",
+    acceptedNameUsageID="", acceptedNameUsage="",
+    stringsAsFactors=FALSE, check.names=FALSE))
 }
 
 #The species epithet, taken from the printed name where Plazi could not read

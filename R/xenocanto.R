@@ -580,8 +580,10 @@ xenocantoTaxa <- function(recordings) {
   words <- lengths(strsplit(taxa, " ", fixed=TRUE))
   parent <- ifelse(words > 1, sub(" [^ ]+$", "", taxa), "")
   empty <- rep_len("", length(taxa))
+  #xeno-canto says nothing of whether a name is the one in use
   data <- data.frame(empty, taxa, taxa, empty, empty, empty, empty,
                      c("Genus", "Species", "Subspecies")[words], parent, parent,
+                     empty, empty, empty, empty,
                      stringsAsFactors=FALSE)
   names(data) <- names(getHeaders("taxa"))
   return(data)

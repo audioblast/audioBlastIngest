@@ -61,12 +61,19 @@ taxonomiseR  <- function(input) {
 
   input$Rank <- str_to_title(input$Rank)
   ranks <- unique(input$Rank[input$Rank != ""])
-  columns <- c("source", "id", "taxon", "parent_id", "Rank", ranks)
+  #What a source says about the name itself rather than about where it sits in
+  #the classification. It is carried through rather than walked: a synonym's
+  #status is its own, not something inherited from an ancestor. A source that
+  #gives none of these is unchanged by this.
+  carried <- intersect(c("taxonomicStatus", "nomenclaturalStatus",
+                         "acceptedNameUsageID", "acceptedNameUsage"), names(input))
+  kept <- c("source", "id", "taxon", "parent_id", "Rank", carried)
+  columns <- c(kept, ranks)
   #Filled in as a matrix and made a data frame once at the end, as writing a
   #cell of a data frame rewrites the column it is in
   output <- matrix(NA_character_, nrow=nrow(input), ncol=length(columns),
                    dimnames=list(NULL, columns))
-  for (column in c("source", "id", "taxon", "parent_id", "Rank")) {
+  for (column in kept) {
     output[, column] <- input[[column]]
   }
 

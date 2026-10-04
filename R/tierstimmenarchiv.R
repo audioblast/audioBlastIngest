@@ -438,8 +438,9 @@ tsaTaxa <- function(records) {
                       tsaEither(words > 1, sub(" [^ ]+$", "", taxa), ""))
   rank <- tsaEither(form, "Form", c("Genus", "Species", "Subspecies")[words])
   empty <- rep_len("", length(taxa))
+  #The archive says nothing of whether a name is the one in use
   data <- data.frame(empty, taxa, taxa, empty, empty, empty, empty,
-                     rank, parent, parent,
+                     rank, parent, parent, empty, empty, empty, empty,
                      stringsAsFactors=FALSE)
   names(data) <- names(getHeaders("taxa"))
   return(data)
