@@ -201,6 +201,39 @@ test_that("what a Tierstimmenarchiv record holds besides is kept as details", {
                    c("song", "call", "call sequence", "twittering"))
 })
 
+test_that("the archive's /N for no value is no value, whichever field it is in", {
+  expect_identical(tsaText("/N"), "")
+  expect_identical(tsaText(" /N "), "")
+
+  #Part of one of the records that write it, from Reinald Skiba's bat tapes
+  bat <- list(
+    unique_identifier="TSA:Barbastella_barbastellus_Ski0109_S1_From0663731ms_To0682090ms",
+    filename="Barbastella_barbastellus_Ski0109_S1_From0663731ms_To0682090ms",
+    species="Barbastella barbastellus", sound_type="echolocation call",
+    author="Skiba, Reinald", country="DE", locality="Selbitz",
+    scenic_area="/N", habitat="/N", sex="/N", age="/N", specimen="/N",
+    background_species="/N", weather="/N")
+
+  details <- tsaDetails(list(bat))
+  expect_false("/N" %in% details$value)
+  expect_identical(sort(details$name), c("filename", "sound_type"))
+
+  #Nothing says which fields it can be in, so it is dropped from all of them,
+  #the recordings table's columns included
+  bat$author <- "/N"
+  bat$locality <- "/N"
+  recording <- tsaRecordings(list(bat))
+  expect_identical(recording$author, "")
+  expect_identical(recording$rights_holder, "")
+  expect_identical(recording$locality, "")
+  expect_identical(recording$country, "DE")
+
+  #"/N" in background_species names no taxon behind the bat
+  links <- tsaLinks(list(bat))
+  expect_identical(links$object_id, "Barbastella barbastellus")
+  expect_identical(links$qualifier, "")
+})
+
 test_that("the paper a Tierstimmenarchiv recording was used in becomes a reference", {
   data <- tsaReferences(tsaHarvested())
 
