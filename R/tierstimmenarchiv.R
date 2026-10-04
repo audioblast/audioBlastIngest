@@ -239,13 +239,21 @@ tsaParameters <- function(query) {
 
 #A field of a record as text, as the archive gives a number as a number (a
 #coordinate, a sample rate, whether the animal was seen) and leaves out what it
-#has no value for as null
+#has no value for as null.
+#
+#Some records write "/N" instead in the fields they have no value for, which
+#looks like MySQL's \N for null, mangled on its way out. That is no value
+#either, so it is dropped here, where every field passes, rather than field by
+#field. In October 2026 it was in 30 records, all from Reinald Skiba's bat tapes
+#(Ski), but nothing says it is kept to those fields or those tapes.
 tsaText <- function(value) {
   if (length(value) != 1 || is.na(value)) return("")
   if (is.numeric(value)) value <- format(value, scientific=FALSE, digits=15, trim=TRUE)
   value <- as.character(value)
   Encoding(value) <- "UTF-8"
-  return(trimws(value))
+  value <- trimws(value)
+  if (value == "/N") return("")
+  return(value)
 }
 
 #A field of every record of a page
