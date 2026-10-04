@@ -58,9 +58,9 @@ for Cicadidae. Each is harvested in turn, and "" is every taxon.
 
 An observation is not a recording: it can carry several sounds, and each of
 them is a recording of its own, identified by the sound's id rather than the
-observation's. Sounds that have been taken down are left out, as are sounds
-that are All Rights Reserved, whose licence this API could not state (see
-inaturalistLicenses).
+observation's. Sounds that have been taken down are left out. Sounds that
+are All Rights Reserved, which iNaturalist gives no licence, are harvested
+with no licence (see inaturalistLicenses).
 
 iNaturalist caps a search at 10000 results however it is paged, so pages are
 taken as a sliding window of ids rather than by number. Reading needs no API
