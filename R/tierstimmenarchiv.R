@@ -416,9 +416,7 @@ tsaDetail <- function(id, name, value, unit="") {
 #A name implies the taxa it sits in, so a species reaches its genus whether or
 #not anything was recorded of the genus alone. A form sits in the species
 #written before its "f.", however many words its own epithet has, and is ranked
-#Form. The taxa table has no column for that rank, so uploadTaxa() leaves the
-#column out with a warning, but the taxon itself is kept, with its species and
-#genus in their columns.
+#Form, with its species and genus in their columns.
 tsaTaxa <- function(records) {
   named <- c(tsaTaxon(tsaField(records, "species"), tsaField(records, "subspecies")),
              unlist(tsaBackground(tsaField(records, "background_species")), use.names=FALSE))

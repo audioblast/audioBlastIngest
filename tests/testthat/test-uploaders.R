@@ -57,7 +57,7 @@ test_that("uploadTaxa inserts taxa columns by name", {
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
                "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies",
-               "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
+               "Form", "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
                "acceptedNameUsage")
   table <- columnTable(rev(columns))
 

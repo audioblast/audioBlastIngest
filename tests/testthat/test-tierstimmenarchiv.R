@@ -396,12 +396,14 @@ test_that("a Tierstimmenarchiv form is a taxon of its own inside its species", {
   expect_identical(rank("Canis lupus f. dingo hallstromi"), "Form")
   expect_identical(parent("Canis lupus f. dingo hallstromi"), "Canis lupus")
 
-  #The taxa table has no column for a form, but the form's species and genus
-  #have theirs
+  #A form names itself in the taxa table's Form column, and its species and
+  #genus in theirs
   walked <- taxonomiseR(sourceR("TSA", taxa))
   form <- walked[walked$id == "Bos taurus f. taurus", ]
+  expect_identical(form$Form, "Bos taurus f. taurus")
   expect_identical(form$Species, "Bos taurus")
   expect_identical(form$Genus, "Bos")
+  expect_warning(mockUpload(uploadTaxa, walked), regexp=NA)
 
   links <- tsaLinks(records)
   focal <- links[links$qualifier == "", ]

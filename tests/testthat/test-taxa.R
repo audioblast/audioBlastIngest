@@ -143,7 +143,7 @@ test_that("uploadTaxa gives a source the ranks it doesn't use", {
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
                "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies",
-               "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
+               "Form", "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
                "acceptedNameUsage")
   expect_identical(upload$executed[[1]]$sql, insertSQL("taxa", columns, columns[-(1:2)], 2))
   rows <- boundRows(upload$executed[[1]])

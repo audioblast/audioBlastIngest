@@ -28,7 +28,7 @@ uploadTaxa <- function(db, table, replace=FALSE) {
                "Subkingdom", "Phylum", "Subphylum", "Class", "Order",
                "Suborder", "Infraorder", "Superfamily", "Family", "Subfamily",
                "Tribe", "Subtribe", "Genus", "Subgenus", "Species", "Subspecies",
-               "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
+               "Form", "taxonomicStatus", "nomenclaturalStatus", "acceptedNameUsageID",
                "acceptedNameUsage")
   unknown <- setdiff(names(table), columns)
   if (length(unknown) > 0) {
