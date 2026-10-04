@@ -5,6 +5,12 @@ inatFixture <- function() {
   rjson::fromJSON(body)
 }
 
+#The recordings of the fixture, one of whose sounds has a licence code that is
+#not known here, which is warned of
+inatFixtureSounds <- function() {
+  expect_warning(inaturalistSounds(inatFixture()$results), "licence that could not be read")
+}
+
 inatPage <- function(ids, remaining=length(ids)) {
   observations <- lapply(ids, function(id) {
     list(id=id, observed_on="2020-07-01", time_observed_at="2020-07-01T14:00:00+01:00",
@@ -46,15 +52,17 @@ inatAPI <- function(observations) {
 }
 
 test_that("iNaturalist observations are converted to the recordings format", {
-  data <- inaturalistSounds(inatFixture()$results)
+  data <- inatFixtureSounds()
 
   expect_identical(names(data), names(getHeaders("recordings")))
   expect_true(all(vapply(data, is.character, logical(1))))
   #A recording is a sound rather than an observation, so an observation with two
-  #of them is two recordings. The All Rights Reserved, taken down, unlicensed
-  #and audioless sounds are left out, as is an observation carrying no sound.
-  expect_identical(data$id, c("1654351", "1654352", "1270513", "900002", "274020",
-                              "151738", "2165535"))
+  #of them is two recordings. The taken down and audioless sounds are left out,
+  #as is an observation carrying no sound. All Rights Reserved sounds, and one
+  #whose licence code is not known here, are kept with no licence.
+  expect_identical(data$id, c("1654351", "1654352", "1129762", "1129763", "1270513",
+                              "1270514", "900002", "274020", "151738", "2165535",
+                              "500001"))
 
   bushcricket <- data[1, ]
   expect_identical(bushcricket$source, "")
@@ -78,7 +86,7 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(bushcricket$lat, "50.7365434086")
   expect_identical(bushcricket$lon, "7.165596485")
   expect_identical(bushcricket$time_of_day, "")
-  expect_identical(bushcricket$license, "https://creativecommons.org/licenses/by-nc/4.0/")
+  expect_identical(bushcricket$license, "https://creativecommons.org/licenses/by-nc/")
   #A sound's own URL is the audio file, so the recording's page is its
   #observation's
   expect_identical(bushcricket$info_url, "https://www.inaturalist.org/observations/317940343")
@@ -97,27 +105,35 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(second$Title, bushcricket$Title)
   expect_identical(second$info_url, bushcricket$info_url)
 
-  #Only one of this observation's two sounds is licensed, so the observation
-  #passes the API's licence filter but its other sound is still left out
-  katydid <- data[3, ]
-  expect_identical(katydid$license, "https://creativecommons.org/licenses/by/4.0/")
+  #A sound that is All Rights Reserved has no licence, which is what iNaturalist
+  #gives, and is otherwise a recording like any other
+  reserved <- data[3, ]
+  expect_identical(reserved$license, "")
+  expect_identical(reserved$file, "https://static.inaturalist.org/sounds/1129762.m4a")
+  expect_identical(data$license[4], "")
+
+  #Only one of this observation's two sounds is licensed. The other is All
+  #Rights Reserved, and is kept with no licence.
+  katydid <- data[5, ]
+  expect_identical(katydid$license, "https://creativecommons.org/licenses/by/")
+  expect_identical(data$license[6], "")
   #An observer who has given no name is credited by their login
   expect_identical(katydid$author, "rostyslav_yurechko")
   expect_identical(katydid$rights_holder, "rostyslav_yurechko")
 
-  cricket <- data[4, ]
+  cricket <- data[7, ]
   expect_identical(cricket$id, "900002")
   expect_identical(cricket$taxon, "Gryllus")
   expect_identical(cricket$type, "audio/x-wav")
 
-  cicada <- data[5, ]
+  cicada <- data[8, ]
   expect_identical(cicada$Date, "")
   expect_identical(cicada$Time, "")
   expect_identical(cicada$license, "https://creativecommons.org/publicdomain/zero/1.0/")
 
   #A name above genus is what the community identified the observation as, not a
   #placeholder, so it is kept
-  unnamed <- data[6, ]
+  unnamed <- data[9, ]
   expect_identical(unnamed$taxon, "Orthoptera")
   expect_identical(unnamed$Title, "iNat65912878 Orthoptera")
   expect_identical(unnamed$Date, "2020-07-01")
@@ -125,14 +141,18 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(unnamed$author, "Mathieu P\u00e9lissi\u00e9")
   expect_identical(Encoding(unnamed$author), "UTF-8")
   expect_identical(unnamed$locality, "Vall\u00e9e du Rh\u00f4ne, France")
-  expect_identical(unnamed$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+  expect_identical(unnamed$license, "https://creativecommons.org/licenses/by-nc-sa/")
 
   #No derivatives is harvested: audioBlast! links to a recording and never
   #copies it, so it never makes a derivative of one
-  cricket2 <- data[7, ]
-  expect_identical(cricket2$license, "https://creativecommons.org/licenses/by-nd/4.0/")
+  cricket2 <- data[10, ]
+  expect_identical(cricket2$license, "https://creativecommons.org/licenses/by-nd/")
   #A name given as an empty string is no name, so the login is the credit
   expect_identical(cricket2$author, "carbenoid")
+
+  #A licence code that is not known here is warned of, and the sound is kept
+  #with no licence rather than with a licence guessed at
+  expect_identical(data[11, "license"], "")
 })
 
 test_that("an empty iNaturalist page has no recordings", {
@@ -147,7 +167,7 @@ test_that("an empty iNaturalist page has no recordings", {
 })
 
 test_that("each recording has the details of its observation", {
-  data <- inaturalistSounds(inatFixture()$results)
+  data <- inatFixtureSounds()
   observed <- attr(data, "observed")
   #A row of its observation's values for each recording that was kept
   expect_equal(nrow(observed), nrow(data))
@@ -158,14 +178,16 @@ test_that("each recording has the details of its observation", {
   expect_true(all(details$source == ""))
   detail <- function(name) details[details$name == name, c("id", "value", "unit")]
 
-  #Obscured by the observer (the katydid), for the taxon (the cricket), and kept
-  #private by the observer (the cicada). An open location says nothing, and an
-  #observation whose sounds were all left out (the Missouri cicadas) gives no
-  #details either.
-  expect_identical(detail("obscured")$id, c("1270513", "900002", "274020"))
+  #Obscured by the observer (both recordings of the Missouri cicadas and of the
+  #katydid), for the taxon (the cricket), and kept private by the observer (the
+  #Algarve cicada). An open location says nothing, and the cricket's sound that
+  #was taken down, which is no recording, has no details either.
+  expect_identical(detail("obscured")$id,
+                   c("1129762", "1129763", "1270513", "1270514", "900002", "274020"))
   expect_true(all(detail("obscured")$value == "true"))
-  expect_identical(detail("geoprivacy")$id, c("1270513", "274020"))
-  expect_identical(detail("geoprivacy")$value, c("obscured", "private"))
+  expect_identical(detail("geoprivacy")$id, c("1129762", "1129763", "1270513", "1270514", "274020"))
+  expect_identical(detail("geoprivacy")$value,
+                   c("obscured", "obscured", "obscured", "obscured", "private"))
   expect_identical(detail("taxon_geoprivacy")$id, "900002")
   expect_identical(detail("taxon_geoprivacy")$value, "obscured")
 
@@ -174,16 +196,16 @@ test_that("each recording has the details of its observation", {
   #iNaturalist gives the private cicada one too, but it has no coordinates for
   #it to be the accuracy of.
   accuracy <- detail("public_positional_accuracy")
-  expect_identical(accuracy$id, c("1654351", "1654352", "1270513", "900002"))
-  expect_identical(accuracy$value, c("12", "12", "29433", "29656"))
+  expect_identical(accuracy$id,
+                   c("1654351", "1654352", "1129762", "1129763", "1270513", "1270514", "900002"))
+  expect_identical(accuracy$value, c("12", "12", "28121", "28121", "29433", "29433", "29656"))
   expect_true(all(accuracy$unit == "m"))
 
-  #The grade of every recording, so that the selection a harvest makes is said
-  #on each of them
+  #The grade of every recording iNaturalist gives one, so that the selection a
+  #harvest makes is said on each of them. The last observation has none.
   grade <- detail("quality_grade")
-  expect_identical(grade$id, data$id)
-  expect_identical(grade$value, c("research", "research", "research", "research",
-                                  "research", "needs_id", "research"))
+  expect_identical(grade$id, data$id[1:10])
+  expect_identical(grade$value, c(rep("research", 8), "needs_id", "research"))
   expect_true(all(grade$unit == ""))
 
   #A private location has no coordinates to give
@@ -201,7 +223,7 @@ test_that("each recording has the details of its observation", {
 })
 
 test_that("iNaturalist details need no correcting on upload", {
-  data <- inaturalistSounds(inatFixture()$results)
+  data <- inatFixtureSounds()
   details <- sourceR("iNaturalist", inaturalistDetails(data, attr(data, "observed")))
 
   #normaliseDetails() warns of any detail it had to leave out
@@ -210,7 +232,7 @@ test_that("iNaturalist details need no correcting on upload", {
 })
 
 test_that("a page says which recording is about which taxon", {
-  data <- inaturalistSounds(inatFixture()$results)
+  data <- inatFixtureSounds()
   links <- attr(data, "links")
 
   expect_identical(names(links), names(getHeaders("links")))
@@ -255,7 +277,7 @@ test_that("the taxa above a taxon are the ones its classification needs", {
 })
 
 test_that("iNaturalist recordings need no correcting on upload", {
-  data <- sourceR("iNaturalist", inaturalistSounds(inatFixture()$results))
+  data <- sourceR("iNaturalist", inatFixtureSounds())
 
   #normaliseRecordings() warns of any value it could not read
   expect_warning(normalised <- normaliseRecordings(data), regexp=NA)
@@ -263,10 +285,10 @@ test_that("iNaturalist recordings need no correcting on upload", {
   expect_identical(normalised$Date[1], "2025-08-17")
   expect_identical(normalised$Time[1], "05:00:00")
   expect_identical(normalised$lat[1], "50.7365434086")
-  expect_identical(normalised$type[4], "audio/x-wav")
+  expect_identical(normalised$type[7], "audio/x-wav")
   #What iNaturalist does not hold is uploaded as NULL rather than guessed
-  expect_identical(normalised$Date[5], NA_character_)
-  expect_identical(normalised$Time[5], NA_character_)
+  expect_identical(normalised$Date[8], NA_character_)
+  expect_identical(normalised$Time[8], NA_character_)
   expect_identical(normalised$country[1], NA_character_)
   expect_identical(normalised$Duration[1], NA_character_)
   expect_identical(normalised$sample_rate[1], NA_character_)
@@ -277,17 +299,27 @@ test_that("iNaturalist recordings need no correcting on upload", {
 })
 
 test_that("iNaturalist values are normalised", {
+  #iNaturalist names a licence but not its version, so no version is added,
+  #except to CC0, which has only ever had one
   expect_identical(
     inaturalistLicense(c("cc0", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc",
-                         "cc-by-nc-sa", "cc-by-nc-nd", "CC-BY", "", "cc-by-nc-xx")),
+                         "cc-by-nc-sa", "cc-by-nc-nd", "CC-BY", "")),
     c("https://creativecommons.org/publicdomain/zero/1.0/",
-      "https://creativecommons.org/licenses/by/4.0/",
-      "https://creativecommons.org/licenses/by-sa/4.0/",
-      "https://creativecommons.org/licenses/by-nd/4.0/",
-      "https://creativecommons.org/licenses/by-nc/4.0/",
-      "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-      "https://creativecommons.org/licenses/by-nc-nd/4.0/",
-      "https://creativecommons.org/licenses/by/4.0/", "", ""))
+      "https://creativecommons.org/licenses/by/",
+      "https://creativecommons.org/licenses/by-sa/",
+      "https://creativecommons.org/licenses/by-nd/",
+      "https://creativecommons.org/licenses/by-nc/",
+      "https://creativecommons.org/licenses/by-nc-sa/",
+      "https://creativecommons.org/licenses/by-nc-nd/",
+      "https://creativecommons.org/licenses/by/", ""))
+  #All Rights Reserved, which iNaturalist gives as no licence, is not warned of,
+  #but a code that is not known here is
+  expect_warning(inaturalistLicense(""), regexp=NA)
+  expect_warning(expect_identical(inaturalistLicense("cc-by-nc-xx"), ""),
+                 "licence that could not be read")
+  #A licence URL with no version is still a licence URL, so normalising it
+  #leaves it as it is
+  expect_identical(httpURL(inaturalistLicense("cc-by-nc")), "https://creativecommons.org/licenses/by-nc/")
   expect_identical(
     inaturalistTime(c("2025-08-17T05:00:00+02:00", "2024-07-12T10:33:37-05:00",
                       "2020-07-01T14:00+01:00", "2025-08-17T25:00:00Z",
@@ -351,9 +383,8 @@ test_that("iNaturalist harvests page through every taxon with a sliding window",
   expect_length(urls, 3)
   expect_match(urls[1], "&taxon_id=47651&", fixed=TRUE)
   expect_match(urls[1], "&quality_grade=research&", fixed=TRUE)
-  #No derivatives is asked for; All Rights Reserved is not
-  expect_match(urls[1], "&sound_license=cc0,cc-by,cc-by-sa,cc-by-nd,cc-by-nc,cc-by-nc-sa,cc-by-nc-nd&",
-               fixed=TRUE)
+  #No licence is asked for, so All Rights Reserved sounds are harvested too
+  expect_false(grepl("sound_license=", urls[1], fixed=TRUE))
   expect_match(urls[1], "&order_by=id&order=asc&id_above=0&per_page=2&", fixed=TRUE)
   #Whether a location is obscured, and the grade, come in the same request
   expect_match(urls[1], "obscured:!t,geoprivacy:!t,taxon_geoprivacy:!t,public_positional_accuracy:!t,",
@@ -669,17 +700,17 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   expect_warning(ingestR(db="db"), "Skipping source iNaturalist - nothing came back")
 
   expect_identical(names(uploaded), names(getHeaders("recordings")))
-  expect_identical(uploaded$source, rep("iNaturalist", 7))
+  expect_identical(uploaded$source, rep("iNaturalist", 11))
   expect_identical(uploaded$id[1], "1654351")
 
   #One harvest fills four tables, and every one of them is named as
   #iNaturalist's by the source's own sourceR process
-  expect_identical(uploadedLinks$source, rep("iNaturalist", 7))
+  expect_identical(uploadedLinks$source, rep("iNaturalist", 11))
   expect_true(all(uploadedDetails$source == "iNaturalist"))
   expect_true(all(uploadedDetails$type == "recordings"))
-  expect_identical(sum(uploadedDetails$name == "quality_grade"), 7L)
+  expect_identical(sum(uploadedDetails$name == "quality_grade"), 10L)
   expect_identical(uploadedDetails$id[uploadedDetails$name == "obscured"],
-                   c("1270513", "900002", "274020"))
+                   c("1129762", "1129763", "1270513", "1270514", "900002", "274020"))
   expect_identical(uploadedLinks$subject_id[1:2], c("1654351", "1654352"))
   #Both sounds of one observation are about the same taxon
   expect_identical(uploadedLinks$object_id[1:2], c("123456", "123456"))
@@ -691,4 +722,9 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   expect_identical(bushcricket$Order, "Orthoptera")
   expect_identical(bushcricket$Class, "Insecta")
   expect_identical(bushcricket$Kingdom, "Animalia")
+})
+
+test_that("an iNaturalist harvest waits only for each request to be answered by default", {
+  expect_identical(formals(inaturalistR)$pause, 0)
+  expect_identical(formals(inaturalistTaxaByID)$pause, 0)
 })

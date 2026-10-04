@@ -9,9 +9,9 @@
 #'
 #' An observation is not a recording: it can carry several sounds, and each of
 #' them is a recording of its own, identified by the sound's id rather than the
-#' observation's. Sounds that have been taken down are left out, as are sounds
-#' that are All Rights Reserved, whose licence this API could not state (see
-#' inaturalistLicenses).
+#' observation's. Sounds that have been taken down are left out. Sounds that
+#' are All Rights Reserved, which iNaturalist gives no licence, are harvested
+#' with no licence (see inaturalistLicenses).
 #'
 #' What iNaturalist says of a recording's observation that the recordings
 #' table has no column for is given as details of the recording: whether its
@@ -22,7 +22,9 @@
 #' iNaturalist caps a search at 10000 results however it is paged, so pages are
 #' taken as a sliding window of ids rather than by number. Reading needs no API
 #' key; iNaturalist asks that requests identify themselves with a user agent
-#' and that there are no more than 60 of them a minute.
+#' and that there are no more than 60 of them a minute. Requests are made one
+#' at a time, each once the one before has been answered, and a request that
+#' iNaturalist says is one too many is made again after a wait.
 #'
 #' @param taxon_id Character vector of iNaturalist taxon ids, harvested in
 #'   turn. An element can name several taxa at once, separated by commas, and
@@ -31,7 +33,8 @@
 #'   comma separated list. "research" is those whose identification the
 #'   community has agreed. Each recording's grade is one of its details.
 #' @param per_page Number of observations per API request, from 1 to 200.
-#' @param pause Seconds to wait between API requests.
+#' @param pause Seconds to wait between API requests, on top of waiting for each
+#'   to be answered. 0 by default.
 #' @param verbose If TRUE says more about what's going on, including the id to
 #'   resume a harvest above if it is interrupted.
 #' @param dir Directory to stream the harvest to, a CSV of each type of table,
@@ -62,7 +65,7 @@
 #' }
 #' @importFrom curl new_handle
 #' @export
-inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=1,
+inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=0,
                          verbose=FALSE, dir=NULL, id_above="0") {
   if (!is.character(taxon_id) || length(taxon_id) == 0 || any(is.na(taxon_id)) ||
       !all(grepl("^([0-9]+(,[0-9]+)*)?$", taxon_id))) {
@@ -225,23 +228,28 @@ inaturalistKnown <- function(ids, seen) {
   }, logical(1), USE.NAMES=FALSE))
 }
 
-#The licences iNaturalist gives a sound, and the licence URL of each. They are
-#Creative Commons 4.0, which is what GBIF's export of the same records gives
-#them as.
+#The licences iNaturalist gives a sound, and the licence URL of each.
+#iNaturalist's API gives a sound's licence as a code such as cc-by-nc, which
+#names a Creative Commons licence but not its version, so each is the address
+#of that licence with no version in it (e.g.
+#https://creativecommons.org/licenses/by-nc/). A version is not taken from
+#anywhere else, such as GBIF's export of the same records: what a recording is
+#licensed under is what its source says it is. CC0 is the exception, as it has
+#only ever had one version, 1.0, so naming it is naming that.
 #
 #No-derivatives licences are harvested: audioBlast! links to a recording where
 #it lives and never copies it, so it never makes a derivative of one. A sound
-#with no licence at all is All Rights Reserved, and is not harvested: its
-#licence column would have to be empty, and a recording whose licence this API
-#cannot state is worse to a reader than no recording at all.
+#with no licence at all is All Rights Reserved, and is harvested with its
+#licence empty, as that is what iNaturalist gives; the Tierstimmenarchiv's
+#recordings with no licence are harvested in the same way.
 inaturalistLicenses <- c(
   "cc0"="https://creativecommons.org/publicdomain/zero/1.0/",
-  "cc-by"="https://creativecommons.org/licenses/by/4.0/",
-  "cc-by-sa"="https://creativecommons.org/licenses/by-sa/4.0/",
-  "cc-by-nd"="https://creativecommons.org/licenses/by-nd/4.0/",
-  "cc-by-nc"="https://creativecommons.org/licenses/by-nc/4.0/",
-  "cc-by-nc-sa"="https://creativecommons.org/licenses/by-nc-sa/4.0/",
-  "cc-by-nc-nd"="https://creativecommons.org/licenses/by-nc-nd/4.0/")
+  "cc-by"="https://creativecommons.org/licenses/by/",
+  "cc-by-sa"="https://creativecommons.org/licenses/by-sa/",
+  "cc-by-nd"="https://creativecommons.org/licenses/by-nd/",
+  "cc-by-nc"="https://creativecommons.org/licenses/by-nc/",
+  "cc-by-nc-sa"="https://creativecommons.org/licenses/by-nc-sa/",
+  "cc-by-nc-nd"="https://creativecommons.org/licenses/by-nc-nd/")
 
 #The fields of an observation that a recording is made of. Version 2 of the API
 #returns the fields it is asked for and no others, which is a page of 180 KB
@@ -276,7 +284,7 @@ inaturalistFetch <- function(taxon_id, quality_grade, id_above, per_page, handle
     #the API reads it as taxon 0 and refuses the request
     if (taxon_id == "") "" else paste0("&taxon_id=", taxon_id),
     "&quality_grade=", curl_escape(quality_grade),
-    "&sound_license=", paste(names(inaturalistLicenses), collapse=","),
+    #No licence is asked for, as All Rights Reserved sounds are harvested too
     "&order_by=id&order=asc",
     "&id_above=", id_above,
     "&per_page=", per_page,
@@ -379,11 +387,11 @@ inaturalistSounds <- function(observations) {
     channels=empty,
     stringsAsFactors=FALSE)
 
-  #Without audio there is nothing to listen to or analyse, a sound that has been
-  #taken down should not be linked to, and a sound that is All Rights Reserved
-  #has no licence to give (see inaturalistLicenses)
+  #Without audio there is nothing to listen to or analyse, and a sound that has
+  #been taken down should not be linked to. A sound with no licence is kept (see
+  #inaturalistLicenses).
   takenDown <- tolower(sound("hidden")) == "true"
-  keep <- data$id != "" & data$file != "" & data$license != "" & !takenDown
+  keep <- data$id != "" & data$file != "" & !takenDown
   data <- data[keep, ]
   rownames(data) <- NULL
 
@@ -550,7 +558,7 @@ inaturalistRank <- function(x) {
 }
 
 #The taxa of a list of ids, fetched a batch at a time
-inaturalistTaxaByID <- function(ids, handle, per_request=30, pause=1, verbose=FALSE) {
+inaturalistTaxaByID <- function(ids, handle, per_request=30, pause=0, verbose=FALSE) {
   pages <- list()
   batches <- split(ids, ceiling(seq_along(ids) / per_request))
   for (batch in batches) {
@@ -622,11 +630,13 @@ inaturalistFile <- function(x) {
   return(as.character(ifelse(is.na(file), "", file)))
 }
 
-#The licence of a sound as a licence URL; empty for All Rights Reserved, which
-#is how iNaturalist gives a sound with no licence, and for a licence that is not
-#known here
+#The licence of a sound as a licence URL, with no version unless it is CC0 (see
+#inaturalistLicenses); empty for All Rights Reserved, which is how iNaturalist
+#gives a sound with no licence, and for a licence that is not known here, which
+#is warned of
 inaturalistLicense <- function(x) {
   url <- unname(inaturalistLicenses[tolower(x)])
+  warnUnread("iNaturalist recordings", "licence", x, url)
   return(as.character(ifelse(is.na(url), "", url)))
 }
 
