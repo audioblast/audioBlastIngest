@@ -239,6 +239,79 @@ test_that("the taxa a Tierstimmenarchiv page names all have a record", {
   expect_identical(taxa$parent_id[taxa$id == "Trachyphonus"], "")
 })
 
+test_that("a Tierstimmenarchiv name is read as a taxon, or as none", {
+  expect_identical(
+    tsaName(c("Crex crex", "Trachyphonus margaritatus somalicus",
+              "Capra hircus f. hircus", "Bos taurus f. taurus",
+              "Canis lupus f. dingo hallstromi")),
+    c("Crex crex", "Trachyphonus margaritatus somalicus",
+      "Capra hircus f. hircus", "Bos taurus f. taurus",
+      "Canis lupus f. dingo hallstromi"))
+  #A name left open at the species is the genus
+  expect_identical(tsaName(c("Myotis spec.", "Acrocephalus sp.", "Acrocephalus sp")),
+                   c("Myotis", "Acrocephalus", "Acrocephalus"))
+  #What is not a name is no taxon, and neither is a form with no epithet or one
+  #with no species
+  expect_identical(tsaName(c("div.", "birds", "", NA, "Capra hircus f.", "Capra f. hircus")),
+                   rep("", 6))
+
+  #A subspecies is added to its species, and given after a form it is the second
+  #word of the form's epithet
+  expect_identical(
+    tsaTaxon(c("Trachyphonus margaritatus", "Bos taurus f. taurus", "Canis lupus f. dingo",
+               "Myotis spec.", "div."),
+             c("somalicus", "", "hallstromi", "", "")),
+    c("Trachyphonus margaritatus somalicus", "Bos taurus f. taurus",
+      "Canis lupus f. dingo hallstromi", "Myotis", ""))
+})
+
+test_that("a Tierstimmenarchiv form is a taxon of its own inside its species", {
+  records <- list(
+    list(unique_identifier="TSA:1", filename="1", species="Capra hircus f. hircus",
+         sound_type="call"),
+    list(unique_identifier="TSA:2", filename="2", species="Bos taurus f. taurus",
+         background_species="Capra hircus f. hircus, birds"),
+    list(unique_identifier="TSA:3", filename="3", species="Canis lupus f. dingo",
+         subspecies="hallstromi", sound_type="howling"))
+
+  data <- tsaRecordings(records)
+  expect_identical(data$taxon, c("Capra hircus f. hircus", "Bos taurus f. taurus",
+                                 "Canis lupus f. dingo hallstromi"))
+  expect_identical(data$Title, c("Capra hircus f. hircus - call", "Bos taurus f. taurus",
+                                 "Canis lupus f. dingo hallstromi - howling"))
+
+  taxa <- tsaTaxa(records)
+  rank <- function(id) taxa$Rank[taxa$id == id]
+  parent <- function(id) taxa$parent_id[taxa$id == id]
+  expect_identical(sort(taxa$id),
+                   sort(c("Capra", "Capra hircus", "Capra hircus f. hircus",
+                          "Bos", "Bos taurus", "Bos taurus f. taurus",
+                          "Canis", "Canis lupus", "Canis lupus f. dingo hallstromi")))
+  expect_identical(rank("Capra hircus f. hircus"), "Form")
+  expect_identical(parent("Capra hircus f. hircus"), "Capra hircus")
+  expect_identical(rank("Capra hircus"), "Species")
+  expect_identical(parent("Capra hircus"), "Capra")
+  expect_identical(rank("Capra"), "Genus")
+  #However many words a form's epithet has, it sits in the species
+  expect_identical(rank("Canis lupus f. dingo hallstromi"), "Form")
+  expect_identical(parent("Canis lupus f. dingo hallstromi"), "Canis lupus")
+
+  #The taxa table has no column for a form, but the form's species and genus
+  #have theirs
+  walked <- taxonomiseR(sourceR("TSA", taxa))
+  form <- walked[walked$id == "Bos taurus f. taurus", ]
+  expect_identical(form$Species, "Bos taurus")
+  expect_identical(form$Genus, "Bos")
+
+  links <- tsaLinks(records)
+  focal <- links[links$qualifier == "", ]
+  expect_identical(focal$object_id, data$taxon)
+  background <- links[links$qualifier != "", ]
+  expect_identical(background$subject_id, "TSA:2")
+  expect_identical(background$object_id, "Capra hircus f. hircus")
+  expect_identical(setdiff(links$object_id, taxa$id), character(0))
+})
+
 test_that("a Tierstimmenarchiv page with nothing on it gives empty tables", {
   makes <- list(recordings=tsaRecordings, details=tsaDetails, taxa=tsaTaxa,
                 references=tsaReferences, links=tsaLinks)
