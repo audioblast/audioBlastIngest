@@ -510,13 +510,13 @@ tsaLink <- function(subjectType, subject, predicate, objectType, object, qualifi
 }
 
 #Scientific names as the archive writes them: a capitalised genus and one or
-#two lower case epithets, or a form (see tsaForm()). A name left open at the
-#species, e.g. "Acrocephalus spec.", is the genus, which is as far as the
-#recordist identified the animal; anything else that is not a name, such as the
-#"div." of a recording of several species, names no taxon here, so it is left
-#out rather than made one.
+#two lower case epithets, or a form (see tsaForm()), with any umlaut written out
+#(see tsaUmlaut()). A name left open at the species, e.g. "Acrocephalus spec.",
+#is the genus, which is as far as the recordist identified the animal; anything
+#else that is not a name, such as the "div." of a recording of several species,
+#names no taxon here, so it is left out rather than made one.
 tsaName <- function(x) {
-  x <- trimws(as.character(x))
+  x <- tsaUmlaut(trimws(as.character(x)))
   x[is.na(x)] <- ""
   open <- grepl("^[A-Z][a-z]+ (spec|sp)\\.?$", x)
   x[open] <- sub(" .*$", "", x[open])
@@ -533,15 +533,30 @@ tsaForm <- function(x) {
   return(grepl("^[A-Z][a-z]+ [a-z-]+ f\\. [a-z-]+( [a-z-]+)?$", x))
 }
 
+#Names with each umlaut written out as the vowel and an e, as the Code writes a
+#name made from a German word (ICZN Art. 32.5.2.1), since a scientific name has
+#no diacritics (Art. 27). The archive writes "Mülleripicus", and its own ids
+#Muelleripicus. A name with any other letter that is not in the Latin alphabet,
+#such as ß or é, is still no name.
+tsaUmlaut <- function(x) {
+  umlaut <- c("\u00e4", "\u00f6", "\u00fc", "\u00c4", "\u00d6", "\u00dc")
+  written <- c("ae", "oe", "ue", "Ae", "Oe", "Ue")
+  for (i in seq_along(umlaut)) {
+    x <- gsub(umlaut[i], written[i], x, fixed=TRUE)
+  }
+  return(x)
+}
+
 #The name of the taxon each recording is of. A subspecies is given as a bare
 #epithet, so it is added to the species it belongs to. Given after a form, it
 #is the second word of the form's own epithet, as the hallstromi of "Canis
 #lupus f. dingo hallstromi" is.
 tsaTaxon <- function(species, subspecies) {
   taxon <- tsaName(species)
+  subspecies <- tsaUmlaut(trimws(subspecies))
   trinomial <- taxon != "" & grepl(" ", taxon, fixed=TRUE) &
-    grepl("^[a-z]+(-[a-z]+)?$", trimws(subspecies))
-  taxon[trinomial] <- paste(taxon[trinomial], trimws(subspecies[trinomial]))
+    grepl("^[a-z]+(-[a-z]+)?$", subspecies)
+  taxon[trinomial] <- paste(taxon[trinomial], subspecies[trinomial])
   return(taxon)
 }
 

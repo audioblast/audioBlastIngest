@@ -265,6 +265,28 @@ test_that("a Tierstimmenarchiv name is read as a taxon, or as none", {
       "Canis lupus f. dingo hallstromi", "Myotis", ""))
 })
 
+test_that("a Tierstimmenarchiv name with an umlaut has it written out", {
+  expect_identical(tsaUmlaut("\u00e4\u00f6\u00fc\u00c4\u00d6\u00dc"), "aeoeueAeOeUe")
+  expect_identical(tsaName(c("M\u00fclleripicus pulverulentus",
+                             "M\u00fclleripicus pulverulentus harterti")),
+                   c("Muelleripicus pulverulentus", "Muelleripicus pulverulentus harterti"))
+  expect_identical(tsaTaxon("Crex crex", "m\u00fclleri"), "Crex crex muelleri")
+  #A name with any other letter outside the Latin alphabet is still no name
+  expect_identical(tsaName(c("M\u00e9lleripicus pulverulentus", "Mu\u00dfleripicus pulverulentus")),
+                   c("", ""))
+
+  #The title keeps the name as the archive wrote it
+  records <- list(list(unique_identifier="TSA:Muelleripicus_pulverulentus_Lue_74_1_1",
+                       filename="1", species="M\u00fclleripicus pulverulentus",
+                       subspecies="harterti", sound_type="call"))
+  data <- tsaRecordings(records)
+  expect_identical(data$taxon, "Muelleripicus pulverulentus harterti")
+  expect_identical(data$Title, "M\u00fclleripicus pulverulentus harterti - call")
+  expect_identical(sort(tsaTaxa(records)$id),
+                   c("Muelleripicus", "Muelleripicus pulverulentus",
+                     "Muelleripicus pulverulentus harterti"))
+})
+
 test_that("a Tierstimmenarchiv form is a taxon of its own inside its species", {
   records <- list(
     list(unique_identifier="TSA:1", filename="1", species="Capra hircus f. hircus",
