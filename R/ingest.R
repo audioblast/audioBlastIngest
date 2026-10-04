@@ -25,11 +25,30 @@ ingestR <- function(db=NULL, verbose=FALSE) {
   onomatopoeia <- getHeaders("onomatopoeia")
   images <- getHeaders("images")
 
-  #The harvests that will not fit in memory as tables: xeno-canto's groups are
-  #over a million recordings, and the Tierstimmenarchiv is some 47,000 with
-  #about ten details each. They are streamed to files and uploaded from them a
-  #chunk at a time, where the other harvests are held as tables.
-  streamed <- list(xenocanto=xenocantoR, tierstimmenarchiv=tierstimmenarchivR)
+  #The harvests that will not fit in memory as tables: xeno-canto's groups and
+  #every taxon iNaturalist holds are each over a million recordings, and the
+  #Tierstimmenarchiv is some 47,000 with about ten details each. They are
+  #streamed to files and uploaded from them a chunk at a time, where the other
+  #harvests are held as tables.
+  streamed <- list(xenocanto=xenocantoR, inaturalist=inaturalistR,
+                   tierstimmenarchiv=tierstimmenarchivR)
+
+  #A streamed source is uploaded as soon as it is harvested, and its upload
+  #first removes the links, details and other tables its name gave before (see
+  #uploadStreamed()). Another source of the same name would remove what the
+  #harvest gave, or have what it gave removed by it: two iNaturalist sources,
+  #one for each taxon group, would each take the other's links. Nothing is
+  #harvested until the sources are put right.
+  named <- vapply(sources, function(source) source$name, character(1))
+  streaming <- vapply(sources, function(source) any(names(streamed) %in% names(source)), logical(1))
+  shared <- unique(named[streaming & named %in% named[duplicated(named)]])
+  if (length(shared) > 0) {
+    stop(paste0("More than one source in list_sources is named ",
+                paste0("'", shared, "'", collapse=", "),
+                ", which is streamed: each upload under that name would remove ",
+                "what the others gave. A streamed source must be the only one of its name."),
+         call.=FALSE)
+  }
 
   #The sources whose recordings were read whole from a file, and those that are
   #harvested, even in part. A file gives every recording its source has, so
@@ -41,7 +60,7 @@ ingestR <- function(db=NULL, verbose=FALSE) {
 
   for (i in 1:length(sources)) {
     source <- sources[[i]]
-    harvest <- any(c(names(streamed), "plazi", "inaturalist", "orthoptera") %in% names(source))
+    harvest <- any(c(names(streamed), "plazi", "orthoptera") %in% names(source))
     if (harvest) harvests <- c(harvests, source$name)
 
     if (verbose) print(paste("Source:", source$name))
@@ -96,17 +115,6 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #other's links.
       tables <- tryCatch(
         do.call(plaziR, c(source$plazi, list(verbose=verbose))),
-        error=function(e) {
-          warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
-          NULL
-        })
-      if (is.null(tables)) next
-    } else if (is.element("inaturalist", names(source))) {
-      #A failed harvest skips this source rather than every source. Each taxon
-      #group is a source of its own, so one that fails doesn't take the others
-      #with it.
-      tables <- tryCatch(
-        inaturalistR(source$inaturalist$taxon_id, verbose=verbose),
         error=function(e) {
           warning(paste("Skipping source", source$name, "-", conditionMessage(e)))
           NULL

@@ -545,77 +545,118 @@ test_that("iNaturalist client errors are reported without retrying", {
 })
 
 test_that("the iNaturalist source module is read from list_sources", {
-  #JSON as served for modules/inaturalist/module.php
+  #JSON as served for modules/inaturalist/module.php: one source, of every taxon
   json <- paste0('{"data":{"iNaturalist":[',
-                 '{"type":"recordings","inaturalist":{"taxon_id":["47651"]},"process":["sourceR"]},',
-                 '{"type":"recordings","inaturalist":{"taxon_id":["50186"]},"process":["sourceR"]}]}}')
+                 '{"type":"recordings","inaturalist":{"taxon_id":[""]},"process":["sourceR"]}]}}')
   local_mocked_bindings(fromJSON=function(...) rjson::fromJSON(json))
 
   sources <- getSources()
 
-  expect_length(sources, 2)
+  expect_length(sources, 1)
   expect_identical(sources[[1]]$name, "iNaturalist")
   expect_identical(sources[[1]]$process, "sourceR")
-  expect_identical(
-    sort(c(sources[[1]]$inaturalist$taxon_id, sources[[2]]$inaturalist$taxon_id)),
-    c("47651", "50186"))
+  expect_identical(sources[[1]]$inaturalist$taxon_id, "")
 })
 
-test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only itself", {
-  uploaded <- NULL
-  uploadedTaxa <- NULL
-  uploadedLinks <- NULL
+inatSource <- function() {
+  list(list(name="iNaturalist", type="recordings",
+            inaturalist=list(taxon_id=""), process="sourceR"))
+}
+
+test_that("ingestR streams a harvest of every taxon and uploads it from the files", {
+  urls <- character(0)
+  streamedTo <- NULL
+  harvest <- inaturalistR
+  local_mocked_bindings(
+    getSources=inatSource,
+    curl_fetch_memory=inatAPI(function(url) {
+      urls <<- c(urls, url)
+      inatResponse(200, inatPage(c(1001, 1002), 2))
+    }),
+    inaturalistR=function(..., dir=NULL) {
+      streamedTo <<- dir
+      harvest(..., dir=dir)
+    },
+    uploadTraits=function(db, table) NULL)
+
+  #The harvester and uploaders are iNaturalist's own, so what is checked is
+  #what reaches the database. The stub API's classification stops at the genus,
+  #which taxonomiseR() says.
+  upload <- mockUpload(function(db) {
+    expect_warning(ingestR(db=db), "classification stops there")
+  })
+  statements <- vapply(upload$executed, `[[`, character(1), "sql")
+  insert <- function(table) {
+    upload$executed[[which(startsWith(statements, paste0("INSERT INTO `", table, "`")))]]
+  }
+
+  #Every taxon is harvested, which is the taxon_id left out, and streamed to
+  #files, as it will not fit in memory
+  expect_false(grepl("taxon_id", urls[1], fixed=TRUE))
+  expect_identical(streamedTo, file.path(tempdir(), "harvest-iNaturalist"))
+
+  #The links iNaturalist gave before are removed once, before the harvest's
+  #links are inserted, and the recordings and taxa are updated by their ids
+  deleted <- which(startsWith(statements, "DELETE FROM `links`"))
+  expect_length(deleted, 1)
+  expect_match(statements[deleted], "DELETE FROM `links` WHERE `source` = ?", fixed=TRUE)
+  expect_identical(upload$executed[[deleted]]$params, list("iNaturalist"))
+  expect_lt(deleted, which(startsWith(statements, "INSERT INTO `links`")))
+  expect_false(any(startsWith(statements, "DELETE FROM `recordings`")))
+  expect_false(any(startsWith(statements, "DELETE FROM `taxa`")))
+
+  recordings <- boundRows(insert("recordings"))
+  expect_identical(vapply(recordings, `[[`, character(1), 1), c("iNaturalist", "iNaturalist"))
+  expect_identical(vapply(recordings, `[[`, character(1), 2), c("10010", "10020"))
+  taxa <- boundRows(insert("taxa"))
+  expect_identical(vapply(taxa, `[[`, character(1), 2), c("9001", "9000"))
+  #Each recording is about its taxon, as iNaturalist's link
+  links <- boundRows(insert("links"))
+  expect_identical(vapply(links, `[[`, character(1), 1), c("iNaturalist", "iNaturalist"))
+  expect_identical(vapply(links, `[[`, character(1), 5), c("10010", "10020"))
+  expect_identical(vapply(links, `[[`, character(1), 9), c("9001", "9001"))
+
+  #The files are cleared away once they have been uploaded
+  expect_false(dir.exists(file.path(tempdir(), "harvest-iNaturalist")))
+})
+
+test_that("ingestR harvests nothing while two sources are named iNaturalist", {
+  #One source for each taxon group, both named iNaturalist. Each upload would
+  #remove the links the other gave, and either would remove those of a harvest
+  #of every taxon.
+  harvested <- character(0)
   local_mocked_bindings(
     getSources=function() list(
       list(name="iNaturalist", type="recordings",
            inaturalist=list(taxon_id="47651"), process="sourceR"),
       list(name="iNaturalist", type="recordings",
            inaturalist=list(taxon_id="50186"), process="sourceR")),
+    inaturalistR=function(taxon_id, ...) harvested <<- c(harvested, taxon_id),
+    uploadTraits=function(db, table) NULL)
+
+  upload <- mockUpload(function(db) {
+    expect_error(ingestR(db=db), "More than one source in list_sources is named 'iNaturalist'")
+  })
+
+  expect_length(harvested, 0)
+  expect_length(upload$executed, 0)
+})
+
+test_that("ingestR carries on when the iNaturalist harvest fails, removing nothing", {
+  local_mocked_bindings(
+    getSources=inatSource,
     inaturalistR=function(taxon_id, ...) {
-      if (taxon_id == "50186") stop("nothing came back")
-      observations <- inatFixture()$results
-      recordings <- inaturalistSounds(observations)
-      links <- attr(recordings, "links")
-      taxa <- inaturalistTaxa(lapply(observations, `[[`, "taxon"))
-      taxa <- taxa[taxa$id %in% links$object_id, ]
-      #The taxa above them, as inaturalistTaxaByID() would have fetched them
-      above <- inaturalistTaxa(list(
-        list(id=48460, name="Life", rank="stateofmatter"),
-        list(id=1, name="Animalia", rank="kingdom", parent_id=48460),
-        list(id=47120, name="Arthropoda", rank="phylum", parent_id=1),
-        list(id=47158, name="Insecta", rank="class", parent_id=47120),
-        list(id=184884, name="Pterygota", rank="subclass", parent_id=47158),
-        list(id=47651, name="Orthoptera", rank="order", parent_id=184884),
-        list(id=50186, name="Cicadidae", rank="family", parent_id=47158),
-        list(id=123400, name="Pholidoptera", rank="genus", parent_id=47651)))
-      taxa <- rbind(taxa, above[!above$id %in% taxa$id, ])
-      list(recordings=recordings, taxa=taxa, links=links)
+      stop("iNaturalist request for taxon '' above id 0 failed")
     },
-    uploadTraits=function(db, table) NULL,
-    uploadTaxa=function(db, table) uploadedTaxa <<- table,
-    uploadLinks=function(db, table) uploadedLinks <<- table,
-    uploadRecordings=function(db, table) uploaded <<- table)
+    uploadTraits=function(db, table) NULL)
 
-  expect_warning(ingestR(db="db"), "Skipping source iNaturalist - nothing came back")
+  upload <- mockUpload(function(db) {
+    expect_warning(ingestR(db=db), "Skipping source iNaturalist")
+  })
 
-  expect_identical(names(uploaded), names(getHeaders("recordings")))
-  expect_identical(uploaded$source, rep("iNaturalist", 11))
-  expect_identical(uploaded$id[1], "1654351")
-
-  #One harvest fills three tables, and every one of them is named as
-  #iNaturalist's by the source's own sourceR process
-  expect_identical(uploadedLinks$source, rep("iNaturalist", 11))
-  expect_identical(uploadedLinks$subject_id[1:2], c("1654351", "1654352"))
-  #Both sounds of one observation are about the same taxon
-  expect_identical(uploadedLinks$object_id[1:2], c("123456", "123456"))
-  expect_true(all(uploadedTaxa$source == "iNaturalist"))
-  #taxonomiseR() has walked the classification, so a taxon names itself and
-  #everything above it
-  bushcricket <- uploadedTaxa[uploadedTaxa$id == "123456", ]
-  expect_identical(bushcricket$Species, "Pholidoptera griseoaptera")
-  expect_identical(bushcricket$Order, "Orthoptera")
-  expect_identical(bushcricket$Class, "Insecta")
-  expect_identical(bushcricket$Kingdom, "Animalia")
+  #The links of the last harvest are kept rather than removed for one that
+  #gave nothing
+  expect_length(upload$executed, 0)
 })
 
 test_that("an iNaturalist harvest waits only for each request to be answered by default", {

@@ -28,6 +28,21 @@ ingestR(db)
 
 Harvesting from xeno-canto requires a [xeno-canto API key](https://xeno-canto.org/account) in the `XC_API_KEY` environment variable, e.g. set in `.Renviron`. Without it the xeno-canto source is skipped.
 
+iNaturalist is harvested for every taxon. As with xeno-canto, the harvest is
+streamed to temporary files and uploaded from them a chunk at a time. The
+external `list_sources` configuration gives it one recordings module:
+
+```json
+{"type":"recordings","inaturalist":{"taxon_id":[""]},"process":["sourceR"]}
+```
+
+A harvest of every taxon took about 16 hours in September 2026 and wrote about
+550 MB of CSV. A streamed source must be the only one of its name in
+`list_sources`, as its upload first removes the links and details that its name
+gave before: a second iNaturalist source, such as one for each taxon group,
+would remove the links the first gave. `ingestR()` harvests nothing while one
+shares its name.
+
 Harvest recordings from [Orthoptera Species File](https://orthoptera.speciesfile.org/about)
 using its public TaxonWorks API (no personal API key required):
 
