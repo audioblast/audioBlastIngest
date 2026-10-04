@@ -8,7 +8,7 @@ inaturalistR(
   taxon_id,
   quality_grade = "research",
   per_page = 200,
-  pause = 1,
+  pause = 0,
   verbose = FALSE,
   dir = NULL,
   id_above = "0"
@@ -25,7 +25,8 @@ community has agreed.}
 
 \item{per_page}{Number of observations per API request, from 1 to 200.}
 
-\item{pause}{Seconds to wait between API requests.}
+\item{pause}{Seconds to wait between API requests, on top of waiting for each
+to be answered. 0 by default.}
 
 \item{verbose}{If TRUE says more about what's going on, including the id to
 resume a harvest above if it is interrupted.}
@@ -65,7 +66,9 @@ with no licence (see inaturalistLicenses).
 iNaturalist caps a search at 10000 results however it is paged, so pages are
 taken as a sliding window of ids rather than by number. Reading needs no API
 key; iNaturalist asks that requests identify themselves with a user agent
-and that there are no more than 60 of them a minute.
+and that there are no more than 60 of them a minute. Requests are made one
+at a time, each once the one before has been answered, and a request that
+iNaturalist says is one too many is made again after a wait.
 }
 \examples{
 \dontrun{
