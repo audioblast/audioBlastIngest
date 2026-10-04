@@ -622,10 +622,13 @@ tsaSampleRate <- function(x) {
   return(tsaEither(is.na(rate), "", format(rate, scientific=FALSE, trim=TRUE)))
 }
 
-#The licence a recording is under, as an address. The archive names a licence
-#rather than addressing one, and never says which version, so the version the
-#museum itself publishes for these recordings to GBIF is used: it gives them as
-#http://creativecommons.org/licenses/by-nc-sa/4.0/ there.
+#The licence a recording is under, as an address. The archive's usage_permission
+#names a Creative Commons licence, e.g. "CC BY-SA", rather than addressing one,
+#and never says which version, so the address is that of the licence with no
+#version in it (e.g. https://creativecommons.org/licenses/by-sa/). A version is
+#not taken from anywhere else, such as the museum's publication of the same
+#recordings to GBIF: what a recording is licensed under is what its source says
+#it is.
 #
 #One licence is named two ways, "CC BY-NC-SA" and "CC BY-NC-SA, no commercial
 #use", so what follows the first comma is a restatement of the licence rather
@@ -637,7 +640,7 @@ tsaLicense <- function(x) {
   named <- gsub("\\s+", " ", tolower(trimws(sub(",.*$", "", x))))
   path <- unname(licenses[named])
   url <- tsaEither(is.na(path), NA_character_,
-                   paste0("https://creativecommons.org/licenses/", path, "/4.0/"))
+                   paste0("https://creativecommons.org/licenses/", path, "/"))
   warnUnread("Tierstimmenarchiv recordings", "licence", x, url)
   return(tsaEither(is.na(url), "", url))
 }

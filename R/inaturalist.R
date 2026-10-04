@@ -212,9 +212,14 @@ inaturalistKnown <- function(ids, seen) {
   }, logical(1), USE.NAMES=FALSE))
 }
 
-#The licences iNaturalist gives a sound, and the licence URL of each. They are
-#Creative Commons 4.0, which is what GBIF's export of the same records gives
-#them as.
+#The licences iNaturalist gives a sound, and the licence URL of each.
+#iNaturalist's API gives a sound's licence as a code such as cc-by-nc, which
+#names a Creative Commons licence but not its version, so each is the address
+#of that licence with no version in it (e.g.
+#https://creativecommons.org/licenses/by-nc/). A version is not taken from
+#anywhere else, such as GBIF's export of the same records: what a recording is
+#licensed under is what its source says it is. CC0 is the exception, as it has
+#only ever had one version, 1.0, so naming it is naming that.
 #
 #No-derivatives licences are harvested: audioBlast! links to a recording where
 #it lives and never copies it, so it never makes a derivative of one. A sound
@@ -223,12 +228,12 @@ inaturalistKnown <- function(ids, seen) {
 #cannot state is worse to a reader than no recording at all.
 inaturalistLicenses <- c(
   "cc0"="https://creativecommons.org/publicdomain/zero/1.0/",
-  "cc-by"="https://creativecommons.org/licenses/by/4.0/",
-  "cc-by-sa"="https://creativecommons.org/licenses/by-sa/4.0/",
-  "cc-by-nd"="https://creativecommons.org/licenses/by-nd/4.0/",
-  "cc-by-nc"="https://creativecommons.org/licenses/by-nc/4.0/",
-  "cc-by-nc-sa"="https://creativecommons.org/licenses/by-nc-sa/4.0/",
-  "cc-by-nc-nd"="https://creativecommons.org/licenses/by-nc-nd/4.0/")
+  "cc-by"="https://creativecommons.org/licenses/by/",
+  "cc-by-sa"="https://creativecommons.org/licenses/by-sa/",
+  "cc-by-nd"="https://creativecommons.org/licenses/by-nd/",
+  "cc-by-nc"="https://creativecommons.org/licenses/by-nc/",
+  "cc-by-nc-sa"="https://creativecommons.org/licenses/by-nc-sa/",
+  "cc-by-nc-nd"="https://creativecommons.org/licenses/by-nc-nd/")
 
 #The fields of an observation that a recording is made of. Version 2 of the API
 #returns the fields it is asked for and no others, which is a page of 180 KB
@@ -534,9 +539,9 @@ inaturalistFile <- function(x) {
   return(as.character(ifelse(is.na(file), "", file)))
 }
 
-#The licence of a sound as a licence URL; empty for All Rights Reserved, which
-#is how iNaturalist gives a sound with no licence, and for a licence that is not
-#known here
+#The licence of a sound as a licence URL, with no version unless it is CC0 (see
+#inaturalistLicenses); empty for All Rights Reserved, which is how iNaturalist
+#gives a sound with no licence, and for a licence that is not known here
 inaturalistLicense <- function(x) {
   url <- unname(inaturalistLicenses[tolower(x)])
   return(as.character(ifelse(is.na(url), "", url)))

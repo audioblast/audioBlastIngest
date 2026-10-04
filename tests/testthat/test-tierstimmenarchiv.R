@@ -49,7 +49,7 @@ test_that("Tierstimmenarchiv records are converted to the recordings format", {
   expect_identical(frog$lat, "4.691944")
   expect_identical(frog$lon, "9.283333")
   expect_identical(frog$time_of_day, "")
-  expect_identical(frog$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+  expect_identical(frog$license, "https://creativecommons.org/licenses/by-nc-sa/")
   expect_identical(frog$info_url, paste0("https://suche.tierstimmenarchiv.de/search/details.html",
                                          "?unique_identifier=TSA%3ALeptopelis_aubryi_DIG_174_1_1"))
   #The recordist is who a CC BY licence asks to be credited
@@ -98,13 +98,14 @@ test_that("Tierstimmenarchiv lengths, rates and licences are read", {
     "256000")
   expect_identical(tsaRecord(data, "TSA:Rana_temporaria_DIG0204_21")$sample_rate, "44100")
 
-  #One licence is named two ways
+  #The archive names a licence but not its version, so no version is added. One
+  #licence is named two ways.
   expect_identical(tsaLicense(c("CC BY-SA", "CC BY-NC-SA", "CC BY-NC-SA, no commercial use",
                                 "CC BY", "")),
-                   c("https://creativecommons.org/licenses/by-sa/4.0/",
-                     "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-                     "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-                     "https://creativecommons.org/licenses/by/4.0/", ""))
+                   c("https://creativecommons.org/licenses/by-sa/",
+                     "https://creativecommons.org/licenses/by-nc-sa/",
+                     "https://creativecommons.org/licenses/by-nc-sa/",
+                     "https://creativecommons.org/licenses/by/", ""))
   expect_warning(tsaLicense("Ask the archive"), "licence that could not be read")
 })
 

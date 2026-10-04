@@ -77,7 +77,7 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(bushcricket$lat, "50.7365434086")
   expect_identical(bushcricket$lon, "7.165596485")
   expect_identical(bushcricket$time_of_day, "")
-  expect_identical(bushcricket$license, "https://creativecommons.org/licenses/by-nc/4.0/")
+  expect_identical(bushcricket$license, "https://creativecommons.org/licenses/by-nc/")
   #A sound's own URL is the audio file, so the recording's page is its
   #observation's
   expect_identical(bushcricket$info_url, "https://www.inaturalist.org/observations/317940343")
@@ -99,7 +99,7 @@ test_that("iNaturalist observations are converted to the recordings format", {
   #Only one of this observation's two sounds is licensed, so the observation
   #passes the API's licence filter but its other sound is still left out
   katydid <- data[3, ]
-  expect_identical(katydid$license, "https://creativecommons.org/licenses/by/4.0/")
+  expect_identical(katydid$license, "https://creativecommons.org/licenses/by/")
   #An observer who has given no name is credited by their login
   expect_identical(katydid$author, "rostyslav_yurechko")
   expect_identical(katydid$rights_holder, "rostyslav_yurechko")
@@ -124,12 +124,12 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(unnamed$author, "Mathieu P\u00e9lissi\u00e9")
   expect_identical(Encoding(unnamed$author), "UTF-8")
   expect_identical(unnamed$locality, "Vall\u00e9e du Rh\u00f4ne, France")
-  expect_identical(unnamed$license, "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+  expect_identical(unnamed$license, "https://creativecommons.org/licenses/by-nc-sa/")
 
   #No derivatives is harvested: audioBlast! links to a recording and never
   #copies it, so it never makes a derivative of one
   cricket2 <- data[7, ]
-  expect_identical(cricket2$license, "https://creativecommons.org/licenses/by-nd/4.0/")
+  expect_identical(cricket2$license, "https://creativecommons.org/licenses/by-nd/")
   #A name given as an empty string is no name, so the login is the credit
   expect_identical(cricket2$author, "carbenoid")
 })
@@ -210,17 +210,22 @@ test_that("iNaturalist recordings need no correcting on upload", {
 })
 
 test_that("iNaturalist values are normalised", {
+  #iNaturalist names a licence but not its version, so no version is added,
+  #except to CC0, which has only ever had one
   expect_identical(
     inaturalistLicense(c("cc0", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc",
                          "cc-by-nc-sa", "cc-by-nc-nd", "CC-BY", "", "cc-by-nc-xx")),
     c("https://creativecommons.org/publicdomain/zero/1.0/",
-      "https://creativecommons.org/licenses/by/4.0/",
-      "https://creativecommons.org/licenses/by-sa/4.0/",
-      "https://creativecommons.org/licenses/by-nd/4.0/",
-      "https://creativecommons.org/licenses/by-nc/4.0/",
-      "https://creativecommons.org/licenses/by-nc-sa/4.0/",
-      "https://creativecommons.org/licenses/by-nc-nd/4.0/",
-      "https://creativecommons.org/licenses/by/4.0/", "", ""))
+      "https://creativecommons.org/licenses/by/",
+      "https://creativecommons.org/licenses/by-sa/",
+      "https://creativecommons.org/licenses/by-nd/",
+      "https://creativecommons.org/licenses/by-nc/",
+      "https://creativecommons.org/licenses/by-nc-sa/",
+      "https://creativecommons.org/licenses/by-nc-nd/",
+      "https://creativecommons.org/licenses/by/", "", ""))
+  #A licence URL with no version is still a licence URL, so normalising it
+  #leaves it as it is
+  expect_identical(httpURL(inaturalistLicense("cc-by-nc")), "https://creativecommons.org/licenses/by-nc/")
   expect_identical(
     inaturalistTime(c("2025-08-17T05:00:00+02:00", "2024-07-12T10:33:37-05:00",
                       "2020-07-01T14:00+01:00", "2025-08-17T25:00:00Z",
