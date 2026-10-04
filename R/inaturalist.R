@@ -13,6 +13,12 @@
 #' that are All Rights Reserved, whose licence this API could not state (see
 #' inaturalistLicenses).
 #'
+#' What iNaturalist says of a recording's observation that the recordings
+#' table has no column for is given as details of the recording: whether its
+#' location is obscured, and why, how far its coordinates can be trusted, and
+#' its quality grade. A harvest takes research grade observations unless it is
+#' asked for others, and the grade on each recording says so.
+#'
 #' iNaturalist caps a search at 10000 results however it is paged, so pages are
 #' taken as a sliding window of ids rather than by number. Reading needs no API
 #' key; iNaturalist asks that requests identify themselves with a user agent
@@ -23,7 +29,7 @@
 #'   "" is every taxon.
 #' @param quality_grade Quality grades of the observations to harvest, as a
 #'   comma separated list. "research" is those whose identification the
-#'   community has agreed.
+#'   community has agreed. Each recording's grade is one of its details.
 #' @param per_page Number of observations per API request, from 1 to 200.
 #' @param pause Seconds to wait between API requests.
 #' @param verbose If TRUE says more about what's going on, including the id to
@@ -38,13 +44,14 @@
 #'   Only one taxon can be resumed at a time, as each is paged from its own
 #'   place.
 #' @return Named list of the data frames a harvest gives: the recordings, the
-#'   taxa they are of and the links saying which recording is about which
-#'   taxon. Each has an empty source column (see sourceR()). With dir, the
-#'   paths they were streamed to instead.
+#'   details of them, the taxa they are of and the links saying which
+#'   recording is about which taxon. Each has an empty source column (see
+#'   sourceR()). With dir, the paths they were streamed to instead.
 #' @examples
 #' \dontrun{
 #' harvest <- inaturalistR(c("47651", "50186"))
 #' uploadRecordings(db, sourceR("iNaturalist", harvest$recordings))
+#' uploadDetails(db, sourceR("iNaturalist", harvest$details))
 #' uploadTaxa(db, taxonomiseR(sourceR("iNaturalist", harvest$taxa)))
 #' uploadLinks(db, sourceR("iNaturalist", harvest$links))
 #'
@@ -92,7 +99,7 @@ inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause
   linked <- new.env(hash=TRUE, parent=emptyenv())
   named <- new.env(hash=TRUE, parent=emptyenv())
   ancestry <- new.env(hash=TRUE, parent=emptyenv())
-  types <- c("recordings", "taxa", "links")
+  types <- c("recordings", "details", "taxa", "links")
   pages <- lapply(types, function(type) list())
   names(pages) <- types
   requests <- 0
@@ -108,8 +115,9 @@ inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause
       response <- inaturalistFetch(t, quality_grade, cursor, as.integer(per_page), handle)
       requests <- requests + 1
       observations <- response[["results"]]
-      #One harvest fills three tables: the recordings, the taxa they are of and
-      #the links saying which recording is about which taxon
+      #One harvest fills four tables: the recordings, the details of them, the
+      #taxa they are of and the links saying which recording is about which
+      #taxon
       tables <- inaturalistTables(observations, seen, linked, named, ancestry)
       for (type in types) {
         if (is.null(dir)) {
@@ -171,14 +179,19 @@ inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause
 #one taxon singing in it and its recordist entered it once for each of them. It
 #is one recording, and it is about both taxa, so a repeat of one is dropped from
 #the recordings but its link is kept: the recording's own taxon column can hold
-#only the first of them, and the links hold them all.
+#only the first of them, and the links hold them all. Its details are dropped
+#with it, so that they are of the observation its columns were read from.
 inaturalistTables <- function(observations, seen, linked, named, ancestry) {
   recordings <- inaturalistSounds(observations)
   links <- attr(recordings, "links")
+  observed <- attr(recordings, "observed")
   attr(recordings, "links") <- NULL
+  attr(recordings, "observed") <- NULL
 
-  recordings <- recordings[!inaturalistKnown(recordings$id, seen), ]
+  first <- !inaturalistKnown(recordings$id, seen)
+  recordings <- recordings[first, ]
   rownames(recordings) <- NULL
+  details <- inaturalistDetails(recordings, observed[first, , drop=FALSE])
 
   #A link is kept apart by what it is about rather than one per recording, so
   #the same observation reached under two taxa gives its links once
@@ -197,7 +210,7 @@ inaturalistTables <- function(observations, seen, linked, named, ancestry) {
   taxa <- taxa[!inaturalistKnown(taxa$id, named), ]
   rownames(taxa) <- NULL
 
-  return(list(recordings=recordings, taxa=taxa, links=links))
+  return(list(recordings=recordings, details=details, taxa=taxa, links=links))
 }
 
 #Whether each of a page's ids has been given already, marking the ones that had
@@ -236,9 +249,14 @@ inaturalistLicenses <- c(
 #An observation's taxon is asked for by id as well as by name, so that the taxa
 #its recordings are of become records of their own rather than a name in a
 #column, and for ancestor_ids, so that the taxa above them can be fetched and
-#the classification walked (see taxonomiseR()).
+#the classification walked (see taxonomiseR()). Whether its location is
+#obscured, how far its coordinates can be trusted and its quality grade come in
+#the same request, and become details of its recordings (see
+#inaturalistDetails()).
 inaturalistFields <- paste0(
   "(id:!t,observed_on:!t,time_observed_at:!t,created_at:!t,location:!t,place_guess:!t,",
+  "obscured:!t,geoprivacy:!t,taxon_geoprivacy:!t,public_positional_accuracy:!t,",
+  "quality_grade:!t,",
   "taxon:(id:!t,name:!t,rank:!t,parent_id:!t,ancestor_ids:!t,preferred_common_name:!t),",
   "user:(name:!t,login:!t),",
   "sounds:(id:!t,license_code:!t,file_url:!t,file_content_type:!t,hidden:!t))")
@@ -372,7 +390,77 @@ inaturalistSounds <- function(observations) {
   #Which taxon each recording is of is a relationship, not a column, so the page
   #carries the links saying so as well as the recordings themselves
   attr(data, "links") <- inaturalistAboutLinks(data$id, observation("taxon", "id")[keep])
+
+  #and what iNaturalist says of each recording's observation that has no
+  #column, a row for each recording, to become its details once the page knows
+  #which of its recordings are new (see inaturalistTables())
+  observed <- data.frame(
+    obscured=observation("obscured"),
+    geoprivacy=observation("geoprivacy"),
+    taxon_geoprivacy=observation("taxon_geoprivacy"),
+    public_positional_accuracy=observation("public_positional_accuracy"),
+    quality_grade=observation("quality_grade"),
+    stringsAsFactors=FALSE)[keep, , drop=FALSE]
+  rownames(observed) <- NULL
+  attr(data, "observed") <- observed
   return(data)
+}
+
+#The details of recordings: what iNaturalist says of the observation each was
+#found on that the recordings table has no column for, from the recordings and
+#a row of its observation's values for each of them. Their names are
+#iNaturalist's own, as each source's names for its details are, until they are
+#matched to vocabulary terms.
+#
+#Where a taxon or an observer needs protecting, iNaturalist obscures an
+#observation's location, or keeps it private and gives none (see
+#inaturalistCoordinates()). The coordinates it gives are the only ones there
+#are, so they are kept as they are, and these say how far to trust them:
+#
+#* obscured is "true" where the location is obscured or private, whoever asked
+#  for it.
+#* geoprivacy is the observer's choice, and taxon_geoprivacy the protection
+#  iNaturalist gives the taxon: obscured or private.
+#* public_positional_accuracy is the uncertainty of the coordinates iNaturalist
+#  gives, in metres, which for an obscured location is tens of kilometres.
+#
+#The first three are given only where the location is not open, so a recording
+#with none of them is one whose location iNaturalist gives as it was observed.
+#An accuracy is given only where the recording has coordinates for it to be the
+#accuracy of: iNaturalist gives one for a private location too, which has none.
+#
+#quality_grade is given for every recording. A harvest takes research grade
+#observations unless it is asked for others (see inaturalistR()), and without
+#the grade on each recording only this code would say so.
+inaturalistDetails <- function(recordings, observed) {
+  id <- recordings$id
+  hidden <- function(x) ifelse(x != "" & tolower(x) != "open", x, "")
+  located <- !is.na(recordings$lat) & recordings$lat != "" &
+    !is.na(recordings$lon) & recordings$lon != ""
+  accuracy <- decimalNumber(observed$public_positional_accuracy)
+  return(rbind(
+    inaturalistDetail(id, "obscured", ifelse(tolower(observed$obscured) == "true", "true", "")),
+    inaturalistDetail(id, "geoprivacy", hidden(observed$geoprivacy)),
+    inaturalistDetail(id, "taxon_geoprivacy", hidden(observed$taxon_geoprivacy)),
+    inaturalistDetail(id, "public_positional_accuracy", ifelse(located, accuracy, ""), "m"),
+    inaturalistDetail(id, "quality_grade", observed$quality_grade)))
+}
+
+#The detail of one name of each recording that has a value for it, in the
+#columns of getHeaders("details")
+inaturalistDetail <- function(id, name, value, unit="") {
+  value <- as.character(value)
+  value[is.na(value)] <- ""
+  has <- which(id != "" & value != "")
+  return(data.frame(
+    source=rep_len("", length(has)),
+    type=rep_len("recordings", length(has)),
+    id=id[has],
+    name=rep_len(name, length(has)),
+    delta=rep_len("0", length(has)),
+    value=value[has],
+    unit=rep_len(unit, length(has)),
+    stringsAsFactors=FALSE))
 }
 
 #One value of each of a list of records, as text, or "" where the record does
@@ -570,7 +658,8 @@ inaturalistMime <- function(x) {
 #The latitude and longitude of an observation, which iNaturalist gives as one
 #"lat,lon" value. Where a taxon or an observer needs protecting the location is
 #obscured: iNaturalist moves it at random within a large cell, and there is no
-#truer one to be had.
+#truer one to be had. A private location is not given at all. The recording's
+#details say which a location is (see inaturalistDetails()).
 inaturalistCoordinates <- function(x) {
   parts <- regmatches(x, regexec("^(-?[0-9.]+),(-?[0-9.]+)$", x))
   part <- function(n) {

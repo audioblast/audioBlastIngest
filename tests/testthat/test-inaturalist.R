@@ -9,7 +9,8 @@ inatPage <- function(ids, remaining=length(ids)) {
   observations <- lapply(ids, function(id) {
     list(id=id, observed_on="2020-07-01", time_observed_at="2020-07-01T14:00:00+01:00",
          created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1",
-         place_guess="London, England",
+         place_guess="London, England", obscured=FALSE, taxon_geoprivacy="open",
+         quality_grade="research",
          taxon=list(id=9001, name="Gryllus campestris", rank="species", parent_id=9000,
                     ancestor_ids=list(9000, 9001), preferred_common_name="Field Cricket"),
          user=list(name="A. Recordist", login="arecordist"),
@@ -139,7 +140,73 @@ test_that("an empty iNaturalist page has no recordings", {
   expect_identical(names(data), names(getHeaders("recordings")))
   expect_equal(nrow(data), 0)
   expect_equal(nrow(attr(data, "links")), 0)
+  details <- inaturalistDetails(data, attr(data, "observed"))
+  expect_identical(names(details), names(getHeaders("details")))
+  expect_equal(nrow(details), 0)
   expect_identical(names(inaturalistTaxa(list())), names(getHeaders("taxa")))
+})
+
+test_that("each recording has the details of its observation", {
+  data <- inaturalistSounds(inatFixture()$results)
+  observed <- attr(data, "observed")
+  #A row of its observation's values for each recording that was kept
+  expect_equal(nrow(observed), nrow(data))
+
+  details <- inaturalistDetails(data, observed)
+  expect_identical(names(details), names(getHeaders("details")))
+  expect_true(all(details$type == "recordings"))
+  expect_true(all(details$source == ""))
+  detail <- function(name) details[details$name == name, c("id", "value", "unit")]
+
+  #Obscured by the observer (the katydid), for the taxon (the cricket), and kept
+  #private by the observer (the cicada). An open location says nothing, and an
+  #observation whose sounds were all left out (the Missouri cicadas) gives no
+  #details either.
+  expect_identical(detail("obscured")$id, c("1270513", "900002", "274020"))
+  expect_true(all(detail("obscured")$value == "true"))
+  expect_identical(detail("geoprivacy")$id, c("1270513", "274020"))
+  expect_identical(detail("geoprivacy")$value, c("obscured", "private"))
+  expect_identical(detail("taxon_geoprivacy")$id, "900002")
+  expect_identical(detail("taxon_geoprivacy")$value, "obscured")
+
+  #The uncertainty of the coordinates iNaturalist gives, in metres: both of the
+  #bush-cricket's recordings, whose location is open, and the obscured ones.
+  #iNaturalist gives the private cicada one too, but it has no coordinates for
+  #it to be the accuracy of.
+  accuracy <- detail("public_positional_accuracy")
+  expect_identical(accuracy$id, c("1654351", "1654352", "1270513", "900002"))
+  expect_identical(accuracy$value, c("12", "12", "29433", "29656"))
+  expect_true(all(accuracy$unit == "m"))
+
+  #The grade of every recording, so that the selection a harvest makes is said
+  #on each of them
+  grade <- detail("quality_grade")
+  expect_identical(grade$id, data$id)
+  expect_identical(grade$value, c("research", "research", "research", "research",
+                                  "research", "needs_id", "research"))
+  expect_true(all(grade$unit == ""))
+
+  #A private location has no coordinates to give
+  expect_identical(data$lat[data$id == "274020"], NA_character_)
+  expect_identical(data$lon[data$id == "274020"], NA_character_)
+
+  #Nor does a location given empty or that could not be read, as in a table read
+  #back from a stream
+  located <- data.frame(id=c("1", "2", "3"), lat=c("51.5", "", NA), lon=c("-0.1", "", NA),
+                        stringsAsFactors=FALSE)
+  observed <- data.frame(obscured="", geoprivacy="", taxon_geoprivacy="",
+                         public_positional_accuracy=c("10", "10", "10"), quality_grade="",
+                         stringsAsFactors=FALSE)
+  expect_identical(inaturalistDetails(located, observed)$id, "1")
+})
+
+test_that("iNaturalist details need no correcting on upload", {
+  data <- inaturalistSounds(inatFixture()$results)
+  details <- sourceR("iNaturalist", inaturalistDetails(data, attr(data, "observed")))
+
+  #normaliseDetails() warns of any detail it had to leave out
+  expect_warning(normalised <- normaliseDetails(details), regexp=NA)
+  expect_identical(normalised, details)
 })
 
 test_that("a page says which recording is about which taxon", {
@@ -288,9 +355,20 @@ test_that("iNaturalist harvests page through every taxon with a sliding window",
   expect_match(urls[1], "&sound_license=cc0,cc-by,cc-by-sa,cc-by-nd,cc-by-nc,cc-by-nc-sa,cc-by-nc-nd&",
                fixed=TRUE)
   expect_match(urls[1], "&order_by=id&order=asc&id_above=0&per_page=2&", fixed=TRUE)
+  #Whether a location is obscured, and the grade, come in the same request
+  expect_match(urls[1], "obscured:!t,geoprivacy:!t,taxon_geoprivacy:!t,public_positional_accuracy:!t,",
+               fixed=TRUE)
+  expect_match(urls[1], "quality_grade:!t,", fixed=TRUE)
   #The next request asks for the observations above the last id of this one
   expect_match(urls[2], "&id_above=1002&", fixed=TRUE)
   expect_match(urls[3], "&taxon_id=50186&", fixed=TRUE)
+
+  #A grade for each recording, and nothing else for an open location with no
+  #accuracy
+  expect_identical(names(harvest$details), names(getHeaders("details")))
+  expect_identical(harvest$details$id, c("10010", "10020", "10030", "20010"))
+  expect_true(all(harvest$details$name == "quality_grade"))
+  expect_true(all(harvest$details$value == "research"))
 })
 
 test_that("every taxon is the taxon_id left out rather than given empty", {
@@ -319,14 +397,20 @@ test_that("an observation harvested under two taxa is one recording", {
   expect_identical(harvest$recordings$id, "10010")
   #and one link to the taxon, not one for each harvest it was found in
   expect_equal(nrow(harvest$links), 1)
+  #and its details once
+  expect_identical(harvest$details$id, "10010")
 })
 
 test_that("a sound on two observations is one recording about two taxa", {
-  #A recording with two taxa singing in it, entered once for each of them
+  #A recording with two taxa singing in it, entered once for each of them. The
+  #second observer obscured their location and the first did not.
   page <- function(observation, taxon, name) {
+    hidden <- observation == 59947747
     rjson::toJSON(list(total_results=1, page=1, per_page=200, results=list(list(
       id=observation, observed_on="2020-07-01", time_observed_at="2020-07-01T14:00:00+01:00",
       created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1", place_guess="London",
+      obscured=hidden, geoprivacy=if (hidden) "obscured" else "open",
+      quality_grade="research",
       taxon=list(id=taxon, name=name, rank="species", parent_id=9000,
                  ancestor_ids=list(9000, taxon), preferred_common_name=name),
       user=list(name="A. Recordist", login="arecordist"),
@@ -352,6 +436,10 @@ test_that("a sound on two observations is one recording about two taxa", {
   expect_identical(harvest$links$object_id, c("153455", "226222"))
   expect_identical(sort(harvest$taxa$taxon[harvest$taxa$Rank == "Species"]),
                    c("Oecanthus quadripunctatus", "Oecanthus rileyi"))
+  #Its details are of the observation its columns were read from, so the
+  #second observation's obscuring is not said of a location it did not give
+  expect_identical(harvest$details$id, "136818")
+  expect_identical(harvest$details$name, "quality_grade")
 })
 
 test_that("a harvest gives the taxa its recordings are of, and the taxa above them", {
@@ -361,7 +449,7 @@ test_that("a harvest gives the taxa its recordings are of, and the taxa above th
 
   harvest <- inaturalistR("47651", per_page=2, pause=0)
 
-  expect_identical(names(harvest), c("recordings", "taxa", "links"))
+  expect_identical(names(harvest), c("recordings", "details", "taxa", "links"))
   expect_identical(names(harvest$taxa), names(getHeaders("taxa")))
   #The taxon the observation was identified as, and the one above it, which is
   #fetched because taxonomiseR() walks the classification by following parents
@@ -383,13 +471,15 @@ test_that("a harvest gives the taxa its recordings are of, and the taxa above th
 
 test_that("a sound on two observations of one page is one recording", {
   #The same sound on two observations that land on the same page, which the
-  #page after cannot catch
+  #page after cannot catch. The second is obscured for its taxon.
   local_mocked_bindings(curl_fetch_memory=inatAPI(function(url) {
     sound <- function(observation, taxon, name) list(
       id=observation, observed_on="2020-07-01",
       time_observed_at="2020-07-01T14:00:00+01:00",
       created_at="2020-07-02T09:00:00+01:00", location="51.5,-0.1",
-      place_guess="London",
+      place_guess="London", obscured=taxon == 226222,
+      taxon_geoprivacy=if (taxon == 226222) "obscured" else "open",
+      public_positional_accuracy=if (taxon == 226222) 29656 else 10,
       taxon=list(id=taxon, name=name, rank="species", parent_id=9000,
                  ancestor_ids=list(9000, taxon), preferred_common_name=name),
       user=list(name="A. Recordist", login="arecordist"),
@@ -405,6 +495,10 @@ test_that("a sound on two observations of one page is one recording", {
 
   expect_identical(harvest$recordings$id, "136818")
   expect_identical(harvest$links$object_id, c("153455", "226222"))
+  #The details of the first observation, whose columns the recording has, and
+  #none of the second's
+  expect_identical(harvest$details$name, "public_positional_accuracy")
+  expect_identical(harvest$details$value, "10")
 })
 
 test_that("a harvest given a directory streams to it instead of holding it", {
@@ -417,7 +511,7 @@ test_that("a harvest given a directory streams to it instead of holding it", {
 
   paths <- inaturalistR("47651", per_page=2, pause=0, dir=dir)
 
-  expect_identical(names(paths), c("recordings", "taxa", "links"))
+  expect_identical(names(paths), c("recordings", "details", "taxa", "links"))
   expect_true(all(vapply(paths, is.character, logical(1))))
 
   read <- list()
@@ -428,6 +522,8 @@ test_that("a harvest given a directory streams to it instead of holding it", {
   expect_identical(read$recordings$id, c("10010", "10020", "10030"))
   expect_identical(names(read$recordings), names(getHeaders("recordings")))
   expect_identical(read$links$subject_id, c("10010", "10020", "10030"))
+  expect_identical(read$details$id, c("10010", "10020", "10030"))
+  expect_identical(names(read$details), names(getHeaders("details")))
   #A taxon every page names is written once rather than once a page, and the
   #taxon above it after the last page, when the harvest knows it needs it
   expect_identical(read$taxa$id, c("9001", "9000"))
@@ -536,6 +632,7 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   uploaded <- NULL
   uploadedTaxa <- NULL
   uploadedLinks <- NULL
+  uploadedDetails <- NULL
   local_mocked_bindings(
     getSources=function() list(
       list(name="iNaturalist", type="recordings",
@@ -560,11 +657,13 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
         list(id=50186, name="Cicadidae", rank="family", parent_id=47158),
         list(id=123400, name="Pholidoptera", rank="genus", parent_id=47651)))
       taxa <- rbind(taxa, above[!above$id %in% taxa$id, ])
-      list(recordings=recordings, taxa=taxa, links=links)
+      details <- inaturalistDetails(recordings, attr(recordings, "observed"))
+      list(recordings=recordings, details=details, taxa=taxa, links=links)
     },
     uploadTraits=function(db, table) NULL,
     uploadTaxa=function(db, table) uploadedTaxa <<- table,
     uploadLinks=function(db, table) uploadedLinks <<- table,
+    uploadDetails=function(db, table) uploadedDetails <<- table,
     uploadRecordings=function(db, table) uploaded <<- table)
 
   expect_warning(ingestR(db="db"), "Skipping source iNaturalist - nothing came back")
@@ -573,9 +672,14 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   expect_identical(uploaded$source, rep("iNaturalist", 7))
   expect_identical(uploaded$id[1], "1654351")
 
-  #One harvest fills three tables, and every one of them is named as
+  #One harvest fills four tables, and every one of them is named as
   #iNaturalist's by the source's own sourceR process
   expect_identical(uploadedLinks$source, rep("iNaturalist", 7))
+  expect_true(all(uploadedDetails$source == "iNaturalist"))
+  expect_true(all(uploadedDetails$type == "recordings"))
+  expect_identical(sum(uploadedDetails$name == "quality_grade"), 7L)
+  expect_identical(uploadedDetails$id[uploadedDetails$name == "obscured"],
+                   c("1270513", "900002", "274020"))
   expect_identical(uploadedLinks$subject_id[1:2], c("1654351", "1654352"))
   #Both sounds of one observation are about the same taxon
   expect_identical(uploadedLinks$object_id[1:2], c("123456", "123456"))
