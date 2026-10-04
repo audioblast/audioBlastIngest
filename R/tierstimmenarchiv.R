@@ -591,11 +591,14 @@ tsaFile <- function(id, filename) {
                    paste0(tsaSite, "download.wav?unique_identifier=", curl_escape(id))))
 }
 
-#The archive's page for a recording
+#The archive's page for a recording. Its search pages match any part of an
+#identifier, so a search for TSA:Fulica_atra_M_5_2_1 lists
+#TSA:Fulica_atra_M_5_2_11 as well, but its details page shows only the
+#recording it is given.
 #' @importFrom curl curl_escape
 tsaRecordURL <- function(id) {
   return(tsaEither(id == "", "",
-                   paste0(tsaSite, "search/details.html?unique_identifier=", curl_escape(id))))
+                   paste0(tsaSite, "search/showdetails.html?unique_identifier=", curl_escape(id))))
 }
 
 #Dates, which the archive writes as YYYY-MM-DD, and the moment a record was

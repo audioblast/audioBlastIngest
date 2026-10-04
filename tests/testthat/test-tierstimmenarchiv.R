@@ -50,7 +50,7 @@ test_that("Tierstimmenarchiv records are converted to the recordings format", {
   expect_identical(frog$lon, "9.283333")
   expect_identical(frog$time_of_day, "")
   expect_identical(frog$license, "https://creativecommons.org/licenses/by-nc-sa/")
-  expect_identical(frog$info_url, paste0("https://suche.tierstimmenarchiv.de/search/details.html",
+  expect_identical(frog$info_url, paste0("https://suche.tierstimmenarchiv.de/search/showdetails.html",
                                          "?unique_identifier=TSA%3ALeptopelis_aubryi_DIG_174_1_1"))
   #The recordist is who a CC BY licence asks to be credited
   expect_identical(frog$rights_holder, "R\u00f6del, Mark-Oliver")
@@ -330,6 +330,14 @@ test_that("a Tierstimmenarchiv search is escaped as it is typed", {
                    "country=DE&from_year=2000")
   expect_identical(tsaParameters("has_coords"), "has_coords=")
   expect_error(tsaParameters(""), "must have a parameter")
+})
+
+test_that("a Tierstimmenarchiv recording links to the archive's page for it alone", {
+  #A search for TSA:Fulica_atra_M_5_2_1 would list TSA:Fulica_atra_M_5_2_11
+  #too, so the link is to the details page, which shows the one recording
+  expect_identical(tsaRecordURL(c("TSA:Fulica_atra_M_5_2_1", "")),
+                   c(paste0("https://suche.tierstimmenarchiv.de/search/showdetails.html",
+                            "?unique_identifier=TSA%3AFulica_atra_M_5_2_1"), ""))
 })
 
 test_that("a Tierstimmenarchiv request that will not succeed is not retried", {
