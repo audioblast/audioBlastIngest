@@ -642,10 +642,10 @@ tsaTime <- function(x) {
 #(morning, afternoon, noon, evening, night), and noon is kept as one rather than
 #read as 12:00. A few are clock times mistyped, e.g. "10.:00", or cut short, as
 #"12:5" is, which could be 12:05 or 12:50; these are kept as written rather than
-#guessed at. "/N" is not a time: some records write it in every field they have
-#no value for, so it is left out, as are the placeholders unknownTime() knows.
+#guessed at. The placeholders unknownTime() knows are left out, and "/N", which
+#says there is no time, never gets here (see tsaText()).
 tsaTimeOfDay <- function(x) {
-  return(tsaEither(is.na(clockTime(x)) & !unknownTime(x) & x != "/N", x, ""))
+  return(tsaEither(is.na(clockTime(x)) & !unknownTime(x), x, ""))
 }
 
 #Coordinates, which the archive gives as decimal degrees

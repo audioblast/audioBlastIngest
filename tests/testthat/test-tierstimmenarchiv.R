@@ -127,15 +127,14 @@ test_that("a Tierstimmenarchiv time that is not a clock time is kept in words", 
   #The archive's own values: clock times, written in several ways, and the
   #words and mistyped clock times that a few hundred records give instead
   times <- c("11:23", "9:30", "14.20", "morning", "afternoon", "noon", "evening",
-             "night", "10.:00", "12:5", "/N", "")
+             "night", "10.:00", "12:5", "")
   expect_identical(tsaTime(times),
-                   c("11:23", "09:30", "14:20", "", "", "", "", "", "", "", "", ""))
+                   c("11:23", "09:30", "14:20", "", "", "", "", "", "", "", ""))
   #noon is a word rather than 12:00, and a mistyped clock time is kept as
-  #written rather than guessed at. "/N" is how some records say they have no
-  #value, so it is no time at all.
+  #written rather than guessed at
   expect_identical(tsaTimeOfDay(times),
                    c("", "", "", "morning", "afternoon", "noon", "evening",
-                     "night", "10.:00", "12:5", "", ""))
+                     "night", "10.:00", "12:5", ""))
   #The archive gives no ranges or approximate times yet, but they would be
   #kept as written too, and a placeholder would not
   expect_identical(tsaTimeOfDay(c("7-8 h", "ca. 7:00", "?")), c("7-8 h", "ca. 7:00", ""))
@@ -158,6 +157,7 @@ test_that("a Tierstimmenarchiv time that is not a clock time is kept in words", 
   frog <- tsaRecord(data, "TSA:Rana_temporaria_DIG0204_21")
   expect_identical(frog$Time, "")
   expect_identical(frog$time_of_day, "10.:00")
+  #"/N" is how some records say they have no value, so it is no time at all
   quail <- tsaRecord(data, "TSA:Coturnix_coturnix_DIG0210_16")
   expect_identical(quail$Time, "")
   expect_identical(quail$time_of_day, "")
