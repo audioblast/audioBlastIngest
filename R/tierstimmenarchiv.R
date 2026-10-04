@@ -242,23 +242,30 @@ tsaParameters <- function(query) {
 #has no value for as null.
 #
 #Some records write "/N" instead in the fields they have no value for, which
-#looks like MySQL's \N for null, mangled on its way out. That is no value
-#either, so it is dropped here, where every field passes, rather than field by
-#field. In October 2026 it was in 30 records, all from Reinald Skiba's bat tapes
-#(Ski), but nothing says it is kept to those fields or those tapes.
-tsaText <- function(value) {
+#looks like MySQL's \N for null, mangled on its way out. Others write "NA", as
+#the Madagascan frogs of Glaw, Vences and Scherz do. Neither is a value, so
+#both are dropped here, where every field passes, rather than field by field.
+#In October 2026 "/N" was in 30 records, all from Reinald Skiba's bat tapes
+#(Ski), and "NA" was in specimen (25), weather (43) and author (2) of the
+#frogs, but nothing says either is kept to those fields or those records.
+#
+#The one field in which "NA" is a value is country, where it is Namibia's code
+#(118 recordings in October 2026), so a country is read with "/N" alone as no
+#value (see tsaField()).
+tsaText <- function(value, none=c("/N", "NA")) {
   if (length(value) != 1 || is.na(value)) return("")
   if (is.numeric(value)) value <- format(value, scientific=FALSE, digits=15, trim=TRUE)
   value <- as.character(value)
   Encoding(value) <- "UTF-8"
   value <- trimws(value)
-  if (value == "/N") return("")
+  if (value %in% none) return("")
   return(value)
 }
 
 #A field of every record of a page
 tsaField <- function(records, name) {
-  vapply(records, function(r) tsaText(r[[name]]), character(1), USE.NAMES=FALSE)
+  none <- if (name == "country") "/N" else c("/N", "NA")
+  vapply(records, function(r) tsaText(r[[name]], none), character(1), USE.NAMES=FALSE)
 }
 
 #One of two values for each record, as text. ifelse() gives logical(0) rather

@@ -234,6 +234,29 @@ test_that("the archive's /N for no value is no value, whichever field it is in",
   expect_identical(links$qualifier, "")
 })
 
+test_that("the archive's NA for no value is no value, except as Namibia's country code", {
+  expect_identical(tsaText("NA"), "")
+  expect_identical(tsaText(" NA "), "")
+
+  #Part of TSA:Gephyromantis_angano_Scherz_1_2_0, one of the Madagascan frogs
+  #that write it
+  frog <- list(
+    unique_identifier="TSA:Gephyromantis_angano_Scherz_1_2_0",
+    filename="Gephyromantis_angano_Scherz0001_02",
+    species="Gephyromantis angano", sound_type="advertisement call",
+    author="Scherz, Mark D.", country="MG", locality="Ampotsidy",
+    specimen="NA", weather="NA")
+
+  details <- tsaDetails(list(frog))
+  expect_false("NA" %in% details$value)
+  expect_identical(sort(details$name), c("filename", "sound_type"))
+
+  #A country of NA is Namibia, as it is for the barking geckos (Ptenopus
+  #garrulus) the archive holds from Betta
+  frog$country <- "NA"
+  expect_identical(tsaRecordings(list(frog))$country, "NA")
+})
+
 test_that("the paper a Tierstimmenarchiv recording was used in becomes a reference", {
   data <- tsaReferences(tsaHarvested())
 
