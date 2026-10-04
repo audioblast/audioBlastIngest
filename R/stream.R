@@ -7,7 +7,9 @@
 #Each type of table a harvest gives is one CSV in the directory it was given,
 #in UTF-8, with its header written the first time and rows appended after that.
 #Values are quoted as read.csv() reads them, so a remark with a comma, a quote
-#or a line of its own in it comes back as it went in.
+#or a line of its own in it comes back as it went in. A missing value is
+#written empty, so nothing is read back as one: read.csv() would otherwise read
+#the text "NA" as missing, and that is a value, e.g. Namibia's country code.
 
 #' The file a type of table is streamed to
 #'
@@ -82,7 +84,7 @@ readStream <- function(path, each, FUN) {
     #Reading past the end of a connection is an error rather than no rows
     chunk <- tryCatch(
       read.csv(connection, nrows=each, header=FALSE, colClasses="character",
-               col.names=header, check.names=FALSE),
+               col.names=header, check.names=FALSE, na.strings=character(0)),
       error=function(e) NULL)
     if (is.null(chunk) || nrow(chunk) == 0) break
     FUN(chunk)

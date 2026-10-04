@@ -29,6 +29,18 @@ test_that("a table is streamed to a file of its type and read back as it went in
   expect_identical(read, table)
 })
 
+test_that("a streamed value of NA is read back as NA rather than as missing", {
+  dir <- withr::local_tempdir()
+  #Namibia's country code, and a value that was missing when it was written
+  table <- data.frame(id=c("1", "2"), country=c("NA", NA), stringsAsFactors=FALSE)
+  streamTable(dir, "recordings", table)
+
+  read <- NULL
+  readStream(streamPath(dir, "recordings"), 10, function(chunk) read <<- chunk)
+
+  expect_identical(read$country, c("NA", ""))
+})
+
 test_that("a streamed table is read a chunk at a time", {
   dir <- withr::local_tempdir()
   table <- data.frame(source=rep("", 10), id=as.character(1:10), stringsAsFactors=FALSE)
