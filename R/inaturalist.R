@@ -16,7 +16,9 @@
 #' iNaturalist caps a search at 10000 results however it is paged, so pages are
 #' taken as a sliding window of ids rather than by number. Reading needs no API
 #' key; iNaturalist asks that requests identify themselves with a user agent
-#' and that there are no more than 60 of them a minute.
+#' and that there are no more than 60 of them a minute. Requests are made one
+#' at a time, each once the one before has been answered, and a request that
+#' iNaturalist says is one too many is made again after a wait.
 #'
 #' @param taxon_id Character vector of iNaturalist taxon ids, harvested in
 #'   turn. An element can name several taxa at once, separated by commas, and
@@ -25,7 +27,8 @@
 #'   comma separated list. "research" is those whose identification the
 #'   community has agreed.
 #' @param per_page Number of observations per API request, from 1 to 200.
-#' @param pause Seconds to wait between API requests.
+#' @param pause Seconds to wait between API requests, on top of waiting for each
+#'   to be answered. 0 by default.
 #' @param verbose If TRUE says more about what's going on, including the id to
 #'   resume a harvest above if it is interrupted.
 #' @param dir Directory to stream the harvest to, a CSV of each type of table,
@@ -55,7 +58,7 @@
 #' }
 #' @importFrom curl new_handle
 #' @export
-inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=1,
+inaturalistR <- function(taxon_id, quality_grade="research", per_page=200, pause=0,
                          verbose=FALSE, dir=NULL, id_above="0") {
   if (!is.character(taxon_id) || length(taxon_id) == 0 || any(is.na(taxon_id)) ||
       !all(grepl("^([0-9]+(,[0-9]+)*)?$", taxon_id))) {
@@ -467,7 +470,7 @@ inaturalistRank <- function(x) {
 }
 
 #The taxa of a list of ids, fetched a batch at a time
-inaturalistTaxaByID <- function(ids, handle, per_request=30, pause=1, verbose=FALSE) {
+inaturalistTaxaByID <- function(ids, handle, per_request=30, pause=0, verbose=FALSE) {
   pages <- list()
   batches <- split(ids, ceiling(seq_along(ids) / per_request))
   for (batch in batches) {

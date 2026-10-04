@@ -617,3 +617,8 @@ test_that("ingestR uploads iNaturalist recordings, and a failed taxon skips only
   expect_identical(bushcricket$Class, "Insecta")
   expect_identical(bushcricket$Kingdom, "Animalia")
 })
+
+test_that("an iNaturalist harvest waits only for each request to be answered by default", {
+  expect_identical(formals(inaturalistR)$pause, 0)
+  expect_identical(formals(inaturalistTaxaByID)$pause, 0)
+})
