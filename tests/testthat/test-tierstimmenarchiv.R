@@ -99,13 +99,16 @@ test_that("Tierstimmenarchiv lengths, rates and licences are read", {
   expect_identical(tsaRecord(data, "TSA:Rana_temporaria_DIG0204_21")$sample_rate, "44100")
 
   #The archive names a licence but not its version, so no version is added. One
-  #licence is named two ways.
+  #licence is named three ways, one of them with a full stop where the others
+  #have a comma (e.g. TSA:Hippolais_icterina_DIG_28_6_1), and a recording the
+  #archive gives no licence, as null or as "", is given none.
   expect_identical(tsaLicense(c("CC BY-SA", "CC BY-NC-SA", "CC BY-NC-SA, no commercial use",
-                                "CC BY", "")),
+                                "CC BY-NC-SA. no commercial use", "CC BY", "", NA)),
                    c("https://creativecommons.org/licenses/by-sa/",
                      "https://creativecommons.org/licenses/by-nc-sa/",
                      "https://creativecommons.org/licenses/by-nc-sa/",
-                     "https://creativecommons.org/licenses/by/", ""))
+                     "https://creativecommons.org/licenses/by-nc-sa/",
+                     "https://creativecommons.org/licenses/by/", "", ""))
   expect_warning(tsaLicense("Ask the archive"), "licence that could not be read")
 })
 

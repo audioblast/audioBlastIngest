@@ -9,9 +9,9 @@
 #'
 #' An observation is not a recording: it can carry several sounds, and each of
 #' them is a recording of its own, identified by the sound's id rather than the
-#' observation's. Sounds that have been taken down are left out, as are sounds
-#' that are All Rights Reserved, whose licence this API could not state (see
-#' inaturalistLicenses).
+#' observation's. Sounds that have been taken down are left out. Sounds that
+#' are All Rights Reserved, which iNaturalist gives no licence, are harvested
+#' with no licence (see inaturalistLicenses).
 #'
 #' iNaturalist caps a search at 10000 results however it is paged, so pages are
 #' taken as a sliding window of ids rather than by number. Reading needs no API
@@ -223,9 +223,9 @@ inaturalistKnown <- function(ids, seen) {
 #
 #No-derivatives licences are harvested: audioBlast! links to a recording where
 #it lives and never copies it, so it never makes a derivative of one. A sound
-#with no licence at all is All Rights Reserved, and is not harvested: its
-#licence column would have to be empty, and a recording whose licence this API
-#cannot state is worse to a reader than no recording at all.
+#with no licence at all is All Rights Reserved, and is harvested with its
+#licence empty, as that is what iNaturalist gives; the Tierstimmenarchiv's
+#recordings with no licence are harvested in the same way.
 inaturalistLicenses <- c(
   "cc0"="https://creativecommons.org/publicdomain/zero/1.0/",
   "cc-by"="https://creativecommons.org/licenses/by/",
@@ -263,7 +263,7 @@ inaturalistFetch <- function(taxon_id, quality_grade, id_above, per_page, handle
     #the API reads it as taxon 0 and refuses the request
     if (taxon_id == "") "" else paste0("&taxon_id=", taxon_id),
     "&quality_grade=", curl_escape(quality_grade),
-    "&sound_license=", paste(names(inaturalistLicenses), collapse=","),
+    #No licence is asked for, as All Rights Reserved sounds are harvested too
     "&order_by=id&order=asc",
     "&id_above=", id_above,
     "&per_page=", per_page,
@@ -366,11 +366,11 @@ inaturalistSounds <- function(observations) {
     channels=empty,
     stringsAsFactors=FALSE)
 
-  #Without audio there is nothing to listen to or analyse, a sound that has been
-  #taken down should not be linked to, and a sound that is All Rights Reserved
-  #has no licence to give (see inaturalistLicenses)
+  #Without audio there is nothing to listen to or analyse, and a sound that has
+  #been taken down should not be linked to. A sound with no licence is kept (see
+  #inaturalistLicenses).
   takenDown <- tolower(sound("hidden")) == "true"
-  keep <- data$id != "" & data$file != "" & data$license != "" & !takenDown
+  keep <- data$id != "" & data$file != "" & !takenDown
   data <- data[keep, ]
   rownames(data) <- NULL
 
@@ -541,9 +541,11 @@ inaturalistFile <- function(x) {
 
 #The licence of a sound as a licence URL, with no version unless it is CC0 (see
 #inaturalistLicenses); empty for All Rights Reserved, which is how iNaturalist
-#gives a sound with no licence, and for a licence that is not known here
+#gives a sound with no licence, and for a licence that is not known here, which
+#is warned of
 inaturalistLicense <- function(x) {
   url <- unname(inaturalistLicenses[tolower(x)])
+  warnUnread("iNaturalist recordings", "licence", x, url)
   return(as.character(ifelse(is.na(url), "", url)))
 }
 

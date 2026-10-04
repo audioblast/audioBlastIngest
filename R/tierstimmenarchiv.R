@@ -630,14 +630,16 @@ tsaSampleRate <- function(x) {
 #recordings to GBIF: what a recording is licensed under is what its source says
 #it is.
 #
-#One licence is named two ways, "CC BY-NC-SA" and "CC BY-NC-SA, no commercial
-#use", so what follows the first comma is a restatement of the licence rather
-#than another condition.
+#One licence is named three ways, "CC BY-NC-SA", "CC BY-NC-SA, no commercial
+#use" and, for a few recordings, "CC BY-NC-SA. no commercial use", so what
+#follows the first comma, or a full stop and a space, is a restatement of the
+#licence rather than another condition. A recording the archive gives no
+#licence is given none.
 tsaLicense <- function(x) {
   licenses <- c(
     "cc by"="by", "cc by-sa"="by-sa", "cc by-nd"="by-nd", "cc by-nc"="by-nc",
     "cc by-nc-sa"="by-nc-sa", "cc by-nc-nd"="by-nc-nd")
-  named <- gsub("\\s+", " ", tolower(trimws(sub(",.*$", "", x))))
+  named <- gsub("\\s+", " ", tolower(trimws(sub("(,|\\.\\s).*$", "", x))))
   path <- unname(licenses[named])
   url <- tsaEither(is.na(path), NA_character_,
                    paste0("https://creativecommons.org/licenses/", path, "/"))
