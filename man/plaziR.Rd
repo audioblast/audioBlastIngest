@@ -48,8 +48,9 @@ up where it stopped, reading only the treatments it had not reached.}
 }
 \value{
 Named list of the data frames a harvest gives: the taxa they are
-about, the descriptions, the treatments they were read from as
-references, and the links. Each has an
+about, the descriptions, the acoustic parameters the same treatments
+measure as traits, the words they render a call with as onomatopoeia, the
+treatments they were read from as references, and the links. Each has an
 empty source column (see sourceR()). With dir, the paths they were
 written to instead.
 }
