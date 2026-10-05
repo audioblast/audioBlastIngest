@@ -235,7 +235,9 @@ inaturalistKnown <- function(ids, seen) {
 #https://creativecommons.org/licenses/by-nc/). A version is not taken from
 #anywhere else, such as GBIF's export of the same records: what a recording is
 #licensed under is what its source says it is. CC0 is the exception, as it has
-#only ever had one version, 1.0, so naming it is naming that.
+#only ever had one version, 1.0, so naming it is naming that. pd is a sound its
+#observer has put in the public domain, which is the Public Domain Mark, and
+#that too has only ever had version 1.0.
 #
 #No-derivatives licences are harvested: audioBlast! links to a recording where
 #it lives and never copies it, so it never makes a derivative of one. A sound
@@ -244,6 +246,7 @@ inaturalistKnown <- function(ids, seen) {
 #recordings with no licence are harvested in the same way.
 inaturalistLicenses <- c(
   "cc0"="https://creativecommons.org/publicdomain/zero/1.0/",
+  "pd"="https://creativecommons.org/publicdomain/mark/1.0/",
   "cc-by"="https://creativecommons.org/licenses/by/",
   "cc-by-sa"="https://creativecommons.org/licenses/by-sa/",
   "cc-by-nd"="https://creativecommons.org/licenses/by-nd/",
@@ -636,10 +639,10 @@ inaturalistFile <- function(x) {
   return(as.character(ifelse(is.na(file), "", file)))
 }
 
-#The licence of a sound as a licence URL, with no version unless it is CC0 (see
-#inaturalistLicenses); empty for All Rights Reserved, which is how iNaturalist
-#gives a sound with no licence, and for a licence that is not known here, which
-#is warned of
+#The licence of a sound as a licence URL, with no version unless it is CC0 or
+#the Public Domain Mark (see inaturalistLicenses); empty for All Rights
+#Reserved, which is how iNaturalist gives a sound with no licence, and for a
+#licence that is not known here, which is warned of
 inaturalistLicense <- function(x) {
   url <- unname(inaturalistLicenses[tolower(x)])
   warnUnread("iNaturalist recordings", "licence", x, url)

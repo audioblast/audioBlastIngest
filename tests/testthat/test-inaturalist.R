@@ -300,18 +300,20 @@ test_that("iNaturalist recordings need no correcting on upload", {
 
 test_that("iNaturalist values are normalised", {
   #iNaturalist names a licence but not its version, so no version is added,
-  #except to CC0, which has only ever had one
+  #except to CC0 and the Public Domain Mark (pd), which have only ever had one
   expect_identical(
-    inaturalistLicense(c("cc0", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc",
-                         "cc-by-nc-sa", "cc-by-nc-nd", "CC-BY", "")),
+    inaturalistLicense(c("cc0", "pd", "cc-by", "cc-by-sa", "cc-by-nd", "cc-by-nc",
+                         "cc-by-nc-sa", "cc-by-nc-nd", "CC-BY", "PD", "")),
     c("https://creativecommons.org/publicdomain/zero/1.0/",
+      "https://creativecommons.org/publicdomain/mark/1.0/",
       "https://creativecommons.org/licenses/by/",
       "https://creativecommons.org/licenses/by-sa/",
       "https://creativecommons.org/licenses/by-nd/",
       "https://creativecommons.org/licenses/by-nc/",
       "https://creativecommons.org/licenses/by-nc-sa/",
       "https://creativecommons.org/licenses/by-nc-nd/",
-      "https://creativecommons.org/licenses/by/", ""))
+      "https://creativecommons.org/licenses/by/",
+      "https://creativecommons.org/publicdomain/mark/1.0/", ""))
   #All Rights Reserved, which iNaturalist gives as no licence, is not warned of,
   #but a code that is not known here is
   expect_warning(inaturalistLicense(""), regexp=NA)
