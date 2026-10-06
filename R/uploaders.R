@@ -172,9 +172,18 @@ uploadDeployments <- function(db, table) {
   uploadRows(db, "deployments", columns, table[1:5], update=columns[-(1:2)])
 }
 
+#An annotation whose recording's source is not given is of a recording of its
+#own source, so recording_source always names the source of the recording an
+#annotation is of, and a recording's annotations are found by it and source_id
+#whichever source gave them.
 uploadAnnOmate <- function(db, table) {
   columns <- names(getHeaders("ann-o-mate"))
-  uploadRows(db, "annomate", columns, table[1:15], update=columns)
+  if (!"recording_source" %in% names(table)) {
+    table$recording_source <- rep_len("", nrow(table))
+  }
+  own <- is.na(table$recording_source) | table$recording_source == ""
+  table$recording_source[own] <- table$source[own]
+  uploadRows(db, "annomate", columns, table[columns], update=columns)
 }
 
 #' Upload Descriptions

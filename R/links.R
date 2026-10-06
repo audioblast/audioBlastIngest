@@ -68,6 +68,7 @@ linkTypes <- c(recordTypes, "term", "iri")
 linkPredicates <- c(
   "http://purl.obolibrary.org/obo/IAO_0000136", #is about
   "http://purl.obolibrary.org/obo/IAO_0000219", #denotes, a subproperty of is about
+  "http://purl.org/dc/terms/isPartOf",
   "http://purl.org/dc/terms/isReferencedBy",
   "http://purl.org/dc/terms/source",
   "http://purl.org/dc/terms/relation",

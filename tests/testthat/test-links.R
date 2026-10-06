@@ -57,6 +57,21 @@ test_that("links with unknown types or predicates, or without ids, are skipped w
   expect_identical(links$subject_id, "1")
 })
 
+test_that("a region of interest can be part of a corpus", {
+  #A corpus points to regions of recordings that other sources hold, each part
+  #of the corpus, with the corpus's split as qualifier
+  roi <- link(source="jeantet-dufourq-2023", subject_type="annomate", subject_source="xeno-canto",
+              subject_id="zenodo.7828148-v1-280667-1", predicate="http://purl.org/dc/terms/isPartOf",
+              object_type="references", object_id="zenodo.7828148", qualifier="Training")
+
+  links <- normaliseLinks(roi)
+
+  expect_equal(nrow(links), 1)
+  expect_identical(links$subject_source, "xeno-canto")
+  expect_identical(links$object_source, "jeantet-dufourq-2023")
+  expect_identical(links$qualifier, "Training")
+})
+
 test_that("every data module a source holds records in is a type a link can join", {
   #A type missing from recordTypes is dropped by normaliseLinks() with a
   #warning that is easy to miss in a full ingest, leaving the records uploaded

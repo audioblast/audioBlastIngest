@@ -22,7 +22,7 @@ uploads <- list(
   traits=list(upload=uploadTraits, table="traits", update=-(1:2), normalise=normaliseTraits),
   recordings=list(upload=uploadRecordings, table="recordings", update=-(1:2), normalise=normaliseRecordings),
   deployments=list(upload=uploadDeployments, table="deployments", update=-(1:2)),
-  "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:15),
+  "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:16),
   references=list(upload=uploadReferences, table="references", update=-(1:2)),
   specimens=list(upload=uploadSpecimens, table="specimens", update=-(1:2), normalise=normaliseSpecimens),
   locations=list(upload=uploadLocations, table="locations", update=-(1:2), normalise=normaliseLocations))
@@ -51,6 +51,23 @@ for (type in names(uploads)) {
     expect_length(upload$executed, 0)
   })
 }
+
+test_that("an annotation is of a recording of its own source unless it names another", {
+  columns <- names(getHeaders("ann-o-mate"))
+  table <- columnTable(columns, rows=2)
+  table$recording_source <- c("", "xeno-canto")
+
+  upload <- mockUpload(uploadAnnOmate, table)
+
+  #recording_source is the last of each row's values
+  expect_identical(upload$executed[[1]]$params[length(columns) * 1:2], list("source-1", "xeno-canto"))
+
+  #A table without the column, as a source's file of the earlier columns is
+  #read, is given it
+  earlier <- columnTable(setdiff(columns, "recording_source"), rows=1)
+  upload <- mockUpload(uploadAnnOmate, earlier)
+  expect_identical(upload$executed[[1]]$params[[length(columns)]], "source-1")
+})
 
 test_that("uploadTaxa inserts taxa columns by name", {
   columns <- c("source", "id", "taxon", "parent_id", "Rank", "Kingdom",
