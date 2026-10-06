@@ -458,7 +458,8 @@ inaturalistDetails <- function(recordings, observed) {
 }
 
 #The detail of one name of each recording that has a value for it, in the
-#columns of getHeaders("details")
+#columns of getHeaders("details"). The recordings are iNaturalist's own, so no
+#other source's is named.
 inaturalistDetail <- function(id, name, value, unit="") {
   value <- as.character(value)
   value[is.na(value)] <- ""
@@ -471,6 +472,7 @@ inaturalistDetail <- function(id, name, value, unit="") {
     delta=rep_len("0", length(has)),
     value=value[has],
     unit=rep_len(unit, length(has)),
+    record_source=rep_len("", length(has)),
     stringsAsFactors=FALSE))
 }
 

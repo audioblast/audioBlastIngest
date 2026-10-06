@@ -132,6 +132,44 @@ test_that("a streamed harvest is uploaded a chunk at a time", {
   expect_true(all(sources == "xeno-canto"))
 })
 
+test_that("streamed details of another source's records are uploaded as that source's records", {
+  dir <- withr::local_tempdir()
+  details <- getHeaders("details")
+  details[1:2, ] <- ""
+  details[c("type", "id", "name", "delta", "value", "unit", "record_source")] <-
+    list("recordings", c("1", "2"), "frequency_low", "0", "800", "Hz", "xeno-canto")
+  streamTable(dir, "details", details)
+
+  upload <- mockUpload(function(db) uploadStreamed(db, "jeantet-dufourq-2023", dir))
+
+  #What the harvesting source gave is removed, and nothing of xeno-canto's
+  deletes <- Filter(function(e) grepl("^DELETE", e$sql), upload$executed)
+  expect_length(deletes, 1)
+  expect_identical(deletes[[1]]$params, list("jeantet-dufourq-2023"))
+  rows <- boundRows(Filter(function(e) grepl("INTO `details`", e$sql, fixed=TRUE),
+                           upload$executed)[[1]])
+  expect_identical(vapply(rows, `[[`, character(1), 1), rep("jeantet-dufourq-2023", 2))
+  expect_identical(vapply(rows, `[[`, character(1), 8), rep("xeno-canto", 2))
+})
+
+test_that("details streamed before record_source was added are still uploaded", {
+  #A harvest's files are kept when its upload fails, and may be uploaded again
+  #once the package has been updated
+  dir <- withr::local_tempdir()
+  details <- getHeaders("details")[setdiff(names(getHeaders("details")), "record_source")]
+  details[1:2, ] <- ""
+  details[c("type", "id", "name", "delta", "value")] <- list("recordings", c("1", "2"), "q", "0", "A")
+  streamTable(dir, "details", details)
+
+  upload <- mockUpload(function(db) uploadStreamed(db, "xeno-canto", dir))
+
+  rows <- boundRows(Filter(function(e) grepl("INTO `details`", e$sql, fixed=TRUE),
+                           upload$executed)[[1]])
+  expect_length(rows, 2)
+  #and are of the harvesting source's own records
+  expect_identical(vapply(rows, `[[`, character(1), 8), c("xeno-canto", "xeno-canto"))
+})
+
 test_that("a type a harvest gave nothing of is not uploaded", {
   dir <- withr::local_tempdir()
   recordings <- getHeaders("recordings")

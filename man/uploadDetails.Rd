@@ -25,9 +25,21 @@ measured, belonging to the record of a data module (its type) with an id.
 The details a record has of one name are numbered from 0 by delta.
 }
 \details{
+A source can give details of another source's records, such as a corpus
+giving the frequencies of the regions it marked on xeno-canto's recordings,
+by naming that source in record_source. The record is then that source's,
+and the details are still the giving source's: they are deleted with what it
+gives, not with what the record's source gives, so neither source's upload
+removes the other's details of one record.
+
 Details that belong to no record, or that have no name or no value, are
 skipped with a warning. Values are made plain text, as sources often hold
 them as HTML. The details of each source in the data frame are deleted and
 the new ones inserted in one transaction, so details that a source no
-longer gives are removed. Empty units are uploaded as NULL.
+longer gives are removed. Empty units are uploaded as NULL. A detail whose
+record's source is not given is of a record of its own source, and is
+uploaded naming it, so that record_source always names the source of the
+record a detail belongs to, and a record's details are found by it, its type
+and its id whichever source gave them, as a recording's annotations are (see
+uploadAnnOmate()).
 }

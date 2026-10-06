@@ -5,8 +5,15 @@
 #
 #* value is plain text, as sources often hold it as HTML.
 #* unit is empty where the value isn't a measurement.
+#* record_source is empty where the record is the giving source's own, however
+#  the source wrote it, so that a record is written one way. A table from
+#  before the column was added, such as a harvest streamed to files whose
+#  upload failed, is given it empty.
 #* The details a record has of one name are numbered from 0 by delta, in the
-#  order the source gives them, so that two of them never have one number.
+#  order the source gives them, so that two of them never have one number. A
+#  record is named by its source, its type and its id, so a source giving
+#  details of its own record 1 and of another source's record 1 numbers the
+#  details of each of them apart.
 #
 #Details that belong to no record, or that have no name or no value, are left
 #out with a warning.
@@ -15,10 +22,14 @@
 #' @importFrom stats ave
 normaliseDetails <- function(table) {
   columns <- names(getHeaders("details"))
+  if (!is.element("record_source", names(table))) {
+    table$record_source <- rep_len("", nrow(table))
+  }
   details <- as.data.frame(
     lapply(table[columns], function(x) trimws(ifelse(is.na(x), "", as.character(x)))),
     stringsAsFactors=FALSE)
   details$value <- html2text(details$value)
+  details$record_source[details$record_source == details$source] <- ""
 
   usable <- details$type %in% recordTypes & details$id != "" & details$name != "" &
     details$value != ""
@@ -30,7 +41,7 @@ normaliseDetails <- function(table) {
 
   delta <- suppressWarnings(as.integer(details$delta))
   delta[is.na(delta)] <- 0L
-  record <- do.call(paste, c(details[c("source", "type", "id", "name")], sep="\n"))
+  record <- do.call(paste, c(details[c("source", "record_source", "type", "id", "name")], sep="\n"))
   details$delta <- as.character(ave(delta, record, FUN=function(x) rank(x, ties.method="first") - 1))
   rownames(details) <- NULL
   return(details)
