@@ -376,6 +376,8 @@ xenocantoAnnotations <- function(recordings) {
     lon=of("lon", function(x) coordinate(x, 180)),
     #xeno-canto gives no way to write to an annotator
     contact=rep_len("", length(date)),
+    #and its annotations are of its own recordings
+    recording_source=rep_len("", length(date)),
     stringsAsFactors=FALSE))
 }
 

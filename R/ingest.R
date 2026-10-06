@@ -211,9 +211,11 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #them empty: recordings lat and lon, then time_of_day, license, info_url
       #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
       #and max; descriptions topic_link; onomatopoeia kind_link; links reference;
-      #taxa the four columns that say whether a name is the one in use.
+      #taxa the four columns that say whether a name is the one in use;
+      #ann-o-mate recording_source.
       headers <- names(getHeaders(type))
-      if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa") &&
+      if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa",
+                      "ann-o-mate") &&
           ncol(data) < length(headers)) {
         for (column in headers[-seq_len(ncol(data))]) {
           data[[column]] <- rep_len("", nrow(data))
@@ -432,7 +434,11 @@ getHeaders <- function(type) {
     return(df)
   }
   if (type == "ann-o-mate") {
-    heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact")
+    #source is the source giving an annotation, and source_id the recording it
+    #is of. recording_source is the source of that recording where it is not
+    #the annotation's own, as when a corpus marks regions of xeno-canto's
+    #recordings; a source needn't give it (see uploadAnnOmate()).
+    heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact","recording_source")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
