@@ -29,5 +29,7 @@ Details and links replace what a source gave before rather than adding to
 it, so what it gave is removed once, before the first chunk of them, and the
 chunks are uploaded without removing anything themselves. A failed upload
 therefore leaves a source part way through being replaced, as an
-interrupted upload of a whole table would.
+interrupted upload of a whole table would. What is removed is what the
+harvesting source gave, so the details that another source gave of its
+records stay (see uploadDetails()).
 }

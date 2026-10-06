@@ -592,7 +592,8 @@ xenocantoTaxa <- function(recordings) {
 }
 
 #The detail of one name of each record that has a value for it, in the columns
-#of getHeaders("details")
+#of getHeaders("details"). The records are xeno-canto's own, so no other
+#source's is named.
 xenocantoDetail <- function(type, id, name, value, unit="") {
   value[is.na(value)] <- ""
   has <- which(id != "" & value != "")
@@ -604,6 +605,7 @@ xenocantoDetail <- function(type, id, name, value, unit="") {
     delta=rep_len("0", length(has)),
     value=value[has],
     unit=rep_len(unit, length(has)),
+    record_source=rep_len("", length(has)),
     stringsAsFactors=FALSE))
 }
 

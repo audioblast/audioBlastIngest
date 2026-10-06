@@ -396,7 +396,8 @@ tsaDetails <- function(records) {
 }
 
 #The detail of one name of each record that has a value for it, in the columns
-#of getHeaders("details")
+#of getHeaders("details"). The records are the archive's own, so no other
+#source's is named.
 tsaDetail <- function(id, name, value, unit="") {
   #A record can have no value of a name at all, which unlist() gives as NULL,
   #and a NULL column would be dropped from the data frame rather than empty
@@ -412,6 +413,7 @@ tsaDetail <- function(id, name, value, unit="") {
     delta=rep_len("0", length(has)),
     value=value[has],
     unit=rep_len(unit, length(has)),
+    record_source=rep_len("", length(has)),
     stringsAsFactors=FALSE))
 }
 

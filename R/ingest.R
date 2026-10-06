@@ -212,10 +212,12 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
       #and max; descriptions topic_link; onomatopoeia kind_link; links reference;
       #taxa the four columns that say whether a name is the one in use;
-      #ann-o-mate recording_source.
+      #ann-o-mate recording_source; details record_source. Without them, an
+      #annotation is of its own source's recording and a detail of its own
+      #source's record.
       headers <- names(getHeaders(type))
       if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa",
-                      "ann-o-mate") &&
+                      "ann-o-mate", "details") &&
           ncol(data) < length(headers)) {
         for (column in headers[-seq_len(ncol(data))]) {
           data[[column]] <- rep_len("", nrow(data))
@@ -411,8 +413,12 @@ getHeaders <- function(type) {
   if (type == "details") {
     #What a record holds that has no column of its own: a name and a value,
     #with a unit where it is measured. type and id are the record's, and a
-    #record's values of one name are numbered by delta.
-    heads <- c("source","type","id","name","delta","value","unit")
+    #record's values of one name are numbered by delta. source is the source
+    #giving the detail, and record_source the source of the record it belongs
+    #to where that is another's, such as a corpus giving the frequencies of
+    #regions of xeno-canto's recordings; empty, the record is the giving
+    #source's own. A source needn't give it.
+    heads <- c("source","type","id","name","delta","value","unit","record_source")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)
