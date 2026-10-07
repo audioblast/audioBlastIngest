@@ -22,7 +22,7 @@ uploads <- list(
   traits=list(upload=uploadTraits, table="traits", update=-(1:2), normalise=normaliseTraits),
   recordings=list(upload=uploadRecordings, table="recordings", update=-(1:2), normalise=normaliseRecordings),
   deployments=list(upload=uploadDeployments, table="deployments", update=-(1:2)),
-  "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:16),
+  "ann-o-mate"=list(upload=uploadAnnOmate, table="annomate", update=1:18, normalise=normaliseAnnOmate),
   references=list(upload=uploadReferences, table="references", update=-(1:2)),
   specimens=list(upload=uploadSpecimens, table="specimens", update=-(1:2), normalise=normaliseSpecimens),
   locations=list(upload=uploadLocations, table="locations", update=-(1:2), normalise=normaliseLocations))
@@ -59,14 +59,36 @@ test_that("an annotation is of a recording of its own source unless it names ano
 
   upload <- mockUpload(uploadAnnOmate, table)
 
-  #recording_source is the last of each row's values
-  expect_identical(upload$executed[[1]]$params[length(columns) * 1:2], list("source-1", "xeno-canto"))
+  recording_source <- which(columns == "recording_source")
+  expect_identical(lapply(boundRows(upload$executed[[1]]), `[[`, recording_source),
+                   list("source-1", "xeno-canto"))
 
   #A table without the column, as a source's file of the earlier columns is
   #read, is given it
-  earlier <- columnTable(setdiff(columns, "recording_source"), rows=1)
+  earlier <- columnTable(columns[seq_len(recording_source - 1)], rows=1)
   upload <- mockUpload(uploadAnnOmate, earlier)
-  expect_identical(upload$executed[[1]]$params[[length(columns)]], "source-1")
+  expect_identical(boundRows(upload$executed[[1]])[[1]][[recording_source]], "source-1")
+})
+
+test_that("a region's frequency bounds are numbers of Hz from 0 up, or NULL", {
+  columns <- names(getHeaders("ann-o-mate"))
+  bounds <- match(c("freq_low", "freq_high"), columns)
+  table <- columnTable(columns, rows=5)
+  #A region bounded from 0 Hz holds that frequency; one without bounds, or
+  #with bounds that can't be frequencies, has none
+  table$freq_low <- c("0", " 1691.9 ", "", "-5", "low")
+  table$freq_high <- c("7309.05", "22050", NA, "8000", "3 kHz")
+
+  rows <- boundRows(mockUpload(uploadAnnOmate, table)$executed[[1]])
+
+  expect_identical(vapply(rows, `[[`, character(1), bounds[1]), c("0", "1691.9", NA, NA, NA))
+  expect_identical(vapply(rows, `[[`, character(1), bounds[2]), c("7309.05", "22050", NA, "8000", NA))
+
+  #A table from before the bounds were columns, as a source's file or a
+  #streamed harvest written then is read, has none
+  earlier <- columnTable(setdiff(columns, c("freq_low", "freq_high")), rows=1)
+  row <- boundRows(mockUpload(uploadAnnOmate, earlier)$executed[[1]])[[1]]
+  expect_identical(row[bounds], list(NA_character_, NA_character_))
 })
 
 test_that("uploadTaxa inserts taxa columns by name", {

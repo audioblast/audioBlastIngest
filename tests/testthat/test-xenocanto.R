@@ -204,6 +204,10 @@ test_that("the regions someone marked in a recording become annotations", {
   expect_identical(annotations$taxon, c("Troglodytes troglodytes", "Periparus ater"))
   expect_identical(annotations$time_start, c("0.27", "10.28"))
   expect_identical(annotations$time_end, c("3.33", "11.92"))
+  #in Hz, and the second is bounded from 0 Hz, which is a frequency it holds
+  #rather than one it does not have
+  expect_identical(annotations$freq_low, c("2551", "0"))
+  expect_identical(annotations$freq_high, c("10204", "6651"))
   expect_identical(annotations$annotator, c("W.P. Vellinga", "W.P. Vellinga"))
   #A sound type xeno-canto does not hold is empty rather than "NULL"
   expect_identical(annotations$type, c("song", ""))
@@ -226,18 +230,16 @@ test_that("what an annotation holds beside its columns becomes its details", {
   details <- xenocantoDetails(xcFixture()$recordings)
   annotation <- details[details$type == "annomate", ]
 
+  #The frequencies it bounds are columns of it, not details
   expect_identical(
     setNames(annotation$value[annotation$id == "86"], annotation$name[annotation$id == "86"]),
-    c(frequency_low="2551", frequency_high="10204", sex="male", life_stage="adult",
+    c(sex="male", life_stage="adult",
       annotation_remarks="audible rain drops", set_name="Demonstration set",
       set_license="CC-BY-NC-4.0"))
-  expect_identical(annotation$unit[annotation$name == "frequency_low"], c("Hz", "Hz"))
 
-  #The second annotation says nothing about the animal, and is bounded from
-  #0 Hz, which is a frequency it holds rather than one it does not have
+  #The second annotation says nothing about the animal
   second <- annotation[annotation$id == "87", ]
-  expect_identical(second$name, c("frequency_low", "frequency_high", "set_name", "set_license"))
-  expect_identical(second$value[second$name == "frequency_low"], "0")
+  expect_identical(second$name, c("set_name", "set_license"))
   #and a recording's own details are still there beside them
   expect_true(any(details$type == "recordings" & details$name == "alt"))
 })
