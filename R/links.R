@@ -72,6 +72,7 @@ linkPredicates <- c(
   "http://purl.org/dc/terms/isReferencedBy",
   "http://purl.org/dc/terms/source",
   "http://purl.org/dc/terms/relation",
+  "http://purl.org/dc/terms/type", #a vocabulary term naming what a record is, e.g. a corpus
   "http://rs.tdwg.org/ac/terms/associatedSpecimenReference",
   "http://rs.tdwg.org/dwc/iri/inDescribedPlace",
   "http://rs.tdwg.org/dwc/iri/toTaxon",
