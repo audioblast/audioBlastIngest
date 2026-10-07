@@ -26,9 +26,9 @@ The details a record has of one name are numbered from 0 by delta.
 }
 \details{
 A source can give details of another source's records, such as a corpus
-giving the frequencies of the regions it marked on xeno-canto's recordings,
-by naming that source in record_source. The record is then that source's,
-and the details are still the giving source's: they are deleted with what it
+giving details of the xeno-canto recordings it marked regions of, by naming
+that source in record_source. The record is then that source's, and the
+details are still the giving source's: they are deleted with what it
 gives, not with what the record's source gives, so neither source's upload
 removes the other's details of one record.
 

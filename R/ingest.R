@@ -212,9 +212,9 @@ ingestR <- function(db=NULL, verbose=FALSE) {
       #and device; traits Call.Part, Call.Type.Link and Call.Qualifier, then min
       #and max; descriptions topic_link; onomatopoeia kind_link; links reference;
       #taxa the four columns that say whether a name is the one in use;
-      #ann-o-mate recording_source; details record_source. Without them, an
-      #annotation is of its own source's recording and a detail of its own
-      #source's record.
+      #ann-o-mate recording_source, then freq_low and freq_high; details
+      #record_source. Without them, an annotation is of its own source's
+      #recording, bounded in time only, and a detail of its own source's record.
       headers <- names(getHeaders(type))
       if (type %in% c("recordings", "traits", "descriptions", "onomatopoeia", "links", "taxa",
                       "ann-o-mate", "details") &&
@@ -415,9 +415,9 @@ getHeaders <- function(type) {
     #with a unit where it is measured. type and id are the record's, and a
     #record's values of one name are numbered by delta. source is the source
     #giving the detail, and record_source the source of the record it belongs
-    #to where that is another's, such as a corpus giving the frequencies of
-    #regions of xeno-canto's recordings; empty, the record is the giving
-    #source's own. A source needn't give it.
+    #to where that is another's, such as a corpus giving details of the
+    #xeno-canto recordings it marked regions of; empty, the record is the
+    #giving source's own. A source needn't give it.
     heads <- c("source","type","id","name","delta","value","unit","record_source")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
@@ -443,8 +443,10 @@ getHeaders <- function(type) {
     #source is the source giving an annotation, and source_id the recording it
     #is of. recording_source is the source of that recording where it is not
     #the annotation's own, as when a corpus marks regions of xeno-canto's
-    #recordings; a source needn't give it (see uploadAnnOmate()).
-    heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact","recording_source")
+    #recordings; a source needn't give it (see uploadAnnOmate()). time_start
+    #and time_end bound a region in seconds, and freq_low and freq_high bound
+    #it in Hz, which a source needn't give either.
+    heads <-   col_names <- c("source","source_id","annotator","annotation_id","annotation_date","annotation_info_url","recording_url","recording_info_url","time_start","time_end","taxon","type","lat","lon","contact","recording_source","freq_low","freq_high")
     df <- data.frame(matrix(ncol=length(heads), nrow=0))
     colnames(df) <- heads
     return(df)

@@ -172,18 +172,37 @@ uploadDeployments <- function(db, table) {
   uploadRows(db, "deployments", columns, table[1:5], update=columns[-(1:2)])
 }
 
+#Annotations as uploadAnnOmate() uploads them. A table without the columns
+#added since its source's file or a streamed harvest was written is given them
+#empty.
+#
 #An annotation whose recording's source is not given is of a recording of its
 #own source, so recording_source always names the source of the recording an
 #annotation is of, and a recording's annotations are found by it and source_id
 #whichever source gave them.
-uploadAnnOmate <- function(db, table) {
+#
+#The frequencies that bound a region are numbers of Hz from 0 up, as they are
+#written, or NA, which is uploaded as NULL, where it has none or they can't be
+#read. A region bounded from 0 Hz holds that frequency rather than having no
+#lower bound, so 0 is kept.
+normaliseAnnOmate <- function(table) {
   columns <- names(getHeaders("ann-o-mate"))
-  if (!"recording_source" %in% names(table)) {
-    table$recording_source <- rep_len("", nrow(table))
+  for (column in setdiff(columns, names(table))) {
+    table[[column]] <- rep_len("", nrow(table))
   }
   own <- is.na(table$recording_source) | table$recording_source == ""
   table$recording_source[own] <- table$source[own]
-  uploadRows(db, "annomate", columns, table[columns], update=columns)
+  for (column in c("freq_low", "freq_high")) {
+    hz <- decimalNumber(table[[column]])
+    hz[!is.na(hz) & suppressWarnings(as.numeric(hz)) < 0] <- NA
+    table[[column]] <- hz
+  }
+  return(table[columns])
+}
+
+uploadAnnOmate <- function(db, table) {
+  columns <- names(getHeaders("ann-o-mate"))
+  uploadRows(db, "annomate", columns, normaliseAnnOmate(table), update=columns)
 }
 
 #' Upload Descriptions
@@ -294,9 +313,9 @@ uploadSpecimens <- function(db, table) {
 #' The details a record has of one name are numbered from 0 by delta.
 #'
 #' A source can give details of another source's records, such as a corpus
-#' giving the frequencies of the regions it marked on xeno-canto's recordings,
-#' by naming that source in record_source. The record is then that source's,
-#' and the details are still the giving source's: they are deleted with what it
+#' giving details of the xeno-canto recordings it marked regions of, by naming
+#' that source in record_source. The record is then that source's, and the
+#' details are still the giving source's: they are deleted with what it
 #' gives, not with what the record's source gives, so neither source's upload
 #' removes the other's details of one record.
 #'

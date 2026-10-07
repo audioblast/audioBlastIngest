@@ -342,8 +342,8 @@ xenocantoAnnotationField <- function(sets, name, set=FALSE) {
 #by the number xeno-canto gives it, which is its own across the whole
 #collection rather than within a set.
 #
-#The frequencies an annotation bounds, and what it says about the animal, are
-#details of it: ann-o-mate has no column for them (see
+#An annotation bounds a region in time and in frequency. What it says about the
+#animal is details of it, as ann-o-mate has no column for that (see
 #xenocantoAnnotationDetails()).
 xenocantoAnnotations <- function(recordings) {
   recordings <- xenocantoUsable(recordings)
@@ -359,6 +359,13 @@ xenocantoAnnotations <- function(recordings) {
 
   date <- isoDate(field("set_creation_date", set=TRUE))
   date[is.na(date)] <- ""
+  #An annotation can be bounded from 0 Hz, which is a frequency it holds rather
+  #than one it does not have
+  hz <- function(name) {
+    values <- decimalNumber(field(name))
+    values[is.na(values)] <- ""
+    return(values)
+  }
   return(data.frame(
     source=rep_len("", length(date)),
     source_id=of("id"),
@@ -378,13 +385,16 @@ xenocantoAnnotations <- function(recordings) {
     contact=rep_len("", length(date)),
     #and its annotations are of its own recordings
     recording_source=rep_len("", length(date)),
+    freq_low=hz("frequency_low"),
+    freq_high=hz("frequency_high"),
     stringsAsFactors=FALSE))
 }
 
-#What an annotation holds that ann-o-mate has no column for: the frequencies it
-#bounds, what it says about the animal, and the set it came from with the terms
-#that set is under. xeno-canto gives the licence as its own name for it
-#(CC-BY-NC-4.0) rather than as an address, so that is what is kept.
+#What an annotation holds that ann-o-mate has no column for: what it says about
+#the animal, and the set it came from with the terms that set is under.
+#xeno-canto gives the licence as its own name for it (CC-BY-NC-4.0) rather than
+#as an address, so that is what is kept. The frequencies it bounds are columns
+#of it (see xenocantoAnnotations()).
 xenocantoAnnotationDetails <- function(recordings) {
   sets <- xenocantoAnnotationSets(xenocantoUsable(recordings))
   field <- function(name, set=FALSE) xenocantoAnnotationField(sets, name, set)
@@ -392,10 +402,6 @@ xenocantoAnnotationDetails <- function(recordings) {
   detail <- function(name, value, unit="") xenocantoDetail("annomate", id, name, value, unit)
 
   return(rbind(
-    #An annotation can be bounded from 0 Hz, which is a frequency it holds
-    #rather than one it does not have
-    detail("frequency_low", decimalNumber(field("frequency_low")), "Hz"),
-    detail("frequency_high", decimalNumber(field("frequency_high")), "Hz"),
     detail("sex", field("sex")),
     detail("life_stage", field("life_stage")),
     detail("annotation_remarks", field("annotation_remarks")),
