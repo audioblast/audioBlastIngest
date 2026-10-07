@@ -57,19 +57,24 @@ test_that("links with unknown types or predicates, or without ids, are skipped w
   expect_identical(links$subject_id, "1")
 })
 
-test_that("a region of interest can be part of a corpus", {
-  #A corpus points to regions of recordings that other sources hold, each part
-  #of the corpus, with the corpus's split as qualifier
-  roi <- link(source="jeantet-dufourq-2023", subject_type="annomate", subject_source="xeno-canto",
-              subject_id="zenodo.7828148-v1-280667-1", predicate="http://purl.org/dc/terms/isPartOf",
-              object_type="references", object_id="zenodo.7828148", qualifier="Training")
+test_that("a region of interest can be part of a corpus, which says it is one", {
+  #A corpus marks regions of recordings that other sources hold, each part of
+  #the corpus, with the corpus's split as qualifier; its record says it is a
+  #corpus by a vocabulary term, which has no source
+  table <- rbind(
+    link(source="jeantet-dufourq-2023", subject_type="annomate",
+         subject_id="zenodo.7828148-v1-280667-1", predicate="http://purl.org/dc/terms/isPartOf",
+         object_type="references", object_id="zenodo.7828148", qualifier="Training"),
+    link(source="jeantet-dufourq-2023", subject_type="references", subject_id="zenodo.7828148",
+         predicate="http://purl.org/dc/terms/type", object_type="term",
+         object_id="https://vocab.audioblast.org/Corpus"))
 
-  links <- normaliseLinks(roi)
+  links <- normaliseLinks(table)
 
-  expect_equal(nrow(links), 1)
-  expect_identical(links$subject_source, "xeno-canto")
-  expect_identical(links$object_source, "jeantet-dufourq-2023")
-  expect_identical(links$qualifier, "Training")
+  expect_equal(nrow(links), 2)
+  expect_identical(links$subject_source, rep("jeantet-dufourq-2023", 2))
+  expect_identical(links$object_source, c("jeantet-dufourq-2023", ""))
+  expect_identical(links$qualifier, c("Training", ""))
 })
 
 test_that("every data module a source holds records in is a type a link can join", {
