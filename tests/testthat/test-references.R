@@ -155,6 +155,36 @@ test_that("LaTeX and HTML are converted to text", {
     c("http://example.org/a_b%20c?d=1&e=#f", "10.1000/a~b"))
 })
 
+test_that("text a source gives HTML-escaped is decoded, and nothing else is changed", {
+  expect_identical(
+    unescapeHTML(c(
+      "A. O&#039;Recordist", "Ann &amp; Bill Recordist", "call, &quot;tek&quot; call",
+      "&#x27;&eacute;&#233; &lt;Null&gt;",
+      #Escaped more than once
+      "C\u00f4tes-d&amp;#039;Armor", "13&amp;amp;amp;amp;amp;quot;",
+      #A lone < or >, and what looks like a tag, are text
+      "West Papua >1800m (approx)", "Augsburg >> Siebentischwald (2)", "3.5mm>Uzi XLR",
+      "<=3+20kHz -12dB", "Bow Lake, Alberta< CA", "Nata <br />Botswana, Botswana",
+      "Puno, <Null>, PE-PU, PE",
+      #as are an ampersand that begins no reference, and a reference to nothing
+      "Camillaya&Cochabambita; Inquisivi", "G&M; B & K", "&#0; &#55296; &unknown;",
+      #Spaces are left as they are
+      "Mokwan Village,  West Papua ",
+      "", NA)),
+    c(
+      "A. O'Recordist", "Ann & Bill Recordist", "call, \"tek\" call",
+      "'\u00e9\u00e9 <Null>",
+      "C\u00f4tes-d'Armor", "13\"",
+      "West Papua >1800m (approx)", "Augsburg >> Siebentischwald (2)", "3.5mm>Uzi XLR",
+      "<=3+20kHz -12dB", "Bow Lake, Alberta< CA", "Nata <br />Botswana, Botswana",
+      "Puno, <Null>, PE-PU, PE",
+      "Camillaya&Cochabambita; Inquisivi", "G&M; B & K", "&#0; &#55296; &unknown;",
+      "Mokwan Village,  West Papua ",
+      "", NA))
+  expect_identical(Encoding(unescapeHTML("Jos\u00e9 O&#039;Recordist")), "UTF-8")
+  expect_identical(unescapeHTML(character(0)), character(0))
+})
+
 test_that("uploadReferences uploads every column, with NULL for empty values", {
   table <- sourceR("bio.acousti.ca", bibtexR(referencesFixture()))
 

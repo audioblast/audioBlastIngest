@@ -219,12 +219,17 @@ xenocantoField <- function(recordings, name) {
 
 xenocantoRecordings <- function(recordings) {
   field <- function(name) xenocantoField(recordings, name)
+  #xeno-canto gives some of its text HTML-escaped: in October 2026, the name of
+  #every recordist with an apostrophe or an ampersand in it (O&#039;Donnell,
+  #2,656 recordings), 108 localities and 2 sound types (&quot;tek&quot;). Those
+  #fields are decoded (see unescapeHTML()).
+  text <- function(name) unescapeHTML(field(name))
   empty <- rep_len("", length(recordings))
 
   id <- field("id")
   grp <- field("grp")
   en <- field("en")
-  type <- field("type")
+  type <- text("type")
   taxon <- xenocantoTaxon(field("gen"), field("sp"), field("ssp"), grp, field("status"))
   name <- ifelse(en != "" & taxon != "", paste0(en, " (", taxon, ")"), paste0(en, taxon))
   title <- trimws(paste0("XC", id, " ", name))
@@ -236,7 +241,7 @@ xenocantoRecordings <- function(recordings) {
     Title=title,
     taxon=taxon,
     file=sub("^//", "https://", field("file")),
-    author=field("rec"),
+    author=text("rec"),
     post_date=xenocantoDate(field("uploaded")),
     size=empty,
     size_raw=empty,
@@ -254,9 +259,9 @@ xenocantoRecordings <- function(recordings) {
     device=xenocantoDevice(field("dvc"), field("mic")),
     #The recordist holds the rights in a xeno-canto recording, and its channels
     #are not given
-    rights_holder=field("rec"),
+    rights_holder=text("rec"),
     country=xenocantoCountry(field("cnt")),
-    locality=field("loc"),
+    locality=text("loc"),
     sample_rate=field("smp"),
     channels=empty,
     stringsAsFactors=FALSE)

@@ -75,9 +75,16 @@ test_that("xeno-canto recordings are converted to the recordings format", {
   expect_identical(soundscape$license, "")
   expect_identical(soundscape$info_url, "https://xeno-canto.org/700002")
   expect_identical(soundscape$country, "BR")
+  #A lone < or > is text, not part of a tag, so it is kept
+  expect_identical(soundscape$locality, "Serra do Mar >> Pico Paran\u00e1, >1800m (approx)")
 
   mystery <- data[3, ]
-  expect_identical(mystery$Title, "XC1179094 Identity unknown - call, flight call")
+  #xeno-canto gives some text HTML-escaped, some of it more than once, and it is
+  #decoded
+  expect_identical(mystery$Title, "XC1179094 Identity unknown - call, \"tsip\" flight call")
+  expect_identical(mystery$author, "A. O'Recordist & B. Recordist")
+  expect_identical(mystery$rights_holder, "A. O'Recordist & B. Recordist")
+  expect_identical(mystery$locality, "Saint-Junien, Bois d'Aixe")
   expect_identical(mystery$taxon, "")
   expect_identical(mystery$file, "https://xeno-canto.org/1179094/download")
   expect_identical(mystery$type, "audio/flac")
@@ -641,6 +648,12 @@ test_that("uploadRecordings uploads lat and lon", {
   expect_identical(rows[[1]][18:21], list(NA_character_, "https://creativecommons.org/licenses/by-nc-sa/4.0/",
                                           "https://xeno-canto.org/694038", NA_character_))
   expect_identical(rows[[4]][c(13, 18)], list(NA_character_, "morning"))
+  #The text xeno-canto escapes is uploaded decoded: the title, the author, the
+  #rights holder and the locality
+  expect_identical(rows[[3]][c(3, 6, 22, 24)],
+                   list("XC1179094 Identity unknown - call, \"tsip\" flight call",
+                        "A. O'Recordist & B. Recordist", "A. O'Recordist & B. Recordist",
+                        "Saint-Junien, Bois d'Aixe"))
 })
 
 test_that("a harvest given a directory streams to it instead of holding it", {
