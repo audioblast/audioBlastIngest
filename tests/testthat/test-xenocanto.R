@@ -143,10 +143,13 @@ test_that("what a recording holds beside its columns becomes its details", {
   #An altitude of "-" is not a number, and a life stage of "uncertain" is not one
   expect_false(any(c("alt", "stage") %in% mystery$name))
 
+  #A remark escaped more than once is decoded, as normaliseDetails() would
+  #decode it only once
   gull <- details[details$id == "100000", ]
   expect_identical(
     setNames(gull$value, gull$name),
-    c(`animal-seen`="no", rmk="Calling from a rooftop."))
+    c(`animal-seen`="no", rmk="Calling from a rooftop, \"kyow\" & all."))
+  expect_identical(normaliseDetails(sourceR("xeno-canto", gull))$value, gull$value)
   #Playback of "unknown" says nothing about whether playback was used
   expect_false("playback-used" %in% gull$name)
 })

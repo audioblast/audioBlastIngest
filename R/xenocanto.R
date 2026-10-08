@@ -309,7 +309,9 @@ xenocantoRecordingDetails <- function(recordings) {
     detail("auto", xenocantoKnown(field("auto"), "unknown")),
     detail("animal-seen", xenocantoKnown(field("animal-seen"), "unknown")),
     detail("playback-used", xenocantoKnown(field("playback-used"), "unknown")),
-    detail("rmk", field("rmk")),
+    #A remark is HTML-escaped, and some more than once (13&amp;amp;amp;quot;, 24
+    #of them in October 2026), which normaliseDetails() would decode only once
+    detail("rmk", unescapeHTML(field("rmk"))),
     #A registration number is the recordist's own, with nothing saying who holds
     #the specimen, so it is what xeno-canto recorded rather than a specimen
     detail("regnr", field("regnr"))))
