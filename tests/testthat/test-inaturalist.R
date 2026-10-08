@@ -125,6 +125,11 @@ test_that("iNaturalist observations are converted to the recordings format", {
   expect_identical(cricket$id, "900002")
   expect_identical(cricket$taxon, "Gryllus")
   expect_identical(cricket$type, "audio/x-wav")
+  #iNaturalist gives an ampersand in a name HTML-escaped, and can give a place
+  #so too, and they are decoded. An apostrophe in a name is given as it is.
+  expect_identical(cricket$author, "A. Recordist & B. O'Recordist")
+  expect_identical(cricket$rights_holder, "A. Recordist & B. O'Recordist")
+  expect_identical(cricket$locality, "Monts d'Or, Lyon, France")
 
   cicada <- data[8, ]
   expect_identical(cicada$Date, "")
@@ -153,6 +158,8 @@ test_that("iNaturalist observations are converted to the recordings format", {
   #A licence code that is not known here is warned of, and the sound is kept
   #with no licence rather than with a licence guessed at
   expect_identical(data[11, "license"], "")
+  #What looks like a tag in a place is text, and is kept
+  expect_identical(data[11, "locality"], "Puno, <Null>, PE-PU, PE")
 })
 
 test_that("an empty iNaturalist page has no recordings", {
@@ -342,8 +349,9 @@ test_that("iNaturalist values are normalised", {
       "https://static.inaturalist.org/sounds/1.wav",
       "https://static.inaturalist.org/sounds/1.wav?token=abc", "", ""))
   expect_identical(
-    inaturalistObserver(c("Klaus Riede", "", ""), c("klaus16", "carbenoid", "")),
-    c("Klaus Riede", "carbenoid", ""))
+    inaturalistObserver(c("Klaus Riede", "", "", "Ann &amp; Bill Recordist"),
+                        c("klaus16", "carbenoid", "", "annbill")),
+    c("Klaus Riede", "carbenoid", "", "Ann & Bill Recordist"))
   expect_identical(
     inaturalistTitle(c("1", "2", "3", ""), c("Field Cricket", "", "", ""),
                      c("Gryllus campestris", "Orthoptera", "", "")),

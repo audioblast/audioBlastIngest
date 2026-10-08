@@ -219,12 +219,17 @@ xenocantoField <- function(recordings, name) {
 
 xenocantoRecordings <- function(recordings) {
   field <- function(name) xenocantoField(recordings, name)
+  #xeno-canto gives some of its text HTML-escaped: in October 2026, the name of
+  #every recordist with an apostrophe or an ampersand in it (O&#039;Donnell,
+  #2,656 recordings), 108 localities and 2 sound types (&quot;tek&quot;). Those
+  #fields are decoded (see unescapeHTML()).
+  text <- function(name) unescapeHTML(field(name))
   empty <- rep_len("", length(recordings))
 
   id <- field("id")
   grp <- field("grp")
   en <- field("en")
-  type <- field("type")
+  type <- text("type")
   taxon <- xenocantoTaxon(field("gen"), field("sp"), field("ssp"), grp, field("status"))
   name <- ifelse(en != "" & taxon != "", paste0(en, " (", taxon, ")"), paste0(en, taxon))
   title <- trimws(paste0("XC", id, " ", name))
@@ -236,7 +241,7 @@ xenocantoRecordings <- function(recordings) {
     Title=title,
     taxon=taxon,
     file=sub("^//", "https://", field("file")),
-    author=field("rec"),
+    author=text("rec"),
     post_date=xenocantoDate(field("uploaded")),
     size=empty,
     size_raw=empty,
@@ -254,9 +259,9 @@ xenocantoRecordings <- function(recordings) {
     device=xenocantoDevice(field("dvc"), field("mic")),
     #The recordist holds the rights in a xeno-canto recording, and its channels
     #are not given
-    rights_holder=field("rec"),
+    rights_holder=text("rec"),
     country=xenocantoCountry(field("cnt")),
-    locality=field("loc"),
+    locality=text("loc"),
     sample_rate=field("smp"),
     channels=empty,
     stringsAsFactors=FALSE)
@@ -304,7 +309,9 @@ xenocantoRecordingDetails <- function(recordings) {
     detail("auto", xenocantoKnown(field("auto"), "unknown")),
     detail("animal-seen", xenocantoKnown(field("animal-seen"), "unknown")),
     detail("playback-used", xenocantoKnown(field("playback-used"), "unknown")),
-    detail("rmk", field("rmk")),
+    #A remark is HTML-escaped, and some more than once (13&amp;amp;amp;quot;, 24
+    #of them in October 2026), which normaliseDetails() would decode only once
+    detail("rmk", unescapeHTML(field("rmk"))),
     #A registration number is the recordist's own, with nothing saying who holds
     #the specimen, so it is what xeno-canto recorded rather than a specimen
     detail("regnr", field("regnr"))))

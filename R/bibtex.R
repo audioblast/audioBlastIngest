@@ -332,8 +332,36 @@ html2text <- function(x) {
   x <- gsub("<br\\s*/?>", "\n", x, ignore.case=TRUE, perl=TRUE)
   x <- gsub("</?(p|div)(\\s[^<>]*)?>", "\n\n", x, ignore.case=TRUE, perl=TRUE)
   x <- gsub("</?[A-Za-z][A-Za-z0-9:-]*(\\s[^<>]*)?/?>", "", x, perl=TRUE)
+  x <- decodeReferences(x)
 
-  x <- latexReplace(x, "&(#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});", function(reference) {
+  #Spaces, including non-breaking and thin spaces, become plain spaces
+  x <- gsub("\\h+", " ", x, perl=TRUE)
+  x <- gsub(" ?\n ?", "\n", x, perl=TRUE)
+  x <- gsub("\n{3,}", "\n\n", x, perl=TRUE)
+  return(trimws(x))
+}
+
+#Plain text of text that a source gives HTML-escaped, such as xeno-canto's
+#recordist O&#039;Donnell. Its character references are decoded (see
+#decodeReferences()) and nothing else is changed, as the text is not HTML: a
+#lone < or > in it is text (>1800m, Augsburg >> Siebentischwald), and so is
+#anything that looks like a tag (Puno, <Null>, PE-PU, PE), which html2text()
+#would remove. Some text is escaped more than once (Côtes-d&amp;#039;Armor), so
+#it is decoded until nothing is left to decode. A missing value stays missing.
+unescapeHTML <- function(x) {
+  known <- !is.na(x)
+  repeat {
+    decoded <- decodeReferences(x[known])
+    if (identical(decoded, x[known])) return(x)
+    x[known] <- decoded
+  }
+}
+
+#Replaces character references, e.g. &amp;, &#039; and &#x2013;, with the
+#characters they stand for. A reference to no character, or by a name that is
+#not one of htmlEntities, is left as it is.
+decodeReferences <- function(x) {
+  return(latexReplace(x, "&(#[0-9]{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z][A-Za-z0-9]{1,31});", function(reference) {
     name <- substr(reference, 2, nchar(reference) - 1)
     if (grepl("^#[xX]", name)) {
       code <- strtoi(substring(name, 3), 16L)
@@ -346,13 +374,7 @@ html2text <- function(x) {
       return(reference)
     }
     return(intToUtf8(code))
-  })
-
-  #Spaces, including non-breaking and thin spaces, become plain spaces
-  x <- gsub("\\h+", " ", x, perl=TRUE)
-  x <- gsub(" ?\n ?", "\n", x, perl=TRUE)
-  x <- gsub("\n{3,}", "\n\n", x, perl=TRUE)
-  return(trimws(x))
+  }))
 }
 
 #Removes soft hyphens and zero-width spaces, and replaces hyphens and

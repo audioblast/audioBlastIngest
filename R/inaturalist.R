@@ -385,7 +385,9 @@ inaturalistSounds <- function(observations) {
     #iNaturalist has no country code to read, only a place in the observer's own
     #words, and it gives a sound no duration, sample rate, channels or size
     country=empty,
-    locality=observation("place_guess"),
+    #A place can be given HTML-escaped (Hawke&#039;s Bay, 1 recording in October
+    #2026), so it is decoded (see unescapeHTML())
+    locality=unescapeHTML(observation("place_guess")),
     sample_rate=empty,
     channels=empty,
     stringsAsFactors=FALSE)
@@ -610,8 +612,11 @@ inaturalistLastID <- function(observations) {
 #is kept as the observer was named when the sound was uploaded, so it is out of
 #date for an observer who has since been renamed, and it is written in words
 #that change with the language it is asked for.
+#
+#iNaturalist gives every ampersand in a name HTML-escaped (Karen &amp; Bill, 281
+#recordings in October 2026), so a name is decoded (see unescapeHTML()).
 inaturalistObserver <- function(name, login) {
-  return(as.character(ifelse(name != "", name, login)))
+  return(as.character(ifelse(name != "", unescapeHTML(name), login)))
 }
 
 #The recording's page at iNaturalist, which is its observation's: a sound's own
