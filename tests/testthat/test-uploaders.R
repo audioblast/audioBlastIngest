@@ -135,7 +135,8 @@ test_that("uploadRows rolls back a failed batch, keeping the batches before it",
       calls <<- c(calls, "execute")
       if ("3" %in% params) stop("Data too long for column")
       0L
-    })
+    },
+    useUTF8=function(db) invisible(TRUE))
   local_mocked_bindings(
     dbWithTransaction=function(conn, code) {
       calls <<- c(calls, "begin")
@@ -152,4 +153,77 @@ test_that("uploadRows rolls back a failed batch, keeping the batches before it",
     "Data too long for column")
   #The second batch fails, so the third is never sent
   expect_identical(calls, c("begin", "execute", "commit", "begin", "execute", "rollback"))
+})
+
+#A database that stores what it is sent as the given bytes, recording the
+#statements it executes
+local_storingAs <- function(stored, env=parent.frame()) {
+  log <- new.env()
+  log$executed <- character()
+  local_mocked_bindings(
+    dbExecute=function(conn, statement, params=NULL, ...) {
+      log$executed <- c(log$executed, statement)
+      0L
+    },
+    dbGetQuery=function(conn, statement, params=NULL, ...) {
+      log$asked <- params
+      data.frame(stored=stored)
+    }, .env=env)
+  local_mocked_bindings(dbWithTransaction=function(conn, code) code, .package="DBI", .env=env)
+  return(log)
+}
+
+test_that("an upload has the connection talk UTF-8 before it sends anything", {
+  log <- local_storingAs("C3A9")
+
+  uploadRows("db", "t", "a", data.frame(a="1"), update="a")
+
+  expect_identical(log$executed[1], "SET NAMES utf8mb4")
+  expect_match(log$executed[2], "^INSERT INTO `t`")
+  #and asks what an e acute would be stored as, which on a connection that
+  #talks UTF-8 is its own two bytes
+  expect_identical(log$asked, list(intToUtf8(233L)))
+})
+
+test_that("an upload over a connection that would mangle text stops before it sends any", {
+  #A connection whose client says latin1 stores an e acute as the bytes of the
+  #two characters its UTF-8 reads as in CP1252
+  log <- local_storingAs("C383C2A9")
+
+  expect_error(uploadRows("db", "t", "a", data.frame(a="1"), update="a"),
+               "would be stored as C383C2A9")
+  expect_identical(log$executed, "SET NAMES utf8mb4")
+})
+
+test_that("a streamed upload checks the connection before it removes what its source gave", {
+  dir <- withr::local_tempdir()
+  streamTable(dir, "details", columnTable(names(getHeaders("details")), rows=1))
+  log <- local_storingAs("C383C2A9")
+
+  expect_error(uploadStreamed("db", "s", dir), "would be stored as C383C2A9")
+  #The source's details, which are removed before the first chunk of them, are
+  #still there
+  expect_identical(log$executed, "SET NAMES utf8mb4")
+})
+
+test_that("an empty upload asks nothing of the connection", {
+  log <- local_storingAs("C3A9")
+
+  uploadRows("db", "t", "a", data.frame(a=character(0)), update="a")
+
+  expect_length(log$executed, 0)
+})
+
+test_that("the ids a source holds are read back over a connection that talks UTF-8", {
+  calls <- character()
+  local_mocked_bindings(
+    useUTF8=function(db) calls <<- c(calls, "utf8"),
+    dbGetQuery=function(conn, statement, params=NULL, ...) {
+      calls <<- c(calls, "read")
+      data.frame(id=character(0))
+    })
+
+  withdrawRecordings("db", "s", "1")
+
+  expect_identical(calls, c("utf8", "read"))
 })

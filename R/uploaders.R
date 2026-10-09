@@ -140,6 +140,10 @@ uploadRecordings <- function(db, table, replace=FALSE) {
 #batch at a time, unless they are more than half of its recordings (see
 #uploadRecordings()). Gives how many were removed.
 withdrawRecordings <- function(db, source, ids, batch=1000) {
+  #The ids held are read back and compared as text, which a connection that
+  #does not talk UTF-8 would mangle (see useUTF8()), taking a recording whose
+  #id is not ASCII for one that has been withdrawn
+  useUTF8(db)
   held <- as.character(dbGetQuery(db, "SELECT `id` FROM `recordings` WHERE `source` = ?",
                                   params=list(source))$id)
   gone <- setdiff(held, ids)
@@ -493,6 +497,7 @@ uploadImages <- function(db, table, replace=TRUE) {
 #FALSE the batches are left to a transaction the caller has begun.
 uploadRows <- function(db, name, columns, values, update, batch=1000, transaction=TRUE) {
   rows <- seq_len(nrow(values))
+  if (length(rows) > 0) useUTF8(db)
   for (i in split(rows, ceiling(rows / batch))) {
     #Values are bound row by row, to match the placeholders
     params <- vector("list", length(i) * length(columns))
@@ -506,6 +511,29 @@ uploadRows <- function(db, name, columns, values, update, batch=1000, transactio
       dbExecute(db, sql, params=params)
     }
   }
+}
+
+#Has a connection talk UTF-8, and checks that text sent over it is stored as it
+#was sent. A MySQL connection talks the character set its client asks for, or
+#else the server's own, which for audioBlast! is latin1. Text is UTF-8 by the
+#time it is uploaded, and sent over a connection that talks latin1 it is stored
+#as its bytes read as MySQL's latin1, which is CP1252, so that Ebrová becomes
+#EbrovÃ¡. In October 2026 that was the text of hundreds of thousands of
+#iNaturalist, TSA and sounds_of_norway recordings, where xeno-canto's, uploaded
+#over another connection, was whole. The check stores nothing: it asks what the
+#database would make of an e acute in a utf8mb4 column, as every column an
+#upload writes is, and an upload that would mangle text stops before it starts.
+useUTF8 <- function(db) {
+  dbExecute(db, "SET NAMES utf8mb4")
+  stored <- dbGetQuery(db, "SELECT HEX(CONVERT(? USING utf8mb4)) AS `stored`",
+                       params=list(intToUtf8(233L)))$stored
+  if (!identical(toupper(as.character(stored)), "C3A9")) {
+    stop("Text sent over this database connection would not be stored as it was sent: ",
+         "an e acute, C3A9 in UTF-8, would be stored as ", stored, ". Nothing has been ",
+         "uploaded. Connect with RMariaDB, from an R session whose text is UTF-8.",
+         call.=FALSE)
+  }
+  return(invisible(TRUE))
 }
 
 #An insert of rows into a table, updating the update columns of rows that are
@@ -574,6 +602,10 @@ streamUploads <- list(
 #' @export
 #' @importFrom DBI dbExecute
 uploadStreamed <- function(db, source, dir, each=50000, verbose=FALSE) {
+  #What a source gave before is removed ahead of the first chunk rather than in
+  #its transaction, so the connection is checked before anything is removed
+  #(see useUTF8())
+  useUTF8(db)
   for (type in names(streamUploads)) {
     path <- streamPath(dir, type)
     if (!file.exists(path)) next

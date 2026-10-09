@@ -26,6 +26,11 @@ db <- dbConnect(RMariaDB::MariaDB(),
 ingestR(db)
 ````
 
+Uploads tell the connection to talk UTF-8 (`SET NAMES utf8mb4`) and check that
+text sent over it is stored as it was sent, stopping before anything is uploaded
+if it would not be. A connection left to talk the server's default, latin1,
+stores Ebrová as EbrovÃ¡.
+
 Harvesting from xeno-canto requires a [xeno-canto API key](https://xeno-canto.org/account) in the `XC_API_KEY` environment variable, e.g. set in `.Renviron`. Without it the xeno-canto source is skipped.
 
 iNaturalist is harvested for every taxon. As with xeno-canto, the harvest is

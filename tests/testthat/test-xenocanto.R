@@ -533,6 +533,8 @@ ingestWithSources <- function(harvest) {
       uploaded$deleted <<- c(uploaded$deleted, statement)
       0L
     },
+    #and the connection is taken to talk UTF-8 (see useUTF8())
+    useUTF8=function(db) invisible(TRUE),
     uploadTraits=function(db, table) NULL,
     uploadDetails=collect("details"),
     uploadLinks=collect("links"),
